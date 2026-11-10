@@ -379,7 +379,10 @@
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+/* 标题区固定高度，端口不再随输出参数数量上下漂移。 */
 .wf-node-heading {
+  height: 62px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -425,11 +428,17 @@
   background: var(--surface);
   color: var(--fg);
 }
+.wf-node-condition strong {
+  max-width: 105px;
+}
+.wf-branch {
+  transform: translateY(-50%);
+}
 .wf-branch-true {
-  top: 37%;
+  top: 32px;
 }
 .wf-branch-false {
-  top: 75%;
+  top: 56px;
 }
 .wf-page .react-flow {
   --xy-edge-stroke-default: var(--border-strong);
@@ -444,10 +453,14 @@
   --xy-edge-label-color-default: var(--text-primary);
 }
 .wf-page .react-flow__handle {
+  top: 32px;
   width: 11px;
   height: 11px;
   background: var(--accent);
   border: 2px solid var(--surface);
+}
+.wf-page .wf-handle-false {
+  top: 56px;
 }
 .wf-page .react-flow__edge-path {
   stroke-width: 2;

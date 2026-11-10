@@ -146,7 +146,7 @@ const NodeCard = memo(function NodeCard({
   const node = data.node,
     Icon = icons[node.kind];
   return (
-    <div className={`wf-node${selected ? " is-selected" : ""}`}>
+    <div className={`wf-node${node.kind === "condition" ? " wf-node-condition" : ""}${selected ? " is-selected" : ""}`}>
       {node.kind !== "input" && (
         <Handle type="target" position={Position.Left} aria-label="输入连接" />
       )}
@@ -181,7 +181,7 @@ const NodeCard = memo(function NodeCard({
             id="true"
             type="source"
             position={Position.Right}
-            style={{ top: "42%" }}
+            className="wf-handle-true"
             aria-label="条件满足"
           />
           <span className="wf-branch wf-branch-false">ELSE</span>
@@ -189,7 +189,7 @@ const NodeCard = memo(function NodeCard({
             id="false"
             type="source"
             position={Position.Right}
-            style={{ top: "80%" }}
+            className="wf-handle-false"
             aria-label="条件不满足"
           />
         </>
