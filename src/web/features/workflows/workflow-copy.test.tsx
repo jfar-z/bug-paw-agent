@@ -105,6 +105,7 @@ describe("工作流复制数据契约", () => {
     expect(Object.keys(copy).sort()).toEqual([
       "description",
       "edges",
+      "editorSettings",
       "name",
       "nodes",
       "published",
@@ -113,6 +114,7 @@ describe("工作流复制数据契约", () => {
       name: "新工作流",
       description: original.description,
       published: true,
+      editorSettings: original.editorSettings,
     });
     expect(copy.nodes).toHaveLength(original.nodes.length);
     expect(copy.edges).toHaveLength(original.edges.length);

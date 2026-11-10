@@ -1057,3 +1057,34 @@
   border-color: var(--danger);
   outline-color: var(--danger);
 }
+
+/* 辅助操作使用画布宽度响应，节点面板展开后也能折叠设置。 */
+.wf-canvas { container-type: inline-size; }
+.wf-alignment-switches { display: flex; gap: 8px; }
+.wf-alignment-settings { display: none; position: relative; }
+.wf-alignment-settings > div {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.wf-button[aria-checked="true"] { border-color: var(--accent); }
+.wf-page .wf-alignment-actions { width: auto; min-height: 38px; }
+.wf-alignment-guides {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+@container (max-width: 1000px) {
+  .wf-alignment-switches { display: none; }
+  .wf-alignment-settings { display: block; }
+}

@@ -198,6 +198,7 @@ export class WorkflowService {
         const now = new Date().toISOString();
         const next: WorkflowDefinition = {
           ...structuredClone({
+            editorSettings: draft.editorSettings,
             name: draft.name,
             description: draft.description,
             published: draft.published,

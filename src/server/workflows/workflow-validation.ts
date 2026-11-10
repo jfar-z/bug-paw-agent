@@ -186,6 +186,12 @@ export function validateWorkflow(
     typeof value.published !== "boolean"
   )
     invalid("工作流名称、说明或发布状态不合法");
+  if (value.editorSettings !== undefined && (
+    !record(value.editorSettings) ||
+    typeof value.editorSettings.snapToGrid !== "boolean" ||
+    typeof value.editorSettings.snapToNodes !== "boolean" ||
+    Object.keys(value.editorSettings).some((key) => !["snapToGrid", "snapToNodes"].includes(key))
+  )) invalid("工作流画布设置必须包含布尔类型的网格吸附和节点对齐开关");
   checkValueSize(value, 524_288);
   if (
     !Array.isArray(value.nodes) ||

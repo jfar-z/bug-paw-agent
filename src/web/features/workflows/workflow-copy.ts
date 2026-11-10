@@ -56,7 +56,7 @@ export function duplicateWorkflow(
   draft: WorkflowDraft,
   name: string,
 ): WorkflowDraft {
-  const { description, published, nodes, edges } = structuredClone(draft);
+  const { description, published, nodes, edges, editorSettings } = structuredClone(draft);
   const ids = new Map(
     nodes.map((node) => [
       node.id,
@@ -69,6 +69,7 @@ export function duplicateWorkflow(
     remapNode(node, resolve);
   }
   return {
+    editorSettings,
     name: name.trim(),
     description,
     published,

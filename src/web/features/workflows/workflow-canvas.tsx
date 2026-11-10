@@ -8,9 +8,12 @@ import {
   type WorkflowSelection,
 } from "./workflow-copy";
 import { useWorkflowConfirm } from "./workflow-confirm";
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { WorkflowAlignmentControls } from "./workflow-alignment-controls";
+import { WORKFLOW_GRID, gridPlacement, snapWorkflowNodes, alignWorkflowNodes, type AlignmentGuide, type AlignmentAction } from "./workflow-alignment";
 import {
   ReactFlow,
+  ViewportPortal,
   Background,
   Controls,
   Handle,
@@ -39,6 +42,8 @@ import {
 } from "lucide-react";
 import {
   WORKFLOW_NODE_NAMES,
+  workflowEditorSettings,
+  type WorkflowEditorSettings,
   newWorkflowNode,
   workflowLoopOutputs,
   type WorkflowDraft,
@@ -210,7 +215,11 @@ function WorkflowCanvasScope({
   onEditLoop,
   workflowId,
   inputTools,
+  settings,
+  onSettingsChange,
 }: {
+  settings: WorkflowEditorSettings;
+  onSettingsChange: (settings: WorkflowEditorSettings) => void;
   inputTools: WorkflowInputToolsProps;
   onEditLoop: (nodeId: string) => void;
   workflowId?: string;
@@ -229,6 +238,34 @@ function WorkflowCanvasScope({
   const { runApiTask } = useApiTask();
   const [selectedEdges, setSelectedEdges] = useState<string[]>([]);
   const [nodes, setNodes] = useState(() => syncCanvasNodes([], draft.nodes));
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const [guides, setGuides] = useState<AlignmentGuide[]>([]);
+  const guideRef = useRef<AlignmentGuide[]>([]);
+  const bypassSnap = useRef(false);
+  const dragging = useRef(false);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      bypassSnap.current = event.altKey;
+      if (event.altKey) {
+        guideRef.current = [];
+        setGuides([]);
+      }
+    };
+    const blur = () => {
+      bypassSnap.current = false;
+      guideRef.current = [];
+      setGuides([]);
+    };
+    window.addEventListener("keydown", key);
+    window.addEventListener("keyup", key);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("keyup", key);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
   const [clipboard, setClipboard] = useState<WorkflowSelection>();
   const [notice, setNotice] = useState("");
   const pasteCount = useRef(0);
@@ -275,6 +312,17 @@ function WorkflowCanvasScope({
   const selectedIds = nodes
     .filter((item) => item.selected && item.deletable)
     .map((item) => item.id);
+  const alignmentSelection = nodes.filter((item) => item.selected);
+  const alignSelection = (action: AlignmentAction) => {
+    const aligned = alignWorkflowNodes(alignmentSelection, action);
+    const positions = new Map(aligned.map((item) => [item.id, item.position]));
+    const current = latest.current;
+    current.onChange({ ...current.draft, nodes: current.draft.nodes.map((item) =>
+      positions.has(item.id) ? { ...item, position: positions.get(item.id)! } : item,
+    ) });
+    setNotice(`已对齐 ${aligned.length} 个节点`);
+    canvas.current?.focus();
+  };
   const copySelection = () => {
     if (!selectedIds.length) return;
     const snapshot = copyWorkflowSelection(draft, selectedIds);
@@ -285,7 +333,11 @@ function WorkflowCanvasScope({
   };
   const applyPaste = (snapshot: WorkflowSelection, offset: number) => {
     const current = latest.current;
-    const next = pasteWorkflowSelection(current.draft, snapshot, offset);
+    const pasted = pasteWorkflowSelection(current.draft, snapshot, offset);
+    const next = { ...pasted, nodes: [
+      ...pasted.nodes.slice(0, current.draft.nodes.length),
+      ...gridPlacement(pasted.nodes.slice(current.draft.nodes.length), settings.snapToGrid && !bypassSnap.current),
+    ] };
     const added = new Set(
       next.nodes.slice(current.draft.nodes.length).map((item) => item.id),
     );
@@ -382,6 +434,25 @@ function WorkflowCanvasScope({
   return (
     <div
       className="wf-editor-body"
+      onKeyDownCapture={(event) => {
+        // 网格模式由画布统一处理方向键，避免图库默认的 5px 步长被吸附抵消。
+        if (!settings.snapToGrid || event.altKey || event.ctrlKey || event.metaKey ||
+          !(event.target instanceof Element) || !event.target.classList.contains("react-flow__node") ||
+          !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const step = WORKFLOW_GRID * (event.shiftKey ? 4 : 1);
+        const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+        const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+        const moved = gridPlacement(alignmentSelection.map((item) => ({ ...item,
+          position: { x: item.position.x + dx, y: item.position.y + dy },
+        })), true);
+        const positions = new Map(moved.map((item) => [item.id, item.position]));
+        const current = latest.current;
+        current.onChange({ ...current.draft, nodes: current.draft.nodes.map((item) =>
+          positions.has(item.id) ? { ...item, position: positions.get(item.id)! } : item,
+        ) });
+      }}
       onKeyDown={(event) => {
         // 只处理画布内快捷键，表单和脚本编辑仍使用浏览器的文本复制粘贴。
         if (
@@ -470,7 +541,10 @@ function WorkflowCanvasScope({
             <ClipboardPaste size={16} />
             粘贴
           </button>
-          <span>Shift 拖动框选 · Ctrl/Cmd 点击多选 · Delete 删除</span>
+          <WorkflowAlignmentControls settings={settings} onChange={onSettingsChange}
+            canAlign={alignmentSelection.length >= 2 && alignmentSelection.every((n) => !!n.measured?.width && !!n.measured?.height)}
+            onAlign={alignSelection} />
+          <span>Shift 拖动框选 · Ctrl/Cmd 点击多选 · Alt 自由拖动 · Delete 删除</span>
           {selectedEdges.length > 0 && (
             <button
               className="wf-button"
@@ -532,7 +606,7 @@ function WorkflowCanvasScope({
                       const next = appendWorkflowNode(
                         draft,
                         kind,
-                        position,
+                        gridPlacement([{ id: "new", position }], settings.snapToGrid && !bypassSnap.current)[0].position,
                         palette.pending,
                       );
                       const item = next.nodes.at(-1)!;
@@ -593,21 +667,33 @@ function WorkflowCanvasScope({
             canvas.current?.focus();
           }}
           onNodesChange={(changes) => {
-            setNodes((old) => applyNodeChanges(changes, old));
-            const positions = new Map<string, XYPosition>();
-            for (const change of changes) {
-              if (change.type === "position" && change.position)
-                positions.set(change.id, change.position);
+            const old = nodesRef.current;
+            let next = applyNodeChanges(changes, old);
+            const positionChanges = changes.filter((change) => change.type === "position").filter((change) => change.position);
+            if (!positionChanges.length) {
+              nodesRef.current = next;
+              setNodes(next);
+              return;
             }
-            if (!positions.size) return;
+            const ids = new Set(positionChanges.map((change) => change.id));
+            const moving = next.filter((item) => ids.has(item.id));
+            const finishing = dragging.current && positionChanges.every((change) => change.dragging === false);
+            // 松手保留上一帧最终位置，避免把辅助线落点再次网格取整。
+            const result = finishing
+              ? { nodes: old.filter((item) => ids.has(item.id)), guides: [] }
+              : snapWorkflowNodes(moving, next, settings, flow.current?.getZoom() ?? 1, guideRef.current, bypassSnap.current || !positionChanges.some((change) => change.dragging === true));
+            dragging.current = positionChanges.some((change) => change.dragging === true);
+            guideRef.current = dragging.current ? result.guides : [];
+            setGuides(guideRef.current);
+            const positions = new Map(result.nodes.map((item) => [item.id, item.position]));
+            next = next.map((item) => positions.has(item.id) ? { ...item, position: positions.get(item.id)! } : item);
+            nodesRef.current = next;
+            setNodes(next);
             const current = latest.current;
             current.onChange({
               ...current.draft,
-              nodes: current.draft.nodes.map((node) =>
-                positions.has(node.id)
-                  ? { ...node, position: positions.get(node.id)! }
-                  : node,
-              ),
+              nodes: current.draft.nodes.map((node) => positions.has(node.id)
+                ? { ...node, position: positions.get(node.id)! } : node),
             });
           }}
           onEdgesChange={(changes) =>
@@ -663,7 +749,17 @@ function WorkflowCanvasScope({
           selectionKeyCode="Shift"
           aria-label="工作流 DAG 画布"
         >
-          <Background color="var(--border-strong)" gap={22} />
+          <Background color="var(--border-strong)" gap={WORKFLOW_GRID} />
+          <ViewportPortal>
+            <svg className="wf-alignment-guides" aria-hidden="true">
+              {guides.map((guide) => <line key={guide.axis}
+                x1={guide.axis === "x" ? guide.value : guide.start - 16}
+                x2={guide.axis === "x" ? guide.value : guide.end + 16}
+                y1={guide.axis === "y" ? guide.value : guide.start - 16}
+                y2={guide.axis === "y" ? guide.value : guide.end + 16}
+                vectorEffect="non-scaling-stroke" />)}
+            </svg>
+          </ViewportPortal>
           <Controls showInteractive={false} />
         </ReactFlow>
         <div className="wf-canvas-caption" role="status" aria-live="polite">
@@ -798,6 +894,8 @@ export function WorkflowCanvas(props: {
         key={path.join("/")}
         {...props}
         draft={scope}
+        settings={workflowEditorSettings(props.draft)}
+        onSettingsChange={(editorSettings) => props.onChange({ ...props.draft, editorSettings })}
         inputTools={{
           clipboard: parameterClipboard?.fields,
           reserved: path.length ? ["index", "item"] : [],

@@ -85,6 +85,27 @@ function outputBranched(): WorkflowDraft {
   return draft;
 }
 describe("工作流调度与持久化", () => {
+  it("画布设置按工作流保存并恢复，旧定义兼容且不进入列表摘要", async () => {
+    const { service, repository } = await fixture();
+    const draft = emptyWorkflow();
+    draft.editorSettings = { snapToGrid: true, snapToNodes: false };
+    const first = await service.save(draft);
+    const legacy = emptyWorkflow();
+    delete legacy.editorSettings;
+    const second = await service.save(legacy);
+    expect(repository.definition(first.id)?.editorSettings).toEqual(draft.editorSettings);
+    expect(repository.definition(second.id)?.editorSettings).toBeUndefined();
+    expect(repository.definitions().every((item) => !("editorSettings" in item))).toBe(true);
+    await service.save({ ...first, editorSettings: { snapToGrid: false, snapToNodes: true } }, first.id, first.revision);
+    expect(repository.definition(first.id)?.editorSettings).toEqual({ snapToGrid: false, snapToNodes: true });
+    expect(repository.definition(second.id)?.editorSettings).toBeUndefined();
+  });
+  it.each([null, {}, { snapToGrid: "true", snapToNodes: true }, { snapToGrid: true, snapToNodes: false, extra: 1 }])(
+    "拒绝非法画布配置 %j 并保留明确校验错误", (editorSettings) => {
+      expect(() => validateWorkflow({ ...emptyWorkflow(), editorSettings } as unknown as WorkflowDraft))
+        .toThrow("工作流画布设置必须包含布尔类型的网格吸附和节点对齐开关");
+    },
+  );
   it.each(["yes", "no"])("输出直接汇合互斥分支并省略未执行来源（%s）", async (prompt) => {
     const { service } = await fixture();
     const saved = await service.save(outputBranched());

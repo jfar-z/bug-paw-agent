@@ -189,8 +189,21 @@ export interface WorkflowEdge {
   target: string;
   branch?: "true" | "false";
 }
+/** 工作流级编辑辅助设置；循环体共用根工作流设置，不参与执行。 */
+export interface WorkflowEditorSettings {
+  /** 节点或整组选区按固定网格落点。 */
+  snapToGrid: boolean;
+  /** 拖动时显示辅助线并吸附其他节点。 */
+  snapToNodes: boolean;
+}
+/** 历史工作流缺少设置时保留自由拖动，读取不会产生未保存修改。 */
+export function workflowEditorSettings(draft: { editorSettings?: WorkflowEditorSettings }): WorkflowEditorSettings {
+  return draft.editorSettings ?? { snapToGrid: false, snapToNodes: false };
+}
 /** 管理员保存的工作流定义；revision 用于乐观并发保护。 */
 export interface WorkflowDefinition {
+  /** 仅保存根工作流的编辑偏好，兼容没有该字段的历史定义。 */
+  editorSettings?: WorkflowEditorSettings;
   id: string;
   name: string;
   description: string;
@@ -202,12 +215,12 @@ export interface WorkflowDefinition {
   updatedAt: string;
 }
 /** 工作流列表只公开数据库摘要；编辑和运行按 ID 请求完整定义。 */
-export type WorkflowSummary = Omit<WorkflowDefinition, "nodes" | "edges"> & {
+export type WorkflowSummary = Omit<WorkflowDefinition, "nodes" | "edges" | "editorSettings"> & {
   nodeCount: number;
 };
 export type WorkflowDraft = Pick<
   WorkflowDefinition,
-  "name" | "description" | "published" | "nodes" | "edges"
+  "name" | "description" | "published" | "nodes" | "edges" | "editorSettings"
 >;
 export type WorkflowStatus =
   "prepared" | "queued" | "running" | "succeeded" | "failed" | "cancelled" | "skipped";
@@ -485,6 +498,7 @@ export function emptyWorkflow(): WorkflowDraft {
     field: "prompt",
   };
   return {
+    editorSettings: { snapToGrid: true, snapToNodes: true },
     name: "新工作流",
     description: "",
     published: false,
