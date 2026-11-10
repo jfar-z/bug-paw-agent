@@ -71,7 +71,7 @@ Linux 或 macOS：
 
 ```bash
 # 克隆仓库后进入项目目录
-cd bug-paw
+cd bug-paw-agent
 ./scripts/deploy.sh core
 ```
 
@@ -79,7 +79,7 @@ Windows PowerShell：
 
 ```powershell
 # 克隆仓库后进入项目目录
-Set-Location bug-paw
+Set-Location bug-paw-agent
 .\scripts\deploy.ps1 core
 ```
 
@@ -312,7 +312,7 @@ Linux or macOS:
 
 ```bash
 # After cloning the repository, enter the project directory
-cd bug-paw
+cd bug-paw-agent
 ./scripts/deploy.sh core
 ```
 
@@ -320,7 +320,7 @@ Windows PowerShell:
 
 ```powershell
 # After cloning the repository, enter the project directory
-Set-Location bug-paw
+Set-Location bug-paw-agent
 .\scripts\deploy.ps1 core
 ```
 

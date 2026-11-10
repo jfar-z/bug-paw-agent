@@ -6,12 +6,12 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jfar-z/bug-paw.git"
+    "url": "git+https://github.com/jfar-z/bug-paw-agent.git"
   },
   "bugs": {
-    "url": "https://github.com/jfar-z/bug-paw/issues"
+    "url": "https://github.com/jfar-z/bug-paw-agent/issues"
   },
-  "homepage": "https://github.com/jfar-z/bug-paw#readme",
+  "homepage": "https://github.com/jfar-z/bug-paw-agent#readme",
   "type": "module",
   "engines": {
     "node": ">=22.19.0"
