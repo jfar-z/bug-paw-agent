@@ -271,6 +271,12 @@ it("文件管理 HTTP 支持常量上传预览，拒绝删除引用并标记已�
     expect((await app.inject({method: "DELETE", url: "/api/workflow-files", payload: {ids: [runtime.assetId]}})).statusCode).toBe(204);
     expect((await app.inject("/api/workflow-files?directory=runtime")).json().total).toBe(0);
     expect((await app.inject(`/api/workflow-files/${runtime.assetId}`)).statusCode).toBe(400);
+    await upload("constants");
+    const cleared = await app.inject({method:"POST",url:"/api/workflow-files/clear-directory",payload:{directory:"constants"}});
+    expect(cleared.statusCode).toBe(200);expect(cleared.json()).toEqual({deleted:1,skipped:1});
+    const invalidCleanup = await app.inject({method:"POST",url:"/api/workflow-files/clear-directory",payload:{directory:"../"}});
+    expect(invalidCleanup.statusCode).toBe(400);
+    expect(invalidCleanup.json().error).toMatchObject({code:"VALIDATION_FAILED",message:"清理目录必须为运行文件或文件常量",requestId:expect.any(String)});
     await service.remove(definition.id, definition.revision);
     expect((await app.inject({method: "DELETE", url: "/api/workflow-files", payload: {ids: [constant.assetId]}})).statusCode).toBe(204);
     expect((await app.inject("/api/workflow-files?pageSize=101")).statusCode).toBe(400);

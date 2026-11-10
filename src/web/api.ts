@@ -454,6 +454,7 @@ export const api = {
   listWorkflowRuns: () => request<{ runs: (Pick<WorkflowRun, "id" | "workflowId" | "status" | "createdAt" | "finishedAt" | "error"> & { name: string })[] }>("/api/workflow-runs"),
   uploadWorkflowFile: (file: File, directory: "runtime" | "constants" = "runtime") => { const data = new FormData(); data.append("file", file); return request<WorkflowFile>(`/api/workflow-files${directory === "constants" ? "?directory=constants" : ""}`, { method: "POST", body: data }); },
   listWorkflowFiles: (params: Record<string, string> = {}) => request<WorkflowFilePage>(`/api/workflow-files?${new URLSearchParams(params)}`),
+  clearWorkflowDirectory: (directory: "runtime" | "constants") => request<{deleted: number; skipped: number}>("/api/workflow-files/clear-directory", { method: "POST", body: JSON.stringify({ directory }) }),
   deleteWorkflowFiles: (ids: string[]) => request<void>("/api/workflow-files", { method: "DELETE", body: JSON.stringify({ ids }) }),
   getWorkflowFileText: (id: string) => request<WorkspaceTextPreview>(`/api/workflow-files/${encodeURIComponent(id)}/text`),
 

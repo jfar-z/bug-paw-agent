@@ -136,6 +136,7 @@ export function registerWorkflowRoutes(
       async (request) => service.cancel(request.params.id),
     );
     router.get<{ Querystring: Record<string, string> }>("/api/workflow-files", async (request) => manager.list(request.query));
+    router.post<{ Body: { directory: string } }>("/api/workflow-files/clear-directory", async (request) => manager.clearDirectory(request.body?.directory));
     router.delete<{ Body: { ids: string[] } }>("/api/workflow-files", async (request, reply) => {
       await manager.remove(request.body?.ids);
       return reply.code(204).send();

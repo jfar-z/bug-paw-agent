@@ -53,3 +53,30 @@ it("文件页深链及二级导航保留工作流选中态并关闭移动菜单"
   const navigate = vi.fn(), close = vi.fn();render(<WorkflowSidebar route={{page:"workflow-files"}} open onClose={close} onNavigate={navigate}/>);
   const button = screen.getByRole("button",{name:"工作流文件管理"});expect(button).toHaveAttribute("aria-current","page");fireEvent.click(button);expect(navigate).toHaveBeenCalledWith({page:"workflow-files"});expect(close).toHaveBeenCalled();
 });
+
+it("清理目录独立于筛选与选择，取消不提交，二次确认后展示删除和跳过数量", async () => {
+  vi.spyOn(api,"listWorkflowFiles").mockResolvedValue({...page,files:[],total:0});
+  const clear = vi.spyOn(api,"clearWorkflowDirectory").mockResolvedValue({deleted:105,skipped:2});
+  mount();await screen.findByText("当前目录没有符合条件的文件。");
+  fireEvent.change(screen.getByLabelText("搜索工作流文件"),{target:{value:"不存在"}});
+  await waitFor(() => expect(screen.getByRole("button",{name:"清理目录"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"清理目录"}));
+  expect(screen.getByText(/覆盖全部分页，不受搜索和筛选条件限制/)).toBeInTheDocument();
+  expect(clear).not.toHaveBeenCalled();fireEvent.click(screen.getByRole("button",{name:"取消"}));
+  expect(clear).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button",{name:"清理目录"}));fireEvent.click(screen.getByRole("button",{name:"确认清理"}));
+  expect(await screen.findByText(/已删除 105 个文件，跳过 2 个受保护文件/)).toBeInTheDocument();
+  expect(clear).toHaveBeenCalledExactlyOnceWith("runtime");
+});
+it("常量清理失败显示具体错误和请求标识并刷新列表", async () => {
+  const list = vi.spyOn(api,"listWorkflowFiles").mockResolvedValue(page);
+  const clear = vi.spyOn(api,"clearWorkflowDirectory").mockRejectedValue(new ApiClientError("CONFLICT","目录清理时文件状态冲突",409,"cleanup-error"));
+  mount();await screen.findByText("output.txt");fireEvent.click(screen.getByRole("button",{name:"文件常量"}));
+  await waitFor(() => expect(screen.getByRole("button",{name:"清理目录"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"清理目录"}));fireEvent.click(screen.getByRole("button",{name:"确认清理"}));
+  await screen.findAllByText(/目录清理时文件状态冲突/);
+  expect(clear).toHaveBeenCalledExactlyOnceWith("constants");
+  await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
+  fireEvent.click(screen.getByRole("button",{name:"查看错误详情"}));expect(await screen.findByText("cleanup-error")).toBeInTheDocument();
+  expect(screen.queryByText(/目录清理完成/)).not.toBeInTheDocument();
+});

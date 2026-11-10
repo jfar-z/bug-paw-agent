@@ -67,6 +67,21 @@ export class WorkflowFileManager {
     return {files: filtered.slice((page - 1) * size, page * size), total: filtered.length, page, workflows: [...workflows].map(([id,name]) => ({id,name}))};
   }
 
+  /** 在共享临界区内清理指定目录，跳过实时引用和运行保护，不受分页限制。 */
+  async clearDirectory(directory: unknown): Promise<{deleted: number; skipped: number}> {
+    if (directory !== "runtime" && directory !== "constants") throw new DomainError("VALIDATION_FAILED", "清理目录必须为运行文件或文件常量");
+    return this.workflows.withFileMutation(async () => {
+      const files = (await this.inventory()).filter((file) => file.directory === directory);
+      let deleted = 0, skipped = 0;
+      for (const file of files) {
+        if (file.blockedReason) { skipped++; continue; }
+        await this.files.remove(file.assetId);
+        deleted++;
+      }
+      return {deleted, skipped};
+    });
+  }
+
   /** 批量操作先检查全部引用，再精确删除；拒绝前端绕过不可选状态。 */
   async remove(ids: unknown): Promise<void> {
     if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some((id) => typeof id !== "string" || !/^[a-f0-9-]{36}$/.test(id)) || new Set(ids).size !== ids.length)

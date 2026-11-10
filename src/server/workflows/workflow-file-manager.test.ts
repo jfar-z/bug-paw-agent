@@ -106,3 +106,31 @@ it("拒绝运行文件写入常量定义，目录和分页查询有界，文本�
   await expect(f.manager.list({pageSize:"101"})).rejects.toMatchObject({code:"VALIDATION_FAILED"});
   await expect(f.manager.remove(["../../outside"])).rejects.toMatchObject({code:"VALIDATION_FAILED"});
 });
+
+it("目录清理跨越批量上限，隔离目录并保留引用文件与运行中新产物", async () => {
+  const f = await fixture();
+  for (let i = 0; i < 105; i++) await f.upload(`file-${i}.txt`);
+  const constant = await f.upload("constant.txt", true), unused = await f.upload("unused.txt", true);
+  const draft = emptyWorkflow();draft.nodes[0].outputs.push({name:"file",type:"file",defaultValue:constant});
+  const saved = await f.service.save(draft);
+  const run = await f.service.start(saved.id, {prompt:"test"}, "cleanup");await f.service.wait(run.id);
+  const active = f.service.getRun(run.id);active.status = "queued";
+  const protectedFile = await f.upload("pending.txt", false, active.id);
+  vi.spyOn(f.service,"fileUsageSnapshot").mockReturnValue({definitions:[saved],runs:[active]});
+  expect(await f.manager.clearDirectory("runtime")).toEqual({deleted:105,skipped:1});
+  await expect(f.files.resolve(protectedFile)).resolves.toBeDefined();
+  await expect(f.files.resolve(unused)).resolves.toBeDefined();
+  expect(await f.manager.clearDirectory("constants")).toEqual({deleted:1,skipped:1});
+  await expect(f.files.resolve(constant)).resolves.toBeDefined();
+  expect(await f.manager.clearDirectory("constants")).toEqual({deleted:0,skipped:1});
+  await expect(f.manager.clearDirectory(undefined)).rejects.toMatchObject({code:"VALIDATION_FAILED"});
+  await expect(f.manager.clearDirectory("../")).rejects.toMatchObject({code:"VALIDATION_FAILED"});
+}, 30_000);
+it("目录清理与保存互斥，磁盘删除异常向上传递", async () => {
+  const f = await fixture(), constant = await f.upload("race.txt", true);
+  const draft = emptyWorkflow();draft.nodes[0].outputs.push({name:"file",type:"file",defaultValue:constant});
+  const deletion = f.manager.clearDirectory("constants"), saving = f.service.save(draft);
+  await deletion;await expect(saving).rejects.toThrow("不存在");
+  await f.upload();vi.spyOn(f.files,"remove").mockRejectedValue(new Error("磁盘删除失败"));
+  await expect(f.manager.clearDirectory("runtime")).rejects.toThrow("磁盘删除失败");
+});

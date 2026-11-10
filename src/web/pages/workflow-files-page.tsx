@@ -19,6 +19,8 @@ export function WorkflowFilesPage() {
   const [page, setPage] = useState(1), [data, setData] = useState<WorkflowFilePage>();
   const [selected, setSelected] = useState<string[]>([]), [preview, setPreview] = useState<WorkflowManagedFile>();
   const [confirming, setConfirming] = useState(false), [busy, setBusy] = useState(false), [loading, setLoading] = useState(false);
+  const [clearingDirectory, setClearingDirectory] = useState<"runtime" | "constants">();
+  const [cleanupResult, setCleanupResult] = useState("");
   const sequence = useRef(0), pending = useRef(false);
   const reload = useCallback(async () => {
     const ticket = ++sequence.current;
@@ -43,6 +45,21 @@ export function WorkflowFilesPage() {
     else await reload();
     pending.current = false; setBusy(false);
   };
+  /** 确认时固定目标目录，避免切换筛选或重复点击改变删除范围。 */
+  const clearDirectory = async () => {
+    if (!clearingDirectory || pending.current) return;
+    pending.current = true; setBusy(true); setCleanupResult("");
+    const target = clearingDirectory;
+    try {
+      const result = await runApiTask(() => api.clearWorkflowDirectory(target), {operation: "清理工作流文件目录"});
+      if (result.status === "success") {
+        setClearingDirectory(undefined); setSelected([]); setPreview(undefined);
+        setCleanupResult(`${target === "runtime" ? "运行文件" : "文件常量"}目录清理完成：已删除 ${result.data.deleted} 个文件，跳过 ${result.data.skipped} 个受保护文件。`);
+      }
+      // 即使清理中途发生磁盘错误，也重新读取已经完成的删除结果。
+      await reload();
+    } finally { pending.current = false; setBusy(false); }
+  };
   const upload = async (files: File[]) => {
     if (!files.length || pending.current) return;
     pending.current = true; setBusy(true);
@@ -63,7 +80,9 @@ export function WorkflowFilesPage() {
         <button className="configuration-secondary-action" disabled={loading || busy || !online} onClick={() => void reload()}><RefreshCw size={15} aria-hidden="true"/>刷新</button>
         {directory === "constants" && <label className="configuration-secondary-action workspace-upload" aria-disabled={busy || !online}><Upload size={15} aria-hidden="true"/>上传常量<input aria-label="上传文件常量" type="file" multiple disabled={busy || !online} onChange={(event) => { const files = [...event.target.files ?? []]; event.target.value = ""; void upload(files); }}/></label>}
         <button className="workspace-danger-button" disabled={!online || busy || !selected.length} onClick={() => setConfirming(true)}><Trash2 size={15} aria-hidden="true"/>删除所选 {selected.length} 项</button>
+        <button className="workspace-danger-button" disabled={!online || busy || loading} onClick={() => setClearingDirectory(directory)}><Trash2 size={15} aria-hidden="true"/>清理目录</button>
       </div>
+      {cleanupResult && <p role="status">{cleanupResult}</p>}
       <div className="workflow-file-filters">
         <select aria-label="筛选工作流" value={workflowId} onChange={(event) => changeFilter(() => setWorkflowId(event.target.value))}><option value="">全部工作流</option>{data?.workflows.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <input aria-label="筛选运行批次" placeholder="运行批次 ID" value={runId} onChange={(event) => changeFilter(() => setRunId(event.target.value))}/>
@@ -81,6 +100,7 @@ export function WorkflowFilesPage() {
       <footer className="workflow-file-pagination"><span>{data ? `共 ${data.total} 个文件 · 第 ${page} 页` : ""}</span><button className="configuration-secondary-action" disabled={page === 1 || loading} onClick={() => setPage(page - 1)}>上一页</button><button className="configuration-secondary-action" disabled={!data || page * 50 >= data.total || loading} onClick={() => setPage(page + 1)}>下一页</button></footer>
     </section>
     {previewEntry && <WorkspaceFilePreview agentId="" entry={previewEntry} mode="side" allowHtmlPreview={false} onClose={() => setPreview(undefined)} fileUrl={fileUrl} getText={api.getWorkflowFileText}/>}
+    {clearingDirectory && <ConfigurationEditorDialog variant="confirmation" title="清理目录" description={`将永久删除“${clearingDirectory === "runtime" ? "运行文件" : "文件常量"}”目录内所有可删除文件，覆盖全部分页，不受搜索和筛选条件限制。文件内容无法恢复。`} busy={busy} onClose={() => setClearingDirectory(undefined)} footer={<><button className="configuration-secondary-action" disabled={busy} onClick={() => setClearingDirectory(undefined)}>取消</button><button className="workspace-danger-button" disabled={busy || !online} onClick={() => void clearDirectory()}>{busy ? "正在清理…" : "确认清理"}</button></>}><p>提交时重新检查引用和运行状态，自动跳过受保护文件，运行记录继续保留。</p></ConfigurationEditorDialog>}
     {confirming && <ConfigurationEditorDialog variant="confirmation" title="删除工作流文件" description={`将永久删除所选 ${selected.length} 个文件。运行记录继续保留，文件内容无法恢复。`} busy={busy} onClose={() => setConfirming(false)} footer={<><button className="configuration-secondary-action" disabled={busy} onClick={() => setConfirming(false)}>取消</button><button className="workspace-danger-button" disabled={busy || !online || !selected.length} onClick={() => void remove()}>确认删除</button></>}><p>提交时将重新检查引用和运行状态，受保护文件不会被删除。</p></ConfigurationEditorDialog>}
   </div>;
 }
