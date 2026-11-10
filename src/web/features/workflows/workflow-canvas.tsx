@@ -242,14 +242,34 @@ function WorkflowCanvasScope({
     setNodes((old) => syncCanvasNodes(old, draft.nodes));
   }, [draft.nodes]);
   useLayoutEffect(() => {
-    if (!palette) return;
-    menu.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const container = canvas.current;
+    const popup = menu.current;
+    if (!palette || !container || !popup) return;
+    // 按限高后的真实尺寸避让四边；画布缩放时重新定位，不改变节点松手落点。
+    const positionMenu = () => {
+      popup.style.left = `${Math.max(
+        8,
+        Math.min(palette.left, container.clientWidth - popup.offsetWidth - 8),
+      )}px`;
+      popup.style.top = `${Math.max(
+        8,
+        Math.min(palette.top, container.clientHeight - popup.offsetHeight - 8),
+      )}px`;
+    };
+    positionMenu();
+    const observer = new ResizeObserver(positionMenu);
+    observer.observe(container);
+    observer.observe(popup);
+    popup.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     const close = (event: PointerEvent) => {
       if (!menu.current?.contains(event.target as HTMLElement))
         setPalette(undefined);
     };
     document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("pointerdown", close);
+    };
   }, [palette]);
   const node = draft.nodes.find((n) => n.id === selected);
   const selectedIds = nodes
@@ -314,14 +334,8 @@ function WorkflowCanvasScope({
     )
       return;
     setPalette({
-      left: Math.max(
-        8,
-        Math.min(pointer.clientX - bounds.left, bounds.width - 206),
-      ),
-      top: Math.max(
-        8,
-        Math.min(pointer.clientY - bounds.top, bounds.height - 300),
-      ),
+      left: pointer.clientX - bounds.left,
+      top: pointer.clientY - bounds.top,
       pending: {
         nodeId: state.fromNode.id,
         type: state.fromHandle.type,

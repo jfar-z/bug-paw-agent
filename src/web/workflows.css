@@ -341,8 +341,11 @@
   left: 16px;
   top: 62px;
   width: min(198px, calc(100% - 16px));
-  max-height: calc(100% - 16px);
+  /* 限制整个菜单的高度，小画布继续收缩，全部节点通过内部滚动访问。 */
+  box-sizing: border-box;
+  max-height: min(300px, calc(100% - 16px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 7px;
   background: var(--surface);
   border: 1px solid var(--border);
