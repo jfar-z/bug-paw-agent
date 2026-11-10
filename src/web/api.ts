@@ -1,3 +1,4 @@
+import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
 import type { ConfigurationOverviewDocument, ConfigurationRestorePreview, ConfigurationPostCommitError } from "../shared/configuration-operations-contracts";
@@ -443,6 +444,9 @@ export const api = {
       controller.abort();
     }
   },
+  listWorkflowSemaphores: () => request<{ semaphores: WorkflowSemaphoreView[] }>("/api/workflow-semaphores"),
+  saveWorkflowSemaphore: (input: WorkflowSemaphoreInput & { revision?: number }) => request<WorkflowSemaphore>("/api/workflow-semaphores", { method: "POST", body: JSON.stringify(input) }),
+  deleteWorkflowSemaphore: (code: string, revision: number) => request<void>(`/api/workflow-semaphores/${encodeURIComponent(code)}`, { method: "DELETE", body: JSON.stringify({ revision }) }),
   getWorkflowCatalog: () => request<WorkflowCatalog>("/api/workflows/catalog"),
   runWorkflow: (id: string, inputs: Record<string, unknown>, requestKey: string) => request<WorkflowRun>(`/api/workflows/${encodeURIComponent(id)}/run`, { method: "POST", body: JSON.stringify({ inputs, requestKey }) }),
   getWorkflowRun: (id: string) => request<WorkflowRun>(`/api/workflow-runs/${encodeURIComponent(id)}`),

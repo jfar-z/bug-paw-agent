@@ -1,4 +1,4 @@
-import { Workflow, Play, History, FolderOpen, X } from "lucide-react";
+import { Workflow, Play, History, FolderOpen, SlidersHorizontal, X } from "lucide-react";
 import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
 import type { AppRoute } from "../router";
 
@@ -33,6 +33,7 @@ export function WorkflowSidebar({
       icon: History,
       active: route.page === "workflow-history",
     },
+    {page: "workflow-semaphores" as const, label: "信号量管理", icon: SlidersHorizontal, active: route.page === "workflow-semaphores"},
     {page: "workflow-files" as const, label: "工作流文件管理", icon: FolderOpen, active: route.page === "workflow-files"},
   ];
   return (

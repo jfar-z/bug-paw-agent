@@ -62,7 +62,7 @@ async function fixture(
   const tasks = new AigcTaskService({
     repository, interfaces, workflows, connections, assets, publicFiles,
     credentials: new CredentialService(join(root, "auth.json")), adapters: { openai: adapter, grok: adapter, comfyui: adapter },
-  });
+  }, limits);
   let allowed = [...toolNames];
   const dependencies = {
     interfaces, workflows, connections, assets, publicFiles, publicOrigin: publicOrigin ?? undefined,
@@ -112,9 +112,13 @@ describe("AIGC Agent 工具", () => {
     expect(save).not.toHaveBeenCalled();
     expect(publish).not.toHaveBeenCalled();
     expect(await new AigcTaskRepository(join(f.root, "tasks.json")).get(a.taskId)).toMatchObject({ status: "prepared" });
-    await expect(f.service.run(context, { taskIds: [a.taskId, b.taskId] })).rejects.toMatchObject({ code: "AIGC_QUOTA_EXCEEDED" });
-    expect(f.adapter.execute).not.toHaveBeenCalled();
-    expect((await f.tasks.get(a.taskId))?.status).toBe("prepared");
+    await f.service.run(context, { taskIds: [a.taskId, b.taskId] });
+    await vi.waitFor(() => expect(f.adapter.execute).toHaveBeenCalledTimes(1));
+    expect(await f.tasks.get(b.taskId)).toMatchObject({ status: "queued", queueReason: expect.stringContaining("并发额度") });
+    await f.service.cancel(context, a.taskId);
+    expect(await f.tasks.get(b.taskId)).toMatchObject({ status: "queued", queueReason: expect.stringContaining("小时额度") });
+    await f.service.cancel(context, b.taskId);
+    expect((await f.tasks.get(b.taskId))?.upstreamCancellation).toBe("confirmed");
   });
 
   it("批量先启动全部任务再等待，失败任务不阻断其他成功产物，重复运行不重新生成", async () => {
@@ -407,7 +411,11 @@ describe("AIGC Agent 工具", () => {
     });
     const task = await f.run(context, f.submit());
     await f.run(context, f.submit("two"));
-    await expect(f.run(context, f.submit("three"))).rejects.toMatchObject({ code: "AIGC_QUOTA_EXCEEDED" });
+    const third = await f.run(context, f.submit("three"));
+    await vi.waitFor(() => expect(f.adapter.execute).toHaveBeenCalledTimes(2));
+    expect(await f.tasks.get(third.taskId)).toMatchObject({ status: "queued" });
+    await f.service.cancel(context, task.taskId);
+    await vi.waitFor(() => expect(f.adapter.execute).toHaveBeenCalledTimes(3));
     await f.service.get(context, task.taskId);
     await expect(f.service.get(context, task.taskId)).rejects.toMatchObject({ code: "AIGC_QUERY_TOO_FREQUENT" });
   });
@@ -617,4 +625,30 @@ describe("AIGC Agent 工具", () => {
     await expect(f.run(context, f.submit(), AbortSignal.abort())).rejects.toThrow();
     expect(f.adapter.execute).not.toHaveBeenCalled();
   });
+});
+
+it("手动与 Agent 共用全局队列，排队任务跨重启恢复且取消不请求上游", async () => {
+  const limits = { maxActiveTasks: 1, maxActiveTasksPerAgent: 1, maxHourlyTasksPerAgent: 20, queryIntervalMs: 1000 };
+  const f = await fixture(pending, limits);
+  const manual = await f.tasks.createRun({ interfaceId: f.item.id, inputs: { prompt: "manual" } });
+  await vi.waitFor(() => expect(f.adapter.execute).toHaveBeenCalledTimes(1));
+  const agent = await f.run(context, f.submit("queued-agent"));
+  const cancelled = await f.tasks.createRun({ interfaceId: f.item.id, inputs: { prompt: "cancelled" } });
+  expect(await f.tasks.get(agent.taskId)).toMatchObject({ status: "queued", queueReason: expect.stringContaining("全局并发") });
+  await f.tasks.cancel(cancelled.id);
+  expect((await f.tasks.get(cancelled.id))?.upstreamCancellation).toBe("confirmed");
+  await f.tasks.close();
+  const execute = vi.fn(async () => ({ assets: [] }));
+  const restarted = new AigcTaskService({
+    repository: new AigcTaskRepository(join(f.root, "tasks.json")), interfaces: f.interfaces, workflows: f.workflows,
+    connections: f.connections, credentials: new CredentialService(join(f.root, "auth.json")),
+    assets: f.assets, publicFiles: f.publicFiles, adapters: { openai: { execute } },
+  }, limits);
+  try {
+    await restarted.initialize();
+    await vi.waitFor(async () => expect((await restarted.get(agent.taskId))?.status).toBe("succeeded"));
+    expect(execute).toHaveBeenCalledOnce();
+    expect((await restarted.get(manual.id))?.status).toBe("cancelled");
+    expect((await restarted.get(cancelled.id))?.status).toBe("cancelled");
+  } finally { await restarted.close(); }
 });

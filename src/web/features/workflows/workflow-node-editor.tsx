@@ -262,6 +262,15 @@ export function WorkflowNodeEditor({
             onChange={(e) => onChange({ ...node, name: e.target.value })}
           />
         </label>
+        {(node.kind === "semaphore_acquire" || node.kind === "semaphore_release") && <>
+          <label className="wf-field">共享资源信号量<select value={config.semaphoreCode ?? ""} onChange={(event) => patch({ semaphoreCode: event.target.value || undefined })}>
+            <option value="">选择已配置的信号量</option>
+            {(catalog.semaphores ?? []).map((item) => <option key={item.code} value={item.code}>{item.name} · {item.code} · 上限 {item.limit}</option>)}
+            {config.semaphoreCode && !catalog.semaphores?.some((item) => item.code === config.semaphoreCode) && <option value={config.semaphoreCode}>{config.semaphoreCode}（不可用）</option>}
+          </select></label>
+          {binding("count", node.kind === "semaphore_acquire" ? "获取数量" : "释放数量", { name: "count", type: "integer", required: true, min: 1 })}
+          <p className="wf-hint">额度不足时按申请顺序等待。只能释放当前运行持有的额度；根工作流结束、报错或取消后自动释放剩余额度。</p>
+        </>}
         {node.kind === "loop" && (
           <WorkflowLoopEditor
             node={node}
@@ -862,7 +871,7 @@ export function WorkflowNodeEditor({
             />
           </>
         )}
-        {!["input", "output", "select", "javascript"].includes(node.kind) && (
+        {!["input", "output", "select", "javascript", "semaphore_acquire", "semaphore_release"].includes(node.kind) && (
           <>
             <h3>节点输出</h3>
             {node.outputs.map((f) => (

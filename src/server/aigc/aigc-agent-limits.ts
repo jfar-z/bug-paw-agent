@@ -1,10 +1,10 @@
-/** AIGC Agent 任务提交与查询限流配置。 */
+/** AIGC 统一执行额度与 Agent 查询限流配置。 */
 export interface AigcAgentLimits {
-  /** 所有 Agent 同时处于活动状态的任务上限。 */
+  /** 手动、Agent 和 MCP 同时实际执行的任务总上限。 */
   maxActiveTasks: number;
-  /** 单个 Agent 同时处于活动状态的任务上限。 */
+  /** 单个调用方同时实际执行的任务上限。 */
   maxActiveTasksPerAgent: number;
-  /** 单个 Agent 一小时内允许创建的任务上限。 */
+  /** 单个调用方一小时内允许实际启动的任务上限。 */
   maxHourlyTasksPerAgent: number;
   /** 单个 Agent 查询同一任务的最小间隔，单位为毫秒。 */
   queryIntervalMs: number;

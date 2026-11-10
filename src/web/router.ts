@@ -7,6 +7,7 @@ export type AppRoute =
   | { page: "workflow-run"; workflowId?: string; runId?: string }
   | { page: "workflow-history" }
   | { page: "workflow-files" }
+  | { page: "workflow-semaphores" }
   | { page: "aigc-overview" }
   | { page: "aigc-run"; interfaceId?: string }
   | { page: "aigc-interfaces" }
@@ -58,6 +59,7 @@ export function parseRoute(pathname: string, search = ""): AppRoute {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   if (normalized === "/workflows") return { page: "workflows" };
   if (normalized === "/workflows/run") { const params = new URLSearchParams(search); return { page: "workflow-run", workflowId: params.get("workflow") ?? undefined, runId: params.get("run") ?? undefined }; }
+  if (normalized === "/workflows/semaphores") return { page: "workflow-semaphores" };
   if (normalized === "/workflows/files") return { page: "workflow-files" };
   if (normalized === "/workflows/history") return { page: "workflow-history" };
   const workflowMatch = normalized.match(/^\/workflows\/([^/]+)\/edit$/);
@@ -144,6 +146,7 @@ export function routePath(route: AppRoute): string {
   switch (route.page) {
     case "workflows": return "/workflows";
     case "workflow-editor": return `/workflows/${encodeURIComponent(route.workflowId)}/edit`;
+    case "workflow-semaphores": return "/workflows/semaphores";
     case "workflow-files": return "/workflows/files";
     case "workflow-history": return "/workflows/history";
     case "workflow-run": { const params = new URLSearchParams(); if (route.workflowId) params.set("workflow", route.workflowId); if (route.runId) params.set("run", route.runId); return `/workflows/run${params.size ? `?${params}` : ""}`; }

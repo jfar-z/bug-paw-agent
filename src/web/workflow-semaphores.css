@@ -1,0 +1,27 @@
+/* 信号量页面仅从懒加载入口加载，颜色与字号继承工作台主题。 */
+.semaphore-page { padding: 28px; min-width: 0; overflow: auto; }
+.semaphore-heading,.semaphore-item>header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.semaphore-heading h1 { margin: 8px 0; font-size: 30px; }
+.semaphore-heading>div>span { color: var(--accent); font: 11px var(--font-mono); letter-spacing: .09em; }
+.semaphore-heading p,.semaphore-item code,.semaphore-item dt { color: var(--text-secondary); }
+.semaphore-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.semaphore-list { display: grid; gap: 16px; margin-top: 24px; }
+.semaphore-item { padding: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.semaphore-item h2 { margin: 0 0 6px; font-size: 18px; overflow-wrap: anywhere; }
+.semaphore-item code { overflow-wrap: anywhere; }
+.semaphore-item dl { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 24px 0 8px; }
+.semaphore-item dd { margin: 8px 0; font-size: 24px; font-variant-numeric: tabular-nums; }
+.semaphore-item summary { padding: 12px 0; cursor: pointer; }
+.semaphore-item ul { padding: 0; list-style: none; }
+.semaphore-item li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.semaphore-item li button { overflow-wrap: anywhere; text-align: left; }
+.semaphore-form { display: grid; gap: 20px; }
+.semaphore-form label { display: grid; gap: 8px; }
+.semaphore-form small { color: var(--text-secondary); }
+@media(max-width:760px) {
+  .semaphore-page { padding: 16px; }
+  .semaphore-heading h1 { font-size: 26px; }
+  .semaphore-item { padding: 16px; }
+  .semaphore-item dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .semaphore-page button,.semaphore-item summary { min-height: 44px; }
+}

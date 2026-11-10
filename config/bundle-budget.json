@@ -3,7 +3,7 @@
   "lazyChunkGzipBytes": 153600,
   "css": {
     "entryGzipBytes": 24576,
-    "totalGzipBytes": 82176,
+    "totalGzipBytes": 82944,
     "routes": {
       "src/web/pages/chat-page.tsx": {
         "label": "聊天工作台",
@@ -112,6 +112,10 @@
       "src/web/pages/workflow-files-page.tsx": {
         "label": "工作流文件管理",
         "gzipBytes": 4608
+      },
+      "src/web/pages/workflow-semaphores-page.tsx": {
+        "label": "共享资源信号量",
+        "gzipBytes": 5120
       }
     }
   }

@@ -64,6 +64,8 @@ const icons = {
   condition: GitBranch,
   select: ArrowRightLeft,
   javascript: Code,
+  semaphore_acquire: LogIn,
+  semaphore_release: LogOut,
   loop: Repeat,
   workflow: Workflow,
 };

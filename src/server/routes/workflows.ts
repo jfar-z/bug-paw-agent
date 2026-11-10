@@ -4,6 +4,7 @@ import { stat } from "node:fs/promises";
 import type { FastifyInstance } from "fastify";
 import type {
   WorkflowDraft,
+  WorkflowSemaphoreInput,
   WorkflowScriptAssistRequest,
 } from "../../shared/workflow-contracts";
 import { sendResolvedFile } from "./attachments";
@@ -31,12 +32,19 @@ export function registerWorkflowRoutes(
       await requireAuthentication(request, reply, deps.authService);
       reply.header("Cache-Control", "no-store");
     });
+    router.get("/api/workflow-semaphores", async () => ({ semaphores: service.semaphores.list() }));
+    router.post<{ Body: WorkflowSemaphoreInput & { revision?: number } }>("/api/workflow-semaphores", async (request) => service.saveSemaphore(request.body, request.body?.revision));
+    router.delete<{ Params: { code: string }; Body: { revision: number } }>("/api/workflow-semaphores/:code", async (request, reply) => {
+      await service.removeSemaphore(request.params.code, request.body?.revision);
+      return reply.code(204).send();
+    });
     router.get("/api/workflows", async () => ({
       workflows: await service.list(),
     }));
     router.get("/api/workflows/catalog", async () => ({
       ...await deps.executor.catalog(),
       workflows: service.catalogWorkflows(),
+      semaphores: service.semaphores.list().map(({ code, name, limit, revision }) => ({ code, name, limit, revision })),
     }));
     router.post<{ Body: WorkflowScriptAssistRequest }>(
       "/api/workflows/script-assist",
@@ -113,6 +121,7 @@ export function registerWorkflowRoutes(
           workflowId: r.workflowId,
           name: r.definition.name,
           status: r.status,
+          queueReason: r.queueReason,
           createdAt: r.createdAt,
           finishedAt: r.finishedAt,
           error: r.error,

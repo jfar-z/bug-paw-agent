@@ -192,6 +192,7 @@ export class WorkflowToolService {
         : {};
     return {
       taskId: run.id,
+      queueReason: run.queueReason,
       workflowId: run.workflowId,
       status: run.status,
       outputs,
@@ -243,6 +244,7 @@ export class WorkflowToolService {
     const run = await this.workflows.cancel(id, context);
     return {
       taskId: run.id,
+      queueReason: run.queueReason,
       status: run.status,
       nodes: run.nodes.map((n) => ({
         nodeId: n.nodeId,

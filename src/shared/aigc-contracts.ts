@@ -467,6 +467,10 @@ export interface AigcTaskRecord {
   preparation?: TaskPreparation;
   /** 首次提交执行的时间，用于执行配额，与创建时间分开。 */
   submittedAt?: string;
+  /** 持久化提交序号，区分同毫秒及批次内顺序。 */
+  queueOrder?: number;
+  /** 当前本地排队原因，由调度器实时投影。 */
+  queueReason?: string;
   /** 仅服务端写入；缺失表示历史或手动任务，不对 Agent 开放。 */
   agentOrigin?: {
     agentId: string;
@@ -501,6 +505,8 @@ export interface AigcTaskRecord {
 
 /** 任务列表项。 */
 export interface AigcTaskSummary {
+  /** 本地调度等待原因。 */
+  queueReason?: string;
   /** Agent 两阶段任务不允许通过工作台隐式重试。 */
   requiresNewTask?: boolean;
   /** 上游是否确认取消。 */

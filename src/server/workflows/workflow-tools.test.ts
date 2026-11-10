@@ -162,7 +162,7 @@ describe("工作流 Agent 工具边界", () => {
     await restarted.close();
   });
 
-  it("中止整批等待保留两个后台任务，活动额度不足整批拒绝", async () => {
+  it("中止整批等待保留两个后台任务，活动额度不足进入排队", async () => {
     const f = await fixture(async ({ signal }) => new Promise((_resolve, reject) => {
       signal.addEventListener("abort", () => reject(signal.reason), { once: true });
     }));
@@ -172,15 +172,17 @@ describe("工作流 Agent 工具边界", () => {
     draft.nodes.splice(1, 0, node);
     draft.edges = [{ id: "a", source: "input", target: "model" }, { id: "b", source: "model", target: "output" }];
     const definition = await f.workflows.save(draft);
-    const ids = [];
+    const ids: string[] = [];
     for (const requestKey of ["a", "b", "c"]) ids.push((await f.service.create(context, { workflowId: definition.id, requestKey, parameters: [{ name: "prompt", value: "hello" }] })).taskId);
     const controller = new AbortController();
     const result = await f.service.runAndWait(context, ids.slice(0, 2), controller.signal, () => controller.abort());
     expect(result.waitStatus).toBe("interrupted");
     expect(ids.slice(0, 2).map((id) => f.workflows.getRun(id).status).every((status) => ["queued", "running"].includes(status))).toBe(true);
-    await expect(f.service.run(context, [ids[2]])).rejects.toThrow("并发额度");
-    expect(f.workflows.getRun(ids[2]).status).toBe("prepared");
-    for (const id of ids.slice(0, 2)) await f.service.cancel(context, id);
+    await f.service.run(context, [ids[2]]);
+    expect(f.workflows.getRun(ids[2])).toMatchObject({ status: "queued", queueReason: expect.stringContaining("并发额度") });
+    await f.service.cancel(context, ids[0]);
+    await vi.waitFor(() => expect(f.workflows.getRun(ids[2]).status).toBe("running"));
+    for (const id of ids.slice(1)) await f.service.cancel(context, id);
   });
 
   it("创建媒体任务不导入文件，文件变化时整批拒绝并清理临时导入", async () => {

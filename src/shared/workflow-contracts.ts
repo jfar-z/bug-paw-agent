@@ -103,7 +103,9 @@ export type WorkflowNodeKind =
   | "select"
   | "loop"
   | "workflow"
-  | "javascript";
+  | "javascript"
+  | "semaphore_acquire"
+  | "semaphore_release";
 /** 条件使用有限运算符，不对用户字符串执行代码。 */
 export interface WorkflowCondition {
   left: WorkflowBinding;
@@ -121,6 +123,8 @@ export interface WorkflowCondition {
 }
 /** 节点的专属设置，未使用的设置不参与当前节点执行。 */
 export interface WorkflowNodeConfig {
+  /** 共享资源信号量的稳定 code；数量从输入 count 读取。 */
+  semaphoreCode?: string;
   /** 子工作流按稳定 ID 调用，执行时使用根任务预先固定的快照。 */
   workflowId?: string;
   /** 循环体是隔离的 DAG，内外只能通过输入和输出映射传值。 */
@@ -230,10 +234,16 @@ export interface WorkflowNodeRun {
 }
 /** 一次运行持有不可变定义快照，避免编辑影响正在执行的任务。 */
 export interface WorkflowRun {
+  /** 实际启动时间；排队不消耗小时额度。 */
+  startedAt?: string;
   /** 待运行参数与输入文件指纹，只有显式运行后才导入媒体。 */
   preparation?: TaskPreparation;
   /** 首次提交运行时间，不以创建时间计算运行配额。 */
   submittedAt?: string;
+  /** 持久化提交序号，区分同毫秒及批次内顺序。 */
+  queueOrder?: number;
+  /** 当前本地排队原因，由调度器实时投影。 */
+  queueReason?: string;
   /** 整棵调用树在启动时固定定义，运行期间不再读取最新文件。 */
   dependencies?: Record<string, WorkflowDefinition>;
   id: string;
@@ -259,6 +269,8 @@ export interface WorkflowReferenceGroup {
 }
 /** 编辑器目录仅包含安全配置摘要。 */
 export interface WorkflowCatalog {
+  /** 共享资源目录仅公开配置摘要。 */
+  semaphores?: WorkflowSemaphore[];
   /** 仅供管理员选择的安全摘要；参数定义在选择时单独读取。 */
   workflows?: (Pick<WorkflowSummary, "id" | "name"> & {
     dependencies: string[];
@@ -305,6 +317,8 @@ export const WORKFLOW_NODE_NAMES: Record<WorkflowNodeKind, string> = {
   loop: "循环",
   workflow: "工作流",
   javascript: "JS 脚本",
+  semaphore_acquire: "获取信号量",
+  semaphore_release: "释放信号量",
 };
 
 /** 新建节点时给出可编辑默认值，不伪造模型、Agent 或接口标识。 */
@@ -322,6 +336,7 @@ export function newWorkflowNode(
     outputs: [],
     config: {},
   };
+  if (kind === "semaphore_acquire" || kind === "semaphore_release") node.inputs = { count: { kind: "literal", value: 1 } };
   if (kind === "input")
     node.outputs = [
       {
@@ -505,4 +520,22 @@ export function workflowRunNodesInOrder(run: WorkflowRun): WorkflowNodeRun[] {
   return [...run.nodes].sort(
     (a, b) => order.get(a.nodeId)! - order.get(b.nodeId)!,
   );
+}
+
+/** 共享资源配置，code 创建后不可改名。 */
+export interface WorkflowSemaphoreInput {
+  code: string;
+  name: string;
+  limit: number;
+}
+/** 乐观版本防止多窗口配置互相覆盖。 */
+export interface WorkflowSemaphore extends WorkflowSemaphoreInput {
+  revision: number;
+}
+/** 实时用量仅属于当前服务进程，运行中断后自动归零。 */
+export interface WorkflowSemaphoreView extends WorkflowSemaphore {
+  used: number;
+  available: number;
+  holders: { runId: string; count: number }[];
+  waiting: { runId: string; count: number }[];
 }

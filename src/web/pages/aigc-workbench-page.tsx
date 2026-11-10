@@ -694,7 +694,7 @@ function AigcRunPreviewState({ task }: { task: AigcTaskRecord }) {
   if (task.status === "failed") return <div className="aigc-run-preview-empty is-error"><AlertTriangle size={30} aria-hidden="true" /><strong>生成失败</strong><p>{task.error?.message ?? "上游服务未返回可用结果"}</p></div>;
   if (task.status === "cancelled") return <div className="aigc-run-preview-empty"><X size={30} aria-hidden="true" /><strong>任务已取消</strong><p>可以调整参数后重新生成。</p></div>;
   if (task.status === "succeeded") return <div className="aigc-run-preview-empty"><File size={30} aria-hidden="true" /><strong>未提取到产物</strong><p>请检查接口或工作流输出映射。</p></div>;
-  return <div className="aigc-run-preview-empty is-running"><RefreshCw size={30} aria-hidden="true" /><strong>{task.status === "queued" ? "等待执行" : "正在生成"}</strong><p>任务状态每 3 秒自动更新。</p></div>;
+  return <div className="aigc-run-preview-empty is-running"><RefreshCw size={30} aria-hidden="true" /><strong>{task.status === "queued" ? "等待执行" : "正在生成"}</strong><p>{task.queueReason ?? "任务状态每 3 秒自动更新。"}</p></div>;
 }
 
 /** 生成动作栏的短状态，完整内容通过 title 保留。 */
@@ -710,6 +710,7 @@ function runActionStatus({ task, uploading, ready }: { task?: AigcTaskRecord; up
   }
   if (task.status === "failed") return { short: "生成失败", full: task.error?.message ?? "生成失败" };
   if (task.status === "cancelled") return { short: "任务已取消", full: "任务已取消" };
+  if (task.queueReason) return { short: "本地排队中", full: task.queueReason };
   if (!task.execution) {
     const text = task.status === "queued" ? "任务排队中" : "正在生成";
     return { short: text, full: text };
@@ -1529,7 +1530,7 @@ function AigcTasksPage() {
         {visibleTasks.map((task) => (
           <section key={task.id} className="aigc-task-row">
             <div><input type="checkbox" aria-label={`选择任务 ${task.id}`} checked={selectedSet.has(task.id)} onChange={(event) => toggleSelection(task.id, event.target.checked)} /><strong>{task.interfaceName}</strong><span className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</span><small>{formatAigcTime(task.createdAt)}</small></div>
-            <p>{task.error ? task.error.message : task.status === "succeeded" ? `${task.assetCount} 个产物可预览` : task.status === "running" ? "正在生成，请保持页面打开或稍后回来查看" : task.status === "prepared" ? "参数已校验，等待 Agent 显式运行" : "等待执行"}</p>
+            <p>{task.queueReason ?? (task.error ? task.error.message : task.status === "succeeded" ? `${task.assetCount} 个产物可预览` : task.status === "running" ? "正在生成，请保持页面打开或稍后回来查看" : task.status === "prepared" ? "参数已校验，等待 Agent 显式运行" : "等待执行")}</p>
             <div className="aigc-task-actions">
               {(task.status === "prepared" || task.status === "queued" || task.status === "running") ? <button type="button" onClick={() => void cancel(task.id)}>取消</button> : null}
               {(task.status === "failed" || task.status === "cancelled") && !task.requiresNewTask ? <button type="button" onClick={() => void retry(task.id)}><RefreshCw size={14} />重试</button> : null}
@@ -1600,6 +1601,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
         <div className="aigc-task-meta"><span>任务 ID</span><code>{task.id}</code></div>
+        {task.queueReason && <p role="status">{task.queueReason}</p>}
         <div className="aigc-task-meta"><span>状态</span><strong className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</strong></div>
         <div className="aigc-task-meta"><span>创建时间</span><time>{formatAigcTime(task.createdAt)}</time></div>
         {typeof task.inputs.prompt === "string" && task.inputs.prompt ? <div className="aigc-task-prompt"><span>创作描述</span><p>{task.inputs.prompt}</p></div> : null}

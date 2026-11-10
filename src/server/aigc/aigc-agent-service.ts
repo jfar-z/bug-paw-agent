@@ -98,9 +98,6 @@ export class AigcAgentService {
         if (previous.agentOrigin?.requestHash !== requestHash) throw new AigcAgentError("AIGC_IDEMPOTENCY_CONFLICT", "相同 requestKey 的参数已改变，不能重复创建");
         return { ...this.summary(previous), parameters: previous.preparation?.values ?? previous.inputs };
       }
-      const pending = records.filter((task) => task.status === "prepared");
-      if (pending.length >= 1000 || pending.filter((task) => task.agentOrigin?.agentId === context.agentId).length >= 100)
-        throw new AigcAgentError("AIGC_PREPARED_LIMIT", "待运行任务过多，请先运行或取消已有任务；全局最多 1000 个，每个 Agent 最多 100 个");
       const media = await this.readMedia(context, definition.fields, values);
       const files = Object.fromEntries([...media.values()].flat().map(({ path, file }) => [path, taskFileFingerprint(file)]));
       if (definition.item.protocol === "grok" && media.size && !normalizePublicOrigin(this.dependencies.publicOrigin))
@@ -148,7 +145,7 @@ export class AigcAgentService {
     }
   }
 
-  /** 整批校验及配额检查完成后，原子提交全部状态并启动各自后台任务。 */
+  /** 整批校验完成后原子提交状态，执行额度由统一 FIFO 队列控制。 */
   private async submit(context: AigcAgentContext, ids: string[], tool: string, signal?: AbortSignal) {
     return this.locks.run("submissions", async () => {
       await this.authorize(context, tool);
@@ -168,15 +165,6 @@ export class AigcAgentService {
           throw new AigcAgentError("AIGC_INPUT_CHANGED", `任务 ${task.id} 的输入文件已变化，请重新创建任务`);
         candidates.push({ task, definition, values, media });
       }
-      const records = await this.dependencies.tasks.listRecords();
-      const active = records.filter((task) => (task.agentOrigin || task.mcpOrigin) && ["queued", "running"].includes(task.status));
-      if (candidates.length && (active.length + candidates.length > this.limits.maxActiveTasks
-        || active.filter((task) => task.agentOrigin?.agentId === context.agentId).length + candidates.length > this.limits.maxActiveTasksPerAgent))
-        throw new AigcAgentError("AIGC_QUOTA_EXCEEDED", `整批运行超过并发额度：全局最多 ${this.limits.maxActiveTasks} 个，每个 Agent 最多 ${this.limits.maxActiveTasksPerAgent} 个；本次未启动任务`);
-      const recent = records.filter((task) => task.agentOrigin?.agentId === context.agentId && task.status !== "prepared"
-        && (task.submittedAt || !task.preparation) && Date.now() - Date.parse(task.submittedAt ?? task.createdAt) < 3600_000);
-      if (candidates.length && recent.length + candidates.length > this.limits.maxHourlyTasksPerAgent)
-        throw new AigcAgentError("AIGC_RATE_LIMIT", `每个 Agent 每小时最多运行 ${this.limits.maxHourlyTasksPerAgent} 个任务；本次未启动任务`);
       const uploads: string[] = [], publicUploads: string[] = [];
       let committed = false;
       try {
@@ -336,7 +324,7 @@ export class AigcAgentService {
   /** 返回白名单字段；上游原始错误和节点名不进入工具上下文。 */
   private summary(task: AigcTaskRecord) {
     return {
-      taskId: task.id, interfaceId: task.interfaceId, status: task.status,
+      taskId: task.id, interfaceId: task.interfaceId, status: task.status, queueReason: task.queueReason,
       ...(task.execution ? { progress: {
         phase: task.execution.phase, queueAhead: task.execution.queueAhead,
         value: task.execution.progressValue, max: task.execution.progressMax,

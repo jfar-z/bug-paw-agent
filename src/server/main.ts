@@ -363,6 +363,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const aigcComfyUiInputs = new AigcComfyUiInputService(aigcConnections, aigcCredentials);
   const aigcTasks = new AigcTaskService({
     repository: new AigcTaskRepository(join(paths.appDir, "aigc-tasks.json")),
+    backgroundError: (error) => { backgroundErrors.record("REQUEST_FAILED"); app.log.error(error, "AIGC 队列执行或持久化失败"); },
     interfaces: aigcInterfaces,
     workflows: aigcWorkflows,
     connections: aigcConnections,
@@ -374,7 +375,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
       grok: new GrokAigcAdapter(),
       comfyui: new ComfyUiAigcAdapter(),
     },
-  });
+  }, aigcAgentLimits);
+  await aigcTasks.initialize();
   const aigcAgentService = new AigcAgentService({
     interfaces: aigcInterfaces, workflows: aigcWorkflows, connections: aigcConnections,
     tasks: aigcTasks, assets: aigcAssets, publicFiles: aigcPublicFiles, publicOrigin: aigcPublicOrigin,

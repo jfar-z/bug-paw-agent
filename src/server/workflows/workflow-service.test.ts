@@ -590,3 +590,98 @@ describe("工作流枚举和参考组调度", () => {
     expect(() => validateWorkflow(draft)).toThrow("非上游");
   });
 });
+
+/** 信号量测试图使用真实调度器和存储，仅替换外部模型执行。 */
+function semaphoreGraph(): WorkflowDraft {
+  const draft = emptyWorkflow();
+  const acquire = newWorkflowNode("semaphore_acquire", "acquire"); acquire.config.semaphoreCode = "gpu";
+  const model = newWorkflowNode("llm", "model"); model.config.provider = "test"; model.config.modelId = "test";
+  model.inputs.prompt = { kind: "reference", nodeId: "input", field: "prompt" };
+  draft.nodes.splice(1, 0, acquire, model);
+  draft.edges = [{ id: "a", source: "input", target: "acquire" }, { id: "b", source: "acquire", target: "model" }, { id: "c", source: "model", target: "output" }];
+  return draft;
+}
+it.each(["success", "failure", "cancel"])("根工作流 %s 后自动释放全部信号量", async (mode) => {
+  const { service } = await fixture({ execute: async ({ signal }) => {
+    if (mode === "failure") throw new Error("模型测试失败");
+    if (mode === "cancel") await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    return { text: "完成" };
+  } });
+  await service.saveSemaphore({ code: "gpu", name: "GPU", limit: 1 });
+  const definition = await service.save(semaphoreGraph());
+  await expect(service.removeSemaphore("gpu", 1)).rejects.toThrow("引用");
+  const run = await service.start(definition.id, { prompt: "hello" }, "auto-release");
+  if (mode === "cancel") {
+    await vi.waitFor(() => expect(service.semaphores.list()[0].used).toBe(1));
+    await service.cancel(run.id);
+  }
+  await vi.waitFor(() => expect(service.getRun(run.id).status).toBe(mode === "success" ? "succeeded" : mode === "failure" ? "failed" : "cancelled"));
+  await vi.waitFor(() => expect(service.semaphores.list()[0]).toMatchObject({ used: 0, waiting: [] }));
+});
+it("等待信号量的分支不阻塞另一个分支释放，节点按依赖继续推进", async () => {
+  const { service } = await fixture();
+  await service.saveSemaphore({ code: "gpu", name: "GPU", limit: 1 });
+  const draft = semaphoreGraph();
+  const second = newWorkflowNode("semaphore_acquire", "second"); second.config.semaphoreCode = "gpu";
+  const release = newWorkflowNode("semaphore_release", "release"); release.config.semaphoreCode = "gpu";
+  draft.nodes.splice(3, 0, second, release);
+  draft.edges = [
+    { id: "a", source: "input", target: "acquire" },
+    { id: "b", source: "acquire", target: "second" },
+    { id: "c", source: "acquire", target: "model" },
+    { id: "d", source: "model", target: "release" },
+    { id: "e", source: "release", target: "output" },
+    { id: "f", source: "second", target: "output" },
+  ];
+  const definition = await service.save(draft);
+  const run = await service.start(definition.id, { prompt: "hello" }, "parallel-release");
+  await vi.waitFor(() => expect(service.getRun(run.id).status).toBe("succeeded"), { timeout: 3000 });
+  expect(service.getRun(run.id).nodes.find((node) => node.nodeId === "second")?.events.some((event) => event.message.includes("已获取"))).toBe(true);
+  expect(service.semaphores.list()[0].used).toBe(0);
+});
+it("超出手动并发额度的任务按提交顺序排队，取消队列不执行且重启恢复未启动项", async () => {
+  const entered: string[] = [];
+  const { service, repository } = await fixture({ execute: async ({ run, signal }) => {
+    entered.push(run.requestKey);
+    await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    return { text: "done" };
+  } });
+  const draft = semaphoreGraph(); draft.nodes = draft.nodes.filter((node) => node.id !== "acquire");
+  draft.edges = [{ id: "a", source: "input", target: "model" }, { id: "b", source: "model", target: "output" }];
+  const definition = await service.save(draft);
+  const runs: Awaited<ReturnType<WorkflowService["start"]>>[] = [];
+  for (let i = 0; i < 5; i++) runs.push(await service.start(definition.id, { prompt: "test" }, `queue-${i}`));
+  await vi.waitFor(() => expect(entered).toEqual(["queue-0", "queue-1"]));
+  expect(service.getRun(runs[2].id)).toMatchObject({ status: "queued", queueReason: expect.stringContaining("并发额度") });
+  await service.cancel(runs[2].id); await service.cancel(runs[0].id);
+  await vi.waitFor(() => expect(entered).toEqual(["queue-0", "queue-1", "queue-3"]));
+  await service.close();
+  const execute = vi.fn(async () => ({ text: "恢复" }));
+  const restarted = new WorkflowService(repository, { execute });
+  await restarted.initialize();
+  await vi.waitFor(() => expect(restarted.getRun(runs[4].id).status).toBe("succeeded"));
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(restarted.getRun(runs[2].id).status).toBe("cancelled");
+  await restarted.close();
+});
+
+it("多个等待分支不能占满节点槽位阻止释放路径", async () => {
+  const { service } = await fixture();
+  await service.saveSemaphore({ code: "gpu", name: "GPU", limit: 1 });
+  const draft = semaphoreGraph();
+  const release = newWorkflowNode("semaphore_release", "release"); release.config.semaphoreCode = "gpu";
+  const output = draft.nodes.pop()!;
+  draft.nodes.push(release);
+  draft.edges = [{ id: "a", source: "input", target: "acquire" }, { id: "b", source: "acquire", target: "model" }, { id: "c", source: "model", target: "release" }, { id: "d", source: "release", target: "output" }];
+  for (let i = 0; i < 4; i++) {
+    const acquire = newWorkflowNode("semaphore_acquire", `wait_${i}`); acquire.config.semaphoreCode = "gpu";
+    const release = newWorkflowNode("semaphore_release", `release_${i}`); release.config.semaphoreCode = "gpu";
+    draft.nodes.splice(2, 0, acquire, release);
+    draft.edges.push({ id: `w_${i}`, source: "acquire", target: acquire.id }, { id: `r_${i}`, source: acquire.id, target: release.id }, { id: `o_${i}`, source: release.id, target: "output" });
+  }
+  draft.nodes.push(output);
+  const definition = await service.save(draft);
+  const run = await service.start(definition.id, { prompt: "test" }, "many-waiters");
+  await vi.waitFor(() => expect(service.getRun(run.id).status).toBe("succeeded"), { timeout: 3000 });
+  expect(service.semaphores.list()[0]).toMatchObject({ used: 0, waiting: [] });
+});

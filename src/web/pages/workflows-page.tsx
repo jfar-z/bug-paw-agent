@@ -767,6 +767,7 @@ function Runner({
           <div className="wf-section-heading">
             <h2>运行观测</h2>
             {run && <Status status={run.status} />}
+            {run?.queueReason && <p role="status">{run.queueReason}</p>}
           </div>
           {!polling && (
             <button className="wf-button" onClick={() => setPolling(true)}>

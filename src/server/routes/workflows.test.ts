@@ -39,6 +39,9 @@ describe("工作流 HTTP API", () => {
     });
     try {
       for (const [method, url] of [
+        ["GET", "/api/workflow-semaphores"],
+        ["POST", "/api/workflow-semaphores"],
+        ["DELETE", "/api/workflow-semaphores/gpu"],
         ["GET", "/api/workflows"],
         ["GET", "/api/workflows/catalog"],
         ["POST", "/api/workflows"],
@@ -61,6 +64,17 @@ describe("工作流 HTTP API", () => {
         expect(r.statusCode, `${method} ${url}`).toBe(401);
       }
       authenticated = true;
+      const semaphore = await app.inject({ method: "POST", url: "/api/workflow-semaphores", payload: { code: "gpu", name: "GPU", limit: 2 } });
+      expect(semaphore.statusCode).toBe(200);
+      const invalidSemaphore = await app.inject({ method: "POST", url: "/api/workflow-semaphores", payload: { code: "gpu", name: "GPU", limit: -1 } });
+      expect(invalidSemaphore.statusCode).toBe(400);
+      expect(invalidSemaphore.json().error).toMatchObject({ code: "VALIDATION_FAILED", requestId: expect.any(String), message: expect.stringContaining("正整数") });
+      const semaphoreList = await app.inject({ method: "GET", url: "/api/workflow-semaphores" });
+      expect(semaphoreList.headers["cache-control"]).toBe("no-store");
+      expect(semaphoreList.json().semaphores[0]).toMatchObject({ code: "gpu", used: 0, available: 2 });
+      const catalog = await app.inject({ method: "GET", url: "/api/workflows/catalog" });
+      expect(catalog.json().semaphores).toEqual([{ code: "gpu", name: "GPU", limit: 2, revision: 1 }]);
+      expect((await app.inject({ method: "DELETE", url: "/api/workflow-semaphores/gpu", payload: { revision: 1 } })).statusCode).toBe(204);
       const invalidBody = await app.inject({
         method: "POST", url: "/api/workflows/validate",
         headers: { "content-type": "application/json" }, payload: "null",

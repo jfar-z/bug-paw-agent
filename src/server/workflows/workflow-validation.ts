@@ -214,6 +214,12 @@ export function validateWorkflow(
     nodes.set(node.id, node);
     checkFields(node.outputs);
     const config = node.config as WorkflowNodeConfig;
+    if (node.kind === "semaphore_acquire" || node.kind === "semaphore_release") {
+      if (runnable && !config.semaphoreCode) invalid(`节点 ${node.name} 尚未选择信号量`);
+      if (config.semaphoreCode !== undefined && (typeof config.semaphoreCode !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,79}$/.test(config.semaphoreCode))) invalid("信号量 code 格式无效");
+      if (Object.keys(node.inputs).length !== 1 || !node.inputs.count || node.outputs.length) invalid("信号量节点必须仅配置 count 输入且不声明输出");
+      if (node.inputs.count.kind === "literal" && (!Number.isSafeInteger(node.inputs.count.value) || Number(node.inputs.count.value) < 1)) invalid("信号量数量必须为正整数");
+    }
     if (node.kind === "workflow" && runnable && !config.workflowId)
       invalid(`节点 ${node.name} 尚未选择工作流`);
     if (node.kind === "loop") {

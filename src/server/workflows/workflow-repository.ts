@@ -1,3 +1,4 @@
+import { WorkflowSemaphores } from "./workflow-semaphores";
 import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type {
@@ -13,11 +14,13 @@ import { KeyedMutex } from "../core/keyed-mutex";
 
 /** DAG 列表保存在数据库，定义与运行快照分别按 ID 保存。 */
 export class WorkflowRepository {
+  readonly semaphores: WorkflowSemaphores;
   private readonly lock = new KeyedMutex();
   /** 提交凭据在全部成员落入独立运行文件后立即清理。 */
   private readonly batches = new Map<string, Set<string>>();
   private readonly store;
   constructor(private readonly directory: string, database: Database) {
+    this.semaphores = new WorkflowSemaphores(join(directory, "semaphores.json"));
     this.store = new DefinitionRepository<WorkflowDefinition, WorkflowSummary>(database, "dag", join(directory, "definitions"), workflowSummary);
   }
   /** 查询列表摘要，不加载节点正文。 */

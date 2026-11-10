@@ -232,14 +232,6 @@ export class AigcMcpService {
         if (previous.mcpOrigin?.requestHash !== requestHash) throw new AigcMcpError("MCP_IDEMPOTENCY_CONFLICT", "相同 requestKey 的参数已改变");
         return summary(previous);
       }
-      const active = records.filter((task) => (task.agentOrigin || task.mcpOrigin) && ["queued", "running"].includes(task.status));
-      if (active.length >= this.limits.maxActiveTasks
-        || active.filter((task) => task.mcpOrigin?.clientId === client.id).length >= this.limits.maxActiveTasksPerAgent) {
-        throw new AigcMcpError("MCP_QUOTA_EXCEEDED", "生成任务并发限额已满");
-      }
-      if (records.filter((task) => task.mcpOrigin?.clientId === client.id && Date.now() - Date.parse(task.createdAt) < 3_600_000).length >= this.limits.maxHourlyTasksPerAgent) {
-        throw new AigcMcpError("MCP_RATE_LIMIT", `每个客户端每小时最多提交 ${this.limits.maxHourlyTasksPerAgent} 个任务`);
-      }
       const prepared: Record<string, AigcRunInputValue> = Object.create(null);
       const publicUploads: string[] = [];
       try {

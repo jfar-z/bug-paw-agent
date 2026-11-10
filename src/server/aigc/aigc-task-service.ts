@@ -1,3 +1,5 @@
+import { TaskExecutionQueue } from "../core/task-execution-queue";
+import { DEFAULT_AIGC_AGENT_LIMITS, type AigcAgentLimits } from "./aigc-agent-limits";
 import { KeyedMutex } from "../core/keyed-mutex";
 import { taskFingerprint } from "../core/task-preparation";
 import { agentFields, agentOutputs } from "./aigc-agent-parameters";
@@ -25,6 +27,8 @@ import type { AigcWorkflowService } from "./aigc-workflow-service";
 
 interface AigcTaskServiceDependencies {
   repository: AigcTaskRepository;
+  /** 后台持久化异常接入系统错误观测。 */
+  backgroundError?: (error: Error) => void;
   interfaces: AigcInterfaceService;
   workflows: AigcWorkflowService;
   connections: AigcConnectionService;
@@ -44,26 +48,46 @@ export class AigcTaskService {
   /** 停服开始后不再接受新任务或重试。 */
   private closing = false;
 
-  /**
-   * @param dependencies AIGC 任务执行依赖
-   */
-  constructor(private readonly dependencies: AigcTaskServiceDependencies) {}
+  /** 所有入口共用的实际执行队列。 */
+  private readonly queue: TaskExecutionQueue;
+  /** 历史恢复完成后才接受新提交。 */
+  private readonly ready: Promise<void>;
+  /** @param dependencies AIGC 任务执行依赖 */
+  constructor(private readonly dependencies: AigcTaskServiceDependencies, limits: Readonly<AigcAgentLimits> = DEFAULT_AIGC_AGENT_LIMITS) {
+    this.queue = new TaskExecutionQueue({ global: limits.maxActiveTasks, perOwner: limits.maxActiveTasksPerAgent, hourly: limits.maxHourlyTasksPerAgent }, (error) => {
+      dependencies.backgroundError?.(error);
+    });
+    this.ready = this.restore();
+  }
+  /** 恢复未启动队列，历史运行中任务由仓库标记中断。 */
+  async initialize(): Promise<void> { await this.ready; }
+  /** 内部恢复只执行一次。 */
+  private async restore(): Promise<void> {
+    const tasks = await this.dependencies.repository.list();
+    for (const task of tasks) this.queue.restore(taskOwner(task), task.startedAt);
+    for (const task of tasks.filter((task) => task.status === "queued").sort((a, b) => a.queueOrder! - b.queueOrder!)) this.enqueue(task);
+  }
+  /** 提交入口共用本地队列，不在调用方重复检查执行配额。 */
+  private enqueue(task: AigcTaskRecord): void {
+    this.queue.add({ id: task.id, owner: taskOwner(task), execute: () => this.startExecution(task.id) });
+  }
 
   /** 列出任务摘要。 */
   async list(): Promise<AigcTaskDocument> {
     return {
-      tasks: (await this.dependencies.repository.list()).map((task) => toSummary(task, this.executionStates.get(task.id))),
+      tasks: (await this.dependencies.repository.list()).map((task) => toSummary({ ...task, queueReason: this.queue.reason(task.id) }, this.executionStates.get(task.id))),
     };
   }
 
   /** 读取任务详情。 */
   async get(id: string): Promise<AigcTaskRecord | undefined> {
     const task = await this.dependencies.repository.get(id);
-    return task ? withExecutionState(task, this.executionStates.get(id)) : undefined;
+    return task ? withExecutionState({ ...task, queueReason: this.queue.reason(id) }, this.executionStates.get(id)) : undefined;
   }
 
   /** 创建任务并异步开始执行。 */
   async createRun(request: AigcRunRequest, agentOrigin?: AigcTaskRecord["agentOrigin"], mcpOrigin?: AigcTaskRecord["mcpOrigin"]): Promise<AigcTaskRecord> {
+    await this.ready;
     if (this.closing) throw new Error("AIGC 服务正在停止");
     const item = await this.dependencies.interfaces.get(request.interfaceId);
     if (!item) throw new Error("AIGC 接口不存在");
@@ -88,12 +112,13 @@ export class AigcTaskService {
       createdAt: now,
       updatedAt: now,
     });
-    this.startExecution(task.id);
+    this.enqueue(task);
     return task;
   }
 
   /** 只保存已校验的 Agent 任务，绝不启动适配器。 */
   async createPrepared(task: AigcTaskRecord): Promise<AigcTaskRecord> {
+    await this.ready;
     if (this.closing) throw new Error("AIGC 服务正在停止");
     return this.dependencies.repository.create(task);
   }
@@ -101,9 +126,10 @@ export class AigcTaskService {
   /** 全批持久化成功后才启动任何上游调用。 */
   async submitPrepared(entries: { id: string; inputs: Record<string, unknown> }[]): Promise<AigcTaskRecord[]> {
     return this.lifecycle.run("tasks", async () => {
+      await this.ready;
       if (this.closing) throw new Error("AIGC 服务正在停止");
       const tasks = await this.dependencies.repository.submitPrepared(entries);
-      for (const task of tasks) this.startExecution(task.id);
+      for (const task of tasks) this.enqueue(task);
       return tasks;
     });
   }
@@ -114,17 +140,24 @@ export class AigcTaskService {
     const task = await this.dependencies.repository.get(id);
     if (!task) throw new Error("AIGC 任务不存在");
     if (!["prepared", "queued", "running"].includes(task.status)) throw new Error("仅待运行、排队中或执行中的任务可以取消");
-    const notSubmitted = task.status === "prepared";
+    const notSubmitted = task.status === "prepared" || this.queue.suspend(id);
     this.controllers.get(id)?.abort();
     // 等待保存链收敛，避免取消后被迟到的成功响应覆盖。
     await this.executions.get(id)?.catch(() => undefined);
     this.executionStates.delete(id);
     const latest = await this.get(id);
-    return this.updateTask(id, {
-      status: "cancelled",
-      upstreamCancellation: notSubmitted ? "confirmed" : latest?.upstreamCancellation ?? "unknown",
-      updatedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
-    });
+    try {
+      const cancelled = await this.updateTask(id, {
+        status: "cancelled",
+        upstreamCancellation: notSubmitted ? "confirmed" : latest?.upstreamCancellation ?? "unknown",
+        updatedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
+      });
+      this.queue.remove(id);
+      return cancelled;
+    } catch (error) {
+      this.queue.resume(id);
+      throw error;
+    }
     });
   }
 
@@ -141,6 +174,8 @@ export class AigcTaskService {
   /** 停服时先终止请求并等待所有写入，避免遗留后台任务持有数据文件。 */
   async close(): Promise<void> {
     this.closing = true;
+    this.queue.close();
+    await this.ready;
     const ids = [...this.controllers.keys()];
     for (const controller of this.controllers.values()) controller.abort();
     await Promise.allSettled([...this.executions.values()]);
@@ -154,6 +189,7 @@ export class AigcTaskService {
 
   /** 重新执行失败或已取消的任务。 */
   async retry(id: string): Promise<AigcTaskRecord | undefined> {
+    await this.ready;
     if (this.closing) throw new Error("AIGC 服务正在停止");
     const task = await this.dependencies.repository.get(id);
     if (!task) throw new Error("AIGC 任务不存在");
@@ -170,7 +206,7 @@ export class AigcTaskService {
       finishedAt: undefined,
       updatedAt: new Date().toISOString(),
     });
-    if (next) this.startExecution(next.id);
+    if (next) this.enqueue(next);
     return next;
   }
 
@@ -178,31 +214,30 @@ export class AigcTaskService {
   async remove(id: string): Promise<AigcTaskRecord> {
     const task = await this.dependencies.repository.get(id);
     if (!task) throw new Error("AIGC 任务不存在");
-    this.controllers.get(id)?.abort();
-    await this.executions.get(id)?.catch(() => undefined);
-    await this.dependencies.assets.removeTaskOutputs(id);
-    const removed = await this.dependencies.repository.remove(id);
-    if (!removed) throw new Error("AIGC 任务不存在");
-    this.executionStates.delete(id);
-    return removed;
+    await this.removeMany([id]);
+    return task;
   }
 
-  /** 批量删除已确认选中的任务，整批任务记录只持久化一次。 */
+  /** 整批暂停队位后再删除，失败保留原顺序，避免删除期间启动下一目标。 */
   async removeMany(ids: string[]): Promise<{ removedIds: string[] }> {
-    for (const id of ids) {
-      if (!await this.dependencies.repository.get(id)) throw new Error(`AIGC 任务不存在：${id}`);
-    }
-    for (const id of ids) this.controllers.get(id)?.abort();
-    await Promise.all(ids.map((id) => this.executions.get(id)?.catch(() => undefined)));
-    for (const id of ids) {
-      await this.dependencies.assets.removeTaskOutputs(id);
-    }
-    const removed = await this.dependencies.repository.removeMany(ids);
-    if (!removed) throw new Error("部分 AIGC 任务在批量删除期间已不存在");
-    for (const id of ids) {
-      this.executionStates.delete(id);
-    }
-    return { removedIds: removed.map((task) => task.id) };
+    return this.lifecycle.run("tasks", async () => {
+      await this.ready;
+      for (const id of ids) this.queue.suspend(id);
+      try {
+        for (const id of ids) {
+          if (!await this.dependencies.repository.get(id)) throw new Error(`AIGC 任务不存在：${id}`);
+        }
+        for (const id of ids) this.controllers.get(id)?.abort();
+        await Promise.all(ids.map((id) => this.executions.get(id)?.catch(() => undefined)));
+        for (const id of ids) await this.dependencies.assets.removeTaskOutputs(id);
+        const removed = await this.dependencies.repository.removeMany(ids);
+        if (!removed) throw new Error("部分 AIGC 任务在批量删除期间已不存在");
+        for (const id of ids) { this.queue.remove(id); this.executionStates.delete(id); }
+        return { removedIds: removed.map((task) => task.id) };
+      } finally {
+        for (const id of ids) this.queue.resume(id);
+      }
+    });
   }
 
   /** 按媒体分组、任务与产物创建时间返回铺平后的产物页。 */
@@ -227,16 +262,16 @@ export class AigcTaskService {
   }
 
   /** 注册单个任务执行 Promise，删除任务时可等待最终写入停止。 */
-  private startExecution(id: string): void {
+  private startExecution(id: string): Promise<void> {
     if (this.closing) {
-      // 已经进入持久化的并发提交保留为中断任务，重启时不会自动再次计费。
-      return;
+      // 已提交但尚未启动的任务留在磁盘，下次启动恢复排队。
+      return Promise.resolve();
     }
     const controller = new AbortController();
     this.controllers.set(id, controller);
     const execution = this.executeTask(id, controller);
     this.executions.set(id, execution);
-    void execution.catch(() => undefined).finally(() => {
+    return execution.finally(() => {
       if (this.executions.get(id) === execution) this.executions.delete(id);
       if (this.controllers.get(id) === controller) this.controllers.delete(id);
     });
@@ -360,6 +395,7 @@ function toSummary(task: AigcTaskRecord, execution?: AigcTaskExecutionState): Ai
     status: task.status,
     ...(task.preparation ? { requiresNewTask: true } : {}),
     assetCount: task.assets.length,
+    queueReason: task.queueReason,
     ...(execution ? { execution: { ...execution } } : {}),
     ...(task.error ? { error: task.error } : {}),
     ...(task.upstreamCancellation ? { upstreamCancellation: task.upstreamCancellation } : {}),
@@ -389,4 +425,9 @@ function outputKind(mediaType: string): AigcOutputKind {
   if (mediaType.startsWith("video/")) return "video";
   if (mediaType.startsWith("audio/")) return "audio";
   return "other";
+}
+
+/** 手动、Agent 和 MCP 调用方各自统计额度，但共用全局 FIFO。 */
+function taskOwner(task: AigcTaskRecord): string {
+  return task.agentOrigin ? `agent:${task.agentOrigin.agentId}` : task.mcpOrigin ? `mcp:${task.mcpOrigin.clientId}` : "manual";
 }

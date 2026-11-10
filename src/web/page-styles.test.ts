@@ -70,3 +70,14 @@ it("工作流文件管理具有独立懒加载和手机表格预览边界", asyn
   expect(css).toContain("overflow-x: auto");
   expect(css).toContain("max-height: none");
 });
+
+/** 信号量管理独立加载，不能把配置表单和业务样式加入首屏。 */
+it("信号量管理具有独立懒加载与主题响应式边界", async () => {
+  const [app, main, page, css] = await Promise.all([
+    "src/web/app.tsx", "src/web/main.tsx", "src/web/pages/workflow-semaphores-page.tsx", "src/web/workflow-semaphores.css",
+  ].map((path) => readFile(path, "utf8")));
+  expect(app).toContain('lazy(() => import("./pages/workflow-semaphores-page")');
+  expect(page).toContain('import "../workflow-semaphores.css"');
+  expect(main).not.toContain("workflow-semaphores.css");
+  expect(css).toContain("var(--panel)"); expect(css).toContain("max-width:760px");
+});

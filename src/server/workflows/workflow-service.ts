@@ -1,3 +1,5 @@
+import { TaskExecutionQueue } from "../core/task-execution-queue";
+import { workflowNodesDeep, type WorkflowSemaphoreInput } from "../../shared/workflow-contracts";
 import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
@@ -58,6 +60,23 @@ export class WorkflowService {
   >();
   private readonly lock = new KeyedMutex();
   private closing = false;
+  private sequence = 0;
+  private readonly queue = new TaskExecutionQueue({ global: 8, perOwner: 2, hourly: 60 }, (error) => this.backgroundError(error));
+  /** 配置和运行共享同一个信号量管理器。 */
+  get semaphores() { return this.repository.semaphores; }
+  /** 配置变更与运行提交串行，避免引用校验后删除资源。 */
+  saveSemaphore(input: WorkflowSemaphoreInput, revision?: number) {
+    return this.lock.run("submit", () => this.semaphores.save(input, revision));
+  }
+  /** 已保存定义或未终止快照仍引用的信号量不可删除。 */
+  removeSemaphore(code: string, revision: number): Promise<void> {
+    return this.lock.run("submit", async () => {
+      const definitions = [...this.repository.definitions().map((item) => this.repository.definition(item.id)!),
+        ...[...this.runs.values()].filter((run) => ["prepared", "queued", "running"].includes(run.status)).flatMap((run) => [run.definition, ...Object.values(run.dependencies ?? {})])];
+      if (definitions.some((definition) => workflowNodesDeep(definition).some((node) => node.config.semaphoreCode === code))) throw new DomainError("CONFLICT", "信号量仍被工作流定义或活动任务引用，请先移除引用");
+      await this.semaphores.remove(code, revision);
+    });
+  }
   constructor(
     private readonly repository: WorkflowRepository,
     private readonly executor: WorkflowExecutor,
@@ -66,8 +85,11 @@ export class WorkflowService {
   ) {}
   /** 重启后不重复提交可能计费的节点；中断运行明确标记失败。 */
   async initialize(): Promise<void> {
+    await this.semaphores.initialize();
     for (const run of await this.repository.runs()) {
-      if (["queued", "running"].includes(run.status)) {
+      this.sequence = Math.max(this.sequence, run.queueOrder ?? 0);
+      this.queue.restore(run.origin ? `agent:${run.origin.agentId}` : "manual", run.startedAt);
+      if (run.status === "running" || (run.status === "queued" && run.queueOrder === undefined)) {
         run.status = "failed";
         run.finishedAt = new Date().toISOString();
         run.error = {
@@ -97,6 +119,7 @@ export class WorkflowService {
       }
       this.runs.set(run.id, run);
     }
+    for (const run of [...this.runs.values()].filter((run) => run.status === "queued").sort((a, b) => a.queueOrder! - b.queueOrder!)) this.enqueue(run);
   }
   async list(): Promise<WorkflowSummary[]> {
     return this.repository.definitions();
@@ -162,6 +185,7 @@ export class WorkflowService {
   ): Promise<WorkflowDefinition> {
     return this.withFileMutation(async () => {
       validateWorkflow(draft, record(draft) && draft.published === true);
+      for (const node of workflowNodesDeep(draft)) if (node.config.semaphoreCode) this.semaphores.get(node.config.semaphoreCode);
       await this.checkFiles?.(draft);
       const targetId = id ?? randomUUID();
       return this.repository.mutateDefinition(targetId, (current) => {
@@ -238,7 +262,7 @@ export class WorkflowService {
     return [...this.runs.values()]
       .filter((r) => !origin || r.origin?.agentId === origin.agentId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map((r) => structuredClone(r));
+      .map((r) => ({ ...structuredClone(r), queueReason: this.queue.reason(r.id) }));
   }
   getRun(id: string, origin?: WorkflowRun["origin"]): WorkflowRun {
     const run = this.runs.get(id);
@@ -247,7 +271,7 @@ export class WorkflowService {
         "NOT_FOUND",
         "当前调用方无权访问此工作流任务或任务不存在",
       );
-    return structuredClone(run);
+    return { ...structuredClone(run), queueReason: this.queue.reason(run.id) };
   }
   /** 创建幂等先于文件读取；已存在任务不会因原输入文件被移除而重复导入。 */
   existingRequest(workflowId: string, inputs: Record<string, unknown>, requestKey: string, origin?: WorkflowRun["origin"]): WorkflowRun | undefined {
@@ -324,33 +348,7 @@ export class WorkflowService {
         definition.nodes.find((n) => n.kind === "input")!.outputs,
         inputs,
       );
-      if (!preparation && (
-        this.executions.size >= 8 ||
-        [...this.runs.values()].filter(
-          (r) =>
-            r.origin?.agentId === origin?.agentId &&
-            ["running", "queued"].includes(r.status),
-        ).length >= 2
-      ))
-        throw new DomainError(
-          "CONFLICT",
-          "工作流并发上限：全局 8 个，同一调用方 2 个",
-        );
-      if (!preparation && (
-        [...this.runs.values()].filter(
-          (r) =>
-            r.origin?.agentId === origin?.agentId &&
-            r.status !== "prepared" && (r.submittedAt || !r.preparation) && Date.parse(r.submittedAt ?? r.createdAt) > Date.now() - 3600_000,
-        ).length >= 60
-      ))
-        throw new DomainError(
-          "CONFLICT",
-          "同一调用方每小时最多启动 60 次工作流",
-        );
       if (preparation) {
-        const pending = [...this.runs.values()].filter((run) => run.status === "prepared");
-        if (pending.length >= 1000 || pending.filter((run) => run.origin?.agentId === origin?.agentId).length >= 100)
-          throw new DomainError("CONFLICT", "待运行工作流过多，请先运行或取消已有任务；全局最多 1000 个，每个 Agent 最多 100 个");
         preparation = { ...preparation, values: { ...values, ...preparation.values }, definitionHash: await this.preparationFingerprint(definition, dependencies) };
       }
       const run: WorkflowRun = {
@@ -360,7 +358,7 @@ export class WorkflowService {
         dependencies,
         status: preparation ? "prepared" : "queued",
         inputs: preparation?.values ?? values,
-        ...(preparation ? { preparation } : { submittedAt: new Date().toISOString() }),
+        ...(preparation ? { preparation } : { submittedAt: new Date().toISOString(), queueOrder: ++this.sequence }),
         outputs: {},
         nodes: definition.nodes.map((n) => ({
           nodeId: n.id,
@@ -375,11 +373,11 @@ export class WorkflowService {
       new WorkflowExecutionBudget(run);
       await this.repository.saveRun(run);
       this.runs.set(run.id, run);
-      if (!preparation) this.launch(run);
+      if (!preparation) this.enqueue(run);
       return structuredClone(run);
     });
   }
-  /** 整批重新验证定义、输入和配额，提交凭据落盘后才启动所有任务。 */
+  /** 整批重新验证定义和输入，提交凭据落盘后才按顺序入队。 */
   async startBatch(ids: string[], origin: NonNullable<WorkflowRun["origin"]>,
     prepareInputs: (run: WorkflowRun) => Promise<Record<string, unknown>>,
     authorize: () => Promise<void>): Promise<WorkflowRun[]> {
@@ -405,18 +403,13 @@ export class WorkflowService {
           await this.checkFiles?.(snapshot);
         }
       }
-      const active = [...this.runs.values()].filter((run) => ["queued", "running"].includes(run.status));
-      if (pending.length && (active.length + pending.length > 8 || active.filter((run) => run.origin?.agentId === origin.agentId).length + pending.length > 2))
-        throw new DomainError("CONFLICT", "整批运行超过工作流并发额度：全局 8 个，同一调用方 2 个；本次未启动任务");
-      const recent = [...this.runs.values()].filter((run) => run.origin?.agentId === origin.agentId && run.status !== "prepared"
-        && (run.submittedAt || !run.preparation) && Date.parse(run.submittedAt ?? run.createdAt) > Date.now() - 3600_000);
-      if (pending.length && recent.length + pending.length > 60) throw new DomainError("CONFLICT", "同一调用方每小时最多启动 60 次工作流；本次未启动任务");
       const now = new Date().toISOString();
       for (const run of pending) {
         run.inputs = validateValues(run.definition.nodes.find((node) => node.kind === "input")!.outputs, await prepareInputs(run));
         await this.checkFiles?.(run.definition, run.inputs);
         run.status = "queued";
         run.submittedAt = now;
+        run.queueOrder = ++this.sequence;
       }
       await authorize();
       if (this.closing) throw new DomainError("CONFLICT", "工作流服务正在关闭");
@@ -429,7 +422,7 @@ export class WorkflowService {
       }
       if (pending.length) await this.repository.saveBatch(pending);
       for (const run of pending) this.runs.set(run.id, run);
-      for (const run of pending) this.launch(run);
+      for (const run of pending) this.enqueue(run);
       return structuredClone(runs);
     });
   }
@@ -444,11 +437,15 @@ export class WorkflowService {
     return taskFingerprint([definition, dependencies, await Promise.all([definition, ...Object.values(dependencies)].map(inspect))]);
   }
 
-  /** 每个任务持有独立后台执行，不等待前一个任务结束。 */
-  private launch(run: WorkflowRun): void {
+  /** 提交成功后按 FIFO 调度，排队任务不占实际运行额度。 */
+  private enqueue(run: WorkflowRun): void {
+    this.queue.add({ id: run.id, owner: run.origin ? `agent:${run.origin.agentId}` : "manual", execute: () => this.launch(run) });
+  }
+  /** 只有获得执行额度后才创建控制器和执行超时。 */
+  private launch(run: WorkflowRun): Promise<void> {
     const controller = new AbortController();
     const promise = Promise.resolve()
-      .then(() => this.execute(run, controller))
+      .then(() => { run.startedAt = new Date().toISOString(); return this.execute(run, controller); })
       .catch((error) =>
         this.backgroundError(
           error instanceof Error ? error : new Error("工作流终态持久化失败"),
@@ -456,6 +453,7 @@ export class WorkflowService {
       )
       .finally(() => this.executions.delete(run.id));
     this.executions.set(run.id, { controller, promise });
+    return promise;
   }
 
   async cancel(
@@ -464,12 +462,18 @@ export class WorkflowService {
   ): Promise<WorkflowRun> {
     await this.lock.run("submit", async () => {
       const run = this.getRun(id, origin);
-      if (run.status === "prepared") {
+      if (run.status === "prepared" || this.queue.suspend(id)) {
         run.status = "cancelled";
         run.finishedAt = new Date().toISOString();
         for (const node of run.nodes) node.status = "skipped";
-        await this.repository.saveRun(run);
-        this.runs.set(id, run);
+        try {
+          await this.repository.saveRun(run);
+          this.runs.set(id, run);
+          this.queue.remove(id);
+        } catch (error) {
+          this.queue.resume(id);
+          throw error;
+        }
       }
     });
     const job = this.executions.get(id);
@@ -504,6 +508,7 @@ export class WorkflowService {
   }
   async close(): Promise<void> {
     this.closing = true;
+    this.queue.close();
     for (const job of this.executions.values())
       job.controller.abort(new Error("服务正在关闭"));
     await Promise.all([...this.executions.values()].map((j) => j.promise));
@@ -531,10 +536,13 @@ export class WorkflowService {
     let primaryFailure: WorkflowNodeRun | undefined;
     const states = new Map(run.nodes.map((n) => [n.nodeId, n]));
     const activeEdges = new Set<string>();
+    const inflight = new Set<Promise<void>>();
+    const executingNodes = new Set<string>();
+    let executionFailure: unknown;
     try {
       run.status = "running";
       await persist();
-      while (run.nodes.some((n) => n.status === "queued")) {
+      while (run.nodes.some((n) => n.status === "queued") || inflight.size) {
         signal.throwIfAborted();
         const ready = run.definition.nodes.filter(
           (n) =>
@@ -542,16 +550,18 @@ export class WorkflowService {
             run.definition.edges
               .filter((e) => e.target === n.id)
               .every((e) =>
-                ["succeeded", "skipped"].includes(states.get(e.source)!.status),
+                ["succeeded", "skipped"].includes(states.get(e.source)!.status) && !executingNodes.has(e.source),
               ),
         );
-        if (!ready.length)
+        if (!ready.length && !inflight.size)
           throw new DomainError(
             "VALIDATION_FAILED",
             "工作流无可执行节点，分支依赖无法满足",
           );
-        const results = await Promise.allSettled(
-          ready.slice(0, 3).map(async (node) => {
+        // 叶节点额度由整棵运行树的 budget.leaf 统一控制；容器及资源协调节点不能阻塞释放路径。
+        for (const node of ready) {
+          executingNodes.add(node.id);
+          const execution = (async () => {
             const state = states.get(node.id)!;
             const incoming = run.definition.edges.filter(
               (e) => e.target === node.id,
@@ -613,6 +623,19 @@ export class WorkflowService {
               let output: Record<string, unknown>;
               if (node.kind === "input") output = run.inputs;
               else if (node.kind === "output") output = inputs;
+              else if (node.kind === "semaphore_acquire" || node.kind === "semaphore_release") {
+                const code = node.config.semaphoreCode!;
+                const count = inputs.count as number;
+                if (node.kind === "semaphore_acquire") {
+                  await progress(`等待获取信号量 ${code}：${count} 个`);
+                  await this.semaphores.acquire(code, count, budget.root.id, signal);
+                  await progress(`已获取信号量 ${code}：${count} 个`);
+                } else {
+                  await this.semaphores.release(code, count, budget.root.id);
+                  await progress(`已释放信号量 ${code}：${count} 个`);
+                }
+                output = {};
+              }
               else if (node.kind === "condition") {
                 const values = node.config.conditions!.map((c) =>
                   evaluateCondition(c, states),
@@ -738,10 +761,12 @@ export class WorkflowService {
               await persist();
               throw error;
             }
-          }),
-        );
-        const failure = results.find((r) => r.status === "rejected");
-        if (failure?.status === "rejected") throw failure.reason;
+          })();
+          const tracked = execution.catch((error: unknown) => { executionFailure ??= error; }).finally(() => { inflight.delete(tracked); executingNodes.delete(node.id); });
+          inflight.add(tracked);
+        }
+        if (inflight.size) await Promise.race(inflight);
+        if (executionFailure) throw executionFailure;
       }
       if (
         !run.definition.nodes
@@ -774,6 +799,8 @@ export class WorkflowService {
         }
     } finally {
       clearTimeout(timer);
+      await Promise.allSettled([...inflight]);
+      if (depth === 0) await this.semaphores.releaseAll(run.id);
       run.finishedAt = new Date().toISOString();
       await persist();
     }
