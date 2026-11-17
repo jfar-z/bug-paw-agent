@@ -709,6 +709,7 @@ audio.aigc-media-input-preview {
 }
 
 .aigc-task-prompt p {
+  overflow-wrap: anywhere;
   margin: 6px 0 0;
   color: var(--text-primary);
   line-height: 1.6;
@@ -980,4 +981,42 @@ audio.aigc-media-input-preview {
     flex-wrap: wrap;
   }
 
+}
+
+/* 诊断正文独立滚动并允许长字段换行，避免移动端任务详情被撑宽。 */
+.aigc-diagnostics {
+  min-width: 0;
+}
+
+.aigc-diagnostics__endpoint {
+  overflow-wrap: anywhere;
+}
+
+.aigc-diagnostics__text {
+  min-width: 0;
+  margin-block: 16px;
+}
+
+.aigc-diagnostics__text summary {
+  cursor: pointer;
+  padding-block: 12px;
+  color: var(--text-primary);
+}
+
+.aigc-diagnostics__text pre {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.aigc-diagnostics__text :is(summary, pre):focus-visible {
+  outline: 2px solid var(--eye);
+  outline-offset: 2px;
 }

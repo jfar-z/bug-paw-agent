@@ -39,6 +39,7 @@ import { aigcComfyUiInputContentUrl, aigcInputAssetUrl, aigcTaskAssetUrl, api } 
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
 import { ConfirmationDialog } from "../components/configuration/confirmation-dialog";
 import { ConfigurationSelect } from "../components/configuration/configuration-select";
+import { useErrorToast } from "../error-toast-provider";
 import { useOnlineStatus } from "../use-online-status";
 import { navigateTo, NAVIGATION_BEFORE_EVENT, type AppRoute } from "../router";
 import "../configuration.css";
@@ -1556,6 +1557,72 @@ function chunkTaskIds(ids: string[]): string[][] {
   return batches;
 }
 
+/** 展示保存的实际请求与最近响应，不从当前接口配置重建历史请求。 */
+function AigcTaskDiagnostics({ task }: { task: AigcTaskRecord }) {
+  const { request, response } = task.diagnostics ?? {};
+  return (
+    <section className="configuration-form-card aigc-diagnostics" aria-label="接口诊断">
+      <div className="configuration-section__heading"><div><span>02</span><h2>接口诊断</h2></div></div>
+      <p className="configuration-help">快照已脱敏，不含认证信息和文件二进制。请求快照不代表上游已受理。</p>
+      {request ? <>
+        <p className="aigc-diagnostics__endpoint">{request.method} · {request.endpoint}</p>
+        <AigcDiagnosticText title="完整请求入参" text={JSON.stringify(request.body, null, 2)} />
+      </> : <>
+        <p className="configuration-help">没有实际请求快照：历史任务、尚未提交或提交前校验失败可能没有记录。以下仅为用户输入，不含渠道默认参数。</p>
+        <AigcDiagnosticText title="用户输入" text={JSON.stringify(task.inputs, null, 2)} />
+      </>}
+      {task.status === "failed" ? <>
+        <h3>最近接口回参</h3>
+        {response ? <>
+          <p className="aigc-diagnostics__endpoint">HTTP {response.status} · {response.endpoint}</p>
+          <p className="configuration-help">最近一次完整读取的上游响应；不一定是导致网络中断的请求。</p>
+          {response.truncated ? <p className="aigc-warning-copy">响应正文已截断，以下展示和复制的内容均不完整。</p> : null}
+          <AigcDiagnosticText title="接口响应正文" text={response.body} />
+          {!response.body ? <p className="configuration-help">上游返回了空响应正文。</p> : null}
+        </> : <p className="configuration-help">没有已记录的接口回参：可能尚未收到响应、读取中断，或该历史任务未保存诊断。</p>}
+      </> : null}
+    </section>
+  );
+}
+
+/** 纯文本展示诊断正文，支持键盘选择及复制；剪贴板异常进入统一错误提示。 */
+function AigcDiagnosticText({ title, text }: { title: string; text: string }) {
+  const { runApiTask } = useApiTask();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { setCopied(false); }, [text]);
+  async function copy() {
+    setCopied(false);
+    const result = await runApiTask(async () => {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      // 局域网 HTTP 没有 Clipboard API，沿用文本框复制方式并恢复键盘焦点。
+      const focused = document.activeElement;
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.readOnly = true;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.append(textarea);
+      try {
+        textarea.select();
+        if (!document.execCommand?.("copy")) throw new Error("浏览器不支持剪贴板写入，请在正文中手动选择复制。");
+      } finally {
+        textarea.remove();
+        if (focused instanceof HTMLElement) focused.focus();
+      }
+    }, { operation: `复制${title}` });
+    if (result.status === "success") setCopied(true);
+  }
+  return <details className="aigc-diagnostics__text" open>
+    <summary>{title}</summary>
+    <button type="button" className="configuration-secondary-action" onClick={() => void copy()}><Copy size={15} aria-hidden="true" />复制{title}</button>
+    <span role="status">{copied ? "已复制" : ""}</span>
+    <pre tabIndex={0} aria-label={title}>{text}</pre>
+  </details>;
+}
+
 /** 任务详情页。 */
 function AigcTaskDetail({ taskId }: { taskId: string }) {
   const { runApiTask } = useApiTask();
@@ -1563,6 +1630,20 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
   const [message, setMessage] = useState("");
   const [previewAsset, setPreviewAsset] = useState<AigcTaskAsset>();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const toast = useErrorToast();
+  const reportedFailure = useRef("");
+
+  useEffect(() => {
+    if (task?.status !== "failed" || !task.error) {
+      reportedFailure.current = "";
+      return;
+    }
+    // 同一失败快照只提醒一次，轮询不重复弹窗，重试后仍可报告新失败。
+    const signature = JSON.stringify([task.id, task.updatedAt, task.error]);
+    if (reportedFailure.current === signature) return;
+    reportedFailure.current = signature;
+    toast.push({ operation: "执行 AIGC 任务", title: "AIGC 任务生成失败", summary: task.error.message, code: task.error.code });
+  }, [task, toast]);
 
   useEffect(() => {
     void runApiTask(() => api.getAigcTask(taskId).then((next) => { setTask(next); return next; }), { operation: "加载 AIGC 任务详情" });
@@ -1626,6 +1707,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
         {!task.assets.length ? <p className="configuration-help">{task.status === "prepared" ? "参数已校验，等待 Agent 显式运行。" : task.status === "succeeded" ? "任务已完成，但没有提取到产物，请检查接口或工作流输出映射。" : "生成完成后，图片、视频和音频会直接显示在这里。"}</p> : null}
         {(task.status === "failed" || task.status === "cancelled") && !task.preparation ? <button type="button" className="configuration-secondary-action" onClick={() => void retry()}><RefreshCw size={15} />重试</button> : null}
       </section>
+      <AigcTaskDiagnostics task={task} />
       {previewAsset ? <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${previewAsset.name} 大图预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={() => setPreviewAsset(undefined)}><X size={20} /></button><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(task.id, previewAsset.id)} alt={previewAsset.name} /></div></div> : null}
       {deleteOpen ? <ConfirmationDialog title="删除任务？" description={`任务 ${task.id} 及其 ${task.assets.length} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
     </div>

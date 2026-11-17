@@ -18,6 +18,71 @@ function renderAigcPage(route: Parameters<typeof AigcWorkbenchPage>[0]["route"] 
 }
 
 describe("AigcWorkbenchPage 创作台", () => {
+  it("任务详情保留完整请求并以纯文本展示截断回参，复制来自实际快照", async () => {
+    const prompt = "长提示词".repeat(2000);
+    const body = { model: "image-model", prompt, quality: "high" };
+    const response = '<script>alert("不可执行")</script>';
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      id: "diagnostic", interfaceName: "OpenAI", status: "failed", inputs: { prompt: "用户输入" }, assets: [],
+      createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
+      error: { code: "AIGC_UPSTREAM_FAILED", message: "OpenAI 返回 400" },
+      diagnostics: { request: { method: "POST", endpoint: "images/generations", body }, response: { status: 400, endpoint: "images/generations", body: response, truncated: true } },
+    }))));
+    renderAigcPage({ page: "aigc-task-detail", taskId: "diagnostic" });
+    expect((await screen.findByLabelText("完整请求入参")).textContent).toBe(JSON.stringify(body, null, 2));
+    expect(screen.getByLabelText("接口响应正文").textContent).toBe(response);
+    expect(screen.getByLabelText("接口响应正文").querySelector("script")).toBeNull();
+    expect(screen.getByText(/响应正文已截断/)).toBeInTheDocument();
+    expect(screen.getByText("HTTP 400 · images/generations")).toBeInTheDocument();
+    expect(await screen.findByText("AIGC 任务生成失败")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制完整请求入参" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(JSON.stringify(body, null, 2)));
+    fireEvent.click(screen.getByRole("button", { name: "复制接口响应正文" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(response));
+  });
+
+  it("历史任务不伪造请求和回参，剪贴板不可用明确报告", async () => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      id: "old", interfaceName: "Grok", status: "failed", inputs: { prompt: "原始输入" }, assets: [],
+      createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
+    }))));
+    renderAigcPage({ page: "aigc-task-detail", taskId: "old" });
+    expect(await screen.findByText(/没有实际请求快照/)).toBeInTheDocument();
+    expect(screen.getByText(/没有已记录的接口回参/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("完整请求入参")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制用户输入" }));
+    expect((await screen.findAllByText(/浏览器不支持剪贴板写入/)).length).toBeGreaterThan(0);
+    // 局域网 HTTP 路径使用兼容复制，成功后移除临时文本框并恢复焦点。
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(document, "execCommand", { configurable: true, value: execCommand });
+    try {
+      const button = screen.getByRole("button", { name: "复制用户输入" });
+      button.focus();
+      fireEvent.click(button);
+      await waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
+      expect(await screen.findByText("已复制")).toBeInTheDocument();
+      expect(document.activeElement).toBe(button);
+      expect(document.querySelector("textarea")).toBeNull();
+    } finally {
+      Reflect.deleteProperty(document, "execCommand");
+    }
+  });
+
+  it("multipart 按顺序保留重复字段与文件元数据，成功任务不显示失败回参", async () => {
+    const body = [{ name: "image", value: { name: "a.png", mediaType: "image/png", size: 12 } }, { name: "image", value: { name: "b.png", mediaType: "image/png", size: 24 } }];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      id: "multipart", interfaceName: "OpenAI", status: "succeeded", inputs: {}, assets: [],
+      createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
+      diagnostics: { request: { method: "POST", endpoint: "images/edits", body } },
+    }))));
+    renderAigcPage({ page: "aigc-task-detail", taskId: "multipart" });
+    expect((await screen.findByLabelText("完整请求入参")).textContent).toBe(JSON.stringify(body, null, 2));
+    expect(screen.queryByText("最近接口回参")).not.toBeInTheDocument();
+  });
+
   it("待运行任务显示真实状态并进入需处理筛选，取消后不出现隐式重试", async () => {
     let status = "prepared";
     const task = () => ({ id: "prepared-task", interfaceId: "interface", interfaceName: "待运行创作", channelId: "channel", status,
