@@ -1,3 +1,4 @@
+import { recordAigcRequest, readAigcResponse } from "./aigc-diagnostics";
 import type { AigcChannelConfig, AigcGrokInterfaceConfig } from "../../shared/aigc-contracts";
 import type { AigcExecutionInput, AigcExecutionResult, AigcProtocolAdapter } from "./aigc-protocol-adapter";
 
@@ -82,16 +83,14 @@ export class GrokAigcAdapter implements AigcProtocolAdapter {
     path: string,
     payload?: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
+    if (payload) await recordAigcRequest(input, path, payload);
     const response = await this.request(`${channel.baseUrl}/${path}`, {
       method,
       signal: requestSignal(input.signal, channel.timeoutMs ?? 30_000),
       headers: jsonHeaders(input.apiKey),
       body: payload === undefined ? undefined : JSON.stringify(payload),
     });
-    const body: unknown = await response.json().catch(() => undefined);
-    if (!response.ok) throw new Error(`Grok 上游服务返回 ${response.status}`);
-    if (!isRecord(body)) throw new Error("Grok 上游响应格式无效");
-    return body;
+    return readAigcResponse(input, response, path);
   }
 
   /** 将解析出的媒体引用下载或解码为任务产物。 */
@@ -111,7 +110,7 @@ export class GrokAigcAdapter implements AigcProtocolAdapter {
         continue;
       }
       if (!output.url) continue;
-      const downloaded = await download(this.request, resolveDownloadUrl(input.channel, output.url), input.signal);
+      const downloaded = await download(this.request, resolveDownloadUrl(input.channel, output.url), input);
       assets.push({
         name: outputName(input, index, mediaKind),
         mediaType: mediaKind === "video" ? "video/mp4" : "image/png",
@@ -326,9 +325,9 @@ function resolveDownloadUrl(channel: AigcChannelConfig, value: string): string {
 }
 
 /** 下载单个媒体产物。 */
-async function download(request: typeof fetch, url: string, signal: AbortSignal): Promise<Buffer> {
-  const response = await request(url, { signal });
-  if (!response.ok) throw new Error(`Grok 产物下载失败 ${response.status}`);
+async function download(request: typeof fetch, url: string, input: AigcExecutionInput): Promise<Buffer> {
+  const response = await request(url, { signal: input.signal });
+  if (!response.ok) await readAigcResponse(input, response, "asset-download");
   return Buffer.from(await response.arrayBuffer());
 }
 

@@ -202,6 +202,7 @@ export class AigcTaskService {
       deliveredFiles: undefined,
       upstreamCancellation: undefined,
       error: undefined,
+      diagnostics: undefined,
       startedAt: undefined,
       finishedAt: undefined,
       updatedAt: new Date().toISOString(),
@@ -319,6 +320,10 @@ export class AigcTaskService {
         workflows: this.dependencies.workflows,
         ...(workflow ? { workflowSnapshot: workflow } : {}),
         signal,
+        onDiagnostics: async (patch) => {
+          const current = await this.dependencies.repository.get(id);
+          await this.updateTask(id, { diagnostics: { ...current?.diagnostics, ...patch } });
+        },
         onCancellation: (status) => { upstreamCancellation = status; },
         onProgress: (state) => {
           // 进度事件可能非常密集，只保留内存快照供轮询接口读取。

@@ -2,6 +2,7 @@ import type {
   AigcChannelConfig,
   AigcInterfaceRecord,
   AigcTaskExecutionState,
+  AigcTaskDiagnostics,
   AigcWorkflowDetail,
 } from "../../shared/aigc-contracts";
 import type { AigcAssetService } from "./aigc-asset-service";
@@ -19,6 +20,8 @@ export interface AigcExecutionInput {
   /** Agent 执行复核后的不可变 ComfyUI 定义，运行中不再读取新配置。 */
   workflowSnapshot?: AigcWorkflowDetail & { raw: unknown };
   signal: AbortSignal;
+  /** 持久化脱敏诊断后再继续请求，避免失败丢失现场。 */
+  onDiagnostics?: (patch: AigcTaskDiagnostics) => Promise<void>;
   /** 上报执行中的瞬态进度，调用方不得在此执行高频持久化。 */
   onProgress?: (state: AigcTaskExecutionState) => void;
   /** 报告精确任务取消的确认状态，不允许使用全局中断。 */

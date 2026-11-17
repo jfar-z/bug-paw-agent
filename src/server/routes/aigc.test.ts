@@ -11,6 +11,7 @@ import { AIGC_TASK_BULK_DELETE_LIMIT, type AigcTaskRecord } from "../../shared/a
 import { registerAigcChannelRoutes } from "./aigc-channels";
 import { registerAigcRoutes } from "./aigc";
 import { VersionConflictError } from "../configuration/versioned-json-store";
+import { registerApiV1Namespace } from "../http/api-versioning";
 import { DomainError } from "../core/errors";
 
 const roots: string[] = [];
@@ -55,6 +56,21 @@ describe("AIGC 运行态渠道路由", () => {
 describe("AIGC 产物路由", () => {
   afterEach(async () => {
     await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+
+  it.each([true, false])("任务诊断沿用登录权限：%s", async (authenticated) => {
+    const diagnostics = { request: { method: "POST", endpoint: "images/generations", body: { model: "image-model", prompt: "猫" } }, response: { endpoint: "images/generations", status: 400, body: '{"error":{"code":"bad_size"}}', truncated: false } };
+    const get = vi.fn(async () => ({ id: "task-1", status: "failed", diagnostics }));
+    const app = Fastify();
+    registerApiV1Namespace(app);
+    registerAigcRoutes(app, { authService: { isAuthenticated: async () => authenticated } as never,
+      workflows: {} as never, interfaces: {} as never, tasks: { get } as never,
+      assets: {} as never, publicFiles: {} as never, comfyuiInputs: {} as never });
+    const response = await app.inject({ method: "GET", url: "/api/v1/aigc/tasks/task-1" });
+    expect(response.statusCode).toBe(authenticated ? 200 : 401);
+    if (authenticated) expect(response.json().diagnostics).toEqual(diagnostics);
+    else expect(get).not.toHaveBeenCalled();
+    await app.close();
   });
 
 it("提供产物分页、任务删除与图片缩略图接口", async () => {

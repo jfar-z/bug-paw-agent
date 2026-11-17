@@ -13,6 +13,41 @@ describe("OpenAiAigcAdapter", () => {
     await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
+  it("非 JSON 回参保留错误文本并标记截断、隐藏签名与路径", async () => {
+    const onDiagnostics = vi.fn<NonNullable<AigcExecutionInput["onDiagnostics"]>>(async () => {});
+    const body = 'gateway error api_key="fake-key" https://example.test/file?token=fake-token /private/service/file.log\n' + "x".repeat(70_000);
+    const adapter = new OpenAiAigcAdapter(vi.fn(async () => new Response(body, { status: 502 })));
+    await expect(adapter.execute({ ...input({ prompt: "猫" }), onDiagnostics })).rejects.toThrow("502");
+    const response = onDiagnostics.mock.calls.at(-1)?.[0]?.response;
+    expect(response?.truncated).toBe(true);
+    expect(response?.body.length).toBe(65_536);
+    expect(response?.body).toContain("gateway error");
+    for (const secret of ["fake-key", "fake-token", "/private/service/file.log"]) expect(response?.body).not.toContain(secret);
+  });
+
+  it("网络失败仍保存完整请求而不伪造回参", async () => {
+    const onDiagnostics = vi.fn<NonNullable<AigcExecutionInput["onDiagnostics"]>>(async () => {});
+    const adapter = new OpenAiAigcAdapter(vi.fn(async () => { throw new Error("connection reset"); }));
+    await expect(adapter.execute({ ...input({ prompt: "猫" }), onDiagnostics })).rejects.toThrow("connection reset");
+    expect(onDiagnostics).toHaveBeenCalledTimes(1);
+    expect(onDiagnostics.mock.calls[0]?.[0]?.response).toBeUndefined();
+  });
+
+  it.each([
+    [400, JSON.stringify({ error: { code: "bad_size", message: "尺寸不支持", api_key: "fixture-credential" } })],
+    [502, "upstream unavailable fixture-credential"],
+    [200, "invalid json"],
+  ])("保存 HTTP %s 失败回参并隐藏凭据", async (status, body) => {
+    const onDiagnostics = vi.fn<NonNullable<AigcExecutionInput["onDiagnostics"]>>(async () => {});
+    const execution = { ...input({ prompt: "完整提示\n" + "猫".repeat(3000) }), apiKey: "fixture-credential", onDiagnostics };
+    const adapter = new OpenAiAigcAdapter(vi.fn(async () => new Response(body, { status })));
+    await expect(adapter.execute(execution)).rejects.toThrow();
+    expect(onDiagnostics.mock.calls[0]?.[0]).toMatchObject({ request: { body: { model: "image-model", quality: "high", prompt: execution.inputs.prompt } } });
+    expect(onDiagnostics.mock.calls[1]?.[0]).toMatchObject({ response: { status, truncated: false } });
+    expect(JSON.stringify(onDiagnostics.mock.calls)).not.toContain("fixture-credential");
+    if (status === 400) expect(JSON.stringify(onDiagnostics.mock.calls)).toContain("bad_size");
+  });
+
   it("图片生成与编辑接口未提供图片时调用生成端点并映射自定义参数", async () => {
     const request = successfulRequest();
     const adapter = new OpenAiAigcAdapter(request as unknown as typeof fetch);
@@ -41,12 +76,14 @@ describe("OpenAiAigcAdapter", () => {
     const request = successfulRequest();
     const adapter = new OpenAiAigcAdapter(request as unknown as typeof fetch);
 
-    await adapter.execute(input({
+    const onDiagnostics = vi.fn<NonNullable<AigcExecutionInput["onDiagnostics"]>>(async () => {});
+    await adapter.execute({ ...input({
       prompt: "改成水彩风",
       image: { assetId: "asset-1", name: "source.png", mediaType: "image/png" },
       image_size: "1024x1024",
       quality: "medium",
-    }, imagePath));
+    }, imagePath), onDiagnostics });
+    expect(onDiagnostics.mock.calls[0]?.[0]?.request?.body).toContainEqual({ name: "image", value: { name: "source.png", mediaType: "image/png", size: 5 } });
 
     const [url, init] = request.mock.calls[0];
     expect(String(url)).toBe("https://api.example.test/v1/images/edits");

@@ -1,3 +1,4 @@
+import { recordAigcRequest, readAigcResponse } from "./aigc-diagnostics";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
@@ -33,19 +34,20 @@ export class OpenAiAigcAdapter implements AigcProtocolAdapter {
       prompt,
       ...readRequestParameters(config, input.inputs),
     };
+    await recordAigcRequest(input, "images/generations", body);
     const response = await this.request(`${input.channel.baseUrl}/images/generations`, {
       method: "POST",
       signal: input.signal,
       headers: headers(input.apiKey),
       body: JSON.stringify(body),
     });
-    const payload = await readJson(response);
+    const payload = await readAigcResponse(input, response, "images/generations");
     const data = readImageData(payload);
     if (typeof data.b64_json === "string" && data.b64_json) {
       return { assets: [{ name: `openai-${input.item.id}.png`, mediaType: "image/png", content: Buffer.from(data.b64_json, "base64") }] };
     }
     if (typeof data.url === "string" && data.url) {
-      return { assets: [{ name: `openai-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input.signal) }] };
+      return { assets: [{ name: `openai-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input) }] };
     }
     throw new Error("OpenAI 图像响应缺少可用产物");
   }
@@ -74,19 +76,20 @@ export class OpenAiAigcAdapter implements AigcProtocolAdapter {
     for (const [name, value] of Object.entries(readRequestParameters(config, input.inputs))) {
       form.set(name, String(value));
     }
+    await recordAigcRequest(input, "images/edits", form);
     const response = await this.request(`${input.channel.baseUrl}/images/edits`, {
       method: "POST",
       signal: input.signal,
       headers: authHeaders(input.apiKey),
       body: form,
     });
-    const payload = await readJson(response);
+    const payload = await readAigcResponse(input, response, "images/edits");
     const data = readImageData(payload);
     if (typeof data.b64_json === "string" && data.b64_json) {
       return { assets: [{ name: `openai-edit-${input.item.id}.png`, mediaType: "image/png", content: Buffer.from(data.b64_json, "base64") }] };
     }
     if (typeof data.url === "string" && data.url) {
-      return { assets: [{ name: `openai-edit-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input.signal) }] };
+      return { assets: [{ name: `openai-edit-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input) }] };
     }
     throw new Error("OpenAI 图片编辑响应缺少可用产物");
   }
@@ -129,14 +132,6 @@ function authHeaders(apiKey?: string): Record<string, string> {
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 }
 
-/** 读取并解析上游 JSON，失败时统一脱敏。 */
-async function readJson(response: Response): Promise<Record<string, unknown>> {
-  const payload: unknown = await response.json().catch(() => undefined);
-  if (!response.ok) throw new Error(`上游服务返回 ${response.status}`);
-  if (!isRecord(payload)) throw new Error("上游响应格式无效");
-  return payload;
-}
-
 function readImageData(payload: Record<string, unknown>): Record<string, unknown> {
   const data = Array.isArray(payload.data) ? payload.data[0] : undefined;
   if (!isRecord(data)) throw new Error("上游图像响应缺少 data");
@@ -144,9 +139,9 @@ function readImageData(payload: Record<string, unknown>): Record<string, unknown
 }
 
 /** 下载响应 URL，限制为图片产物字节。 */
-async function download(request: typeof fetch, url: string, signal: AbortSignal): Promise<Buffer> {
-  const response = await request(url, { signal });
-  if (!response.ok) throw new Error(`产物下载失败 ${response.status}`);
+async function download(request: typeof fetch, url: string, input: AigcExecutionInput): Promise<Buffer> {
+  const response = await request(url, { signal: input.signal });
+  if (!response.ok) await readAigcResponse(input, response, "asset-download");
   return Buffer.from(await response.arrayBuffer());
 }
 

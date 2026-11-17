@@ -62,8 +62,24 @@ describe("AIGC 任务服务", () => {
       publicFiles: {} as never,
       adapters: { [protocol]: adapter },
     });
-    return { service, item: created.item, adapter, assets, repository };
+    return { service, item: created.item, adapter, assets, repository, root };
   }
+
+  it("诊断持久化重开可读、列表不携带正文且重试清除旧快照", async () => {
+    const diagnostics = { request: { method: "POST" as const, endpoint: "images/generations", body: { prompt: "猫" } }, response: { endpoint: "images/generations", status: 400, body: "bad_size", truncated: false } };
+    const { service, item, root } = await fixture(async (input) => {
+      await input.onDiagnostics?.({ request: diagnostics.request });
+      await input.onDiagnostics?.({ response: diagnostics.response });
+      throw new Error("上游服务返回 400");
+    });
+    const task = await service.createRun({ interfaceId: item.id, inputs: { prompt: "猫" } });
+    await vi.waitFor(async () => expect((await service.get(task.id))?.status).toBe("failed"));
+    expect((await service.get(task.id))?.diagnostics).toEqual(diagnostics);
+    expect(JSON.stringify(await service.list())).not.toContain("diagnostics");
+    expect((await new AigcTaskRepository(join(root, "tasks.json")).get(task.id))?.diagnostics).toEqual(diagnostics);
+    expect((await service.retry(task.id))?.diagnostics).toBeUndefined();
+    await service.close();
+  });
 
   it("创建任务后异步执行并保存产物", async () => {
     const { service, item } = await fixture({

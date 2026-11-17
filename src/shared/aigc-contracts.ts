@@ -461,6 +461,27 @@ export interface AigcTaskExecutionState {
   updatedAt: string;
 }
 
+/** 实际发送的业务入参；multipart 文件只保存元数据，不复制二进制正文。 */
+export interface AigcRequestDiagnostic {
+  method: "POST" | "GET";
+  endpoint: string;
+  body: unknown;
+}
+
+/** 最近一次上游响应，正文经过凭据与内部路径脱敏。 */
+export interface AigcResponseDiagnostic {
+  endpoint: string;
+  status: number;
+  body: string;
+  truncated: boolean;
+}
+
+/** 只在任务详情返回的渠道诊断快照，历史任务可能不存在。 */
+export interface AigcTaskDiagnostics {
+  request?: AigcRequestDiagnostic;
+  response?: AigcResponseDiagnostic;
+}
+
 /** 任务详情。 */
 export interface AigcTaskRecord {
   /** Agent 创建时只校验参数，运行时复核后再准备媒体。 */
@@ -494,6 +515,7 @@ export interface AigcTaskRecord {
   channelId: string;
   status: AigcTaskStatus;
   inputs: Record<string, unknown>;
+  diagnostics?: AigcTaskDiagnostics;
   assets: AigcTaskAsset[];
   execution?: AigcTaskExecutionState;
   error?: AigcTaskError;

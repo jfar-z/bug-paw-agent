@@ -1,5 +1,7 @@
 /** 所有可能随输入增长的工作量都必须引用统一上限。 */
 export const SYSTEM_LIMITS = Object.freeze({
+  /** AIGC 上游诊断正文持久化上限，超限必须标记截断。 */
+  aigcDiagnosticResponseCharacters: 65_536,
   messageCharacters: 100_000,
   messageAttachments: 5,
   attachmentBytes: 20 * 1024 * 1024,
