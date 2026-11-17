@@ -42,14 +42,7 @@ export class OpenAiAigcAdapter implements AigcProtocolAdapter {
       body: JSON.stringify(body),
     });
     const payload = await readAigcResponse(input, response, "images/generations");
-    const data = readImageData(payload);
-    if (typeof data.b64_json === "string" && data.b64_json) {
-      return { assets: [{ name: `openai-${input.item.id}.png`, mediaType: "image/png", content: Buffer.from(data.b64_json, "base64") }] };
-    }
-    if (typeof data.url === "string" && data.url) {
-      return { assets: [{ name: `openai-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input) }] };
-    }
-    throw new Error("OpenAI 图像响应缺少可用产物");
+    return readImageAssets(this.request, payload, input, `openai-${input.item.id}`);
   }
 
   /** 图片编辑：将入参图片作为 multipart 文件提交。 */
@@ -84,14 +77,7 @@ export class OpenAiAigcAdapter implements AigcProtocolAdapter {
       body: form,
     });
     const payload = await readAigcResponse(input, response, "images/edits");
-    const data = readImageData(payload);
-    if (typeof data.b64_json === "string" && data.b64_json) {
-      return { assets: [{ name: `openai-edit-${input.item.id}.png`, mediaType: "image/png", content: Buffer.from(data.b64_json, "base64") }] };
-    }
-    if (typeof data.url === "string" && data.url) {
-      return { assets: [{ name: `openai-edit-${input.item.id}.png`, mediaType: "image/png", content: await download(this.request, data.url, input) }] };
-    }
-    throw new Error("OpenAI 图片编辑响应缺少可用产物");
+    return readImageAssets(this.request, payload, input, `openai-edit-${input.item.id}`);
   }
 }
 
@@ -132,10 +118,32 @@ function authHeaders(apiKey?: string): Record<string, string> {
   return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 }
 
-function readImageData(payload: Record<string, unknown>): Record<string, unknown> {
-  const data = Array.isArray(payload.data) ? payload.data[0] : undefined;
-  if (!isRecord(data)) throw new Error("上游图像响应缺少 data");
-  return data;
+/** 按上游顺序解析全部图片；任一条目无效时失败，避免静默丢失产物。 */
+async function readImageAssets(
+  request: typeof fetch,
+  payload: Record<string, unknown>,
+  input: AigcExecutionInput,
+  namePrefix: string,
+): Promise<AigcExecutionResult> {
+  if (!Array.isArray(payload.data) || payload.data.length === 0) {
+    throw new Error("OpenAI 图像响应缺少非空 data 数组");
+  }
+  const assets: AigcExecutionResult["assets"] = [];
+  for (const [index, data] of payload.data.entries()) {
+    if (!isRecord(data)) throw new Error(`OpenAI 图像响应第 ${index + 1} 项格式无效`);
+    let content: Buffer;
+    if (typeof data.b64_json === "string" && data.b64_json) {
+      content = Buffer.from(data.b64_json, "base64");
+    } else if (typeof data.url === "string" && data.url) {
+      content = await download(request, data.url, input);
+    } else {
+      throw new Error(`OpenAI 图像响应第 ${index + 1} 项缺少可用产物`);
+    }
+    // 单图保留原文件名，多图用返回序号避免下载时同名覆盖。
+    const suffix = payload.data.length === 1 ? "" : `-${index + 1}`;
+    assets.push({ name: `${namePrefix}${suffix}.png`, mediaType: "image/png", content });
+  }
+  return { assets };
 }
 
 /** 下载响应 URL，限制为图片产物字节。 */

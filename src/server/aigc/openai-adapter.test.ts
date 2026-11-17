@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { AigcAssetService } from "./aigc-asset-service";
 import { OpenAiAigcAdapter } from "./openai-adapter";
 import type { AigcExecutionInput } from "./aigc-protocol-adapter";
 
@@ -11,6 +12,70 @@ describe("OpenAiAigcAdapter", () => {
 
   afterEach(async () => {
     await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+
+  describe.each(["generation", "edit"] as const)("%s 多图产物", (mode) => {
+    it.each(["base64", "url", "mixed"] as const)("完整解析并保存 %s 响应", async (format) => {
+      const root = await mkdtemp(join(tmpdir(), "openai-outputs-"));
+      roots.push(root);
+      const imagePath = join(root, "source.png");
+      await writeFile(imagePath, "source");
+      const contents = ["first-image", "second-image", "third-image"];
+      const data = contents.map((content, index) => format === "base64" || (format === "mixed" && index !== 1)
+        ? { b64_json: Buffer.from(content).toString("base64"), url: "https://example.test/unused" }
+        : { url: `https://example.test/${index}` });
+      const request = vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
+        if (String(url).includes("/images/")) return Response.json({ data });
+        return new Response(contents[Number(new URL(String(url)).pathname.slice(1))]);
+      });
+      const execution = input({ prompt: "猫", n: 3,
+        ...(mode === "edit" ? { image: { assetId: "source" } } : {}),
+      }, imagePath);
+      const result = await new OpenAiAigcAdapter(request).execute(execution);
+      expect(result.assets.map((asset) => asset.content.toString())).toEqual(contents);
+      const prefix = mode === "edit" ? "openai-edit" : "openai";
+      expect(result.assets.map((asset) => asset.name)).toEqual([1, 2, 3].map((index) => `${prefix}-openai-interface-${index}.png`));
+      const body = request.mock.calls[0][1]?.body;
+      expect(mode === "edit" ? (body as FormData).get("n") : JSON.parse(String(body)).n).toBe(mode === "edit" ? "3" : 3);
+      expect(request).toHaveBeenCalledTimes(format === "base64" ? 1 : format === "url" ? 4 : 2);
+      for (const [, init] of request.mock.calls.slice(1)) expect(init?.signal).toBe(execution.signal);
+      // 使用真实文件存储校验每张图片的独立资产与字节，避免只断言响应数量。
+      const storage = new AigcAssetService(join(root, "assets"));
+      const saved = [];
+      for (const asset of result.assets) saved.push(await storage.saveOutput("task", asset.content, asset.name, asset.mediaType));
+      expect(new Set(saved.map((asset) => asset.id)).size).toBe(3);
+      for (const [index, asset] of saved.entries()) {
+        expect((await storage.readOutput("task", asset.id, 1024)).toString()).toBe(contents[index]);
+      }
+    });
+
+    it.each([undefined, [], [null], [{ b64_json: "aW1hZ2U=" }, {}]])("拒绝不完整响应 %#", async (data) => {
+      const root = await mkdtemp(join(tmpdir(), "openai-invalid-"));
+      roots.push(root);
+      const imagePath = join(root, "source.png");
+      await writeFile(imagePath, "source");
+      const execution = input({ prompt: "猫", ...(mode === "edit" ? { image: { assetId: "source" } } : {}) }, imagePath);
+      await expect(new OpenAiAigcAdapter(async () => Response.json({ data })).execute(execution)).rejects.toThrow(/OpenAI 图像响应/);
+    });
+
+    it("后续 URL 下载失败时拒绝返回部分成功并保留诊断", async () => {
+      const root = await mkdtemp(join(tmpdir(), "openai-download-"));
+      roots.push(root);
+      const imagePath = join(root, "source.png");
+      await writeFile(imagePath, "source");
+      const onDiagnostics = vi.fn<NonNullable<AigcExecutionInput["onDiagnostics"]>>(async () => {});
+      const request = vi.fn(async (url: string | URL | Request) => String(url).includes("/images/")
+        ? Response.json({ data: [{ b64_json: "aW1hZ2U=" }, { url: "https://example.test/image" }] })
+        : new Response("download unavailable", { status: 502 }));
+      const execution = { ...input({ prompt: "猫", ...(mode === "edit" ? { image: { assetId: "source" } } : {}) }, imagePath), onDiagnostics };
+      await expect(new OpenAiAigcAdapter(request).execute(execution)).rejects.toThrow("502");
+      expect(onDiagnostics.mock.calls.at(-1)?.[0]?.response).toMatchObject({ endpoint: "asset-download", status: 502 });
+    });
+  });
+
+  it("单图仍使用原文件名", async () => {
+    const result = await new OpenAiAigcAdapter(successfulRequest()).execute(input({ prompt: "猫" }));
+    expect(result.assets).toEqual([{ name: "openai-openai-interface.png", mediaType: "image/png", content: Buffer.from("image") }]);
   });
 
   it("非 JSON 回参保留错误文本并标记截断、隐藏签名与路径", async () => {
@@ -131,6 +196,7 @@ function input(inputs: Record<string, unknown>, imagePath?: string, publicImageP
         config: {
           model: "image-model",
           parameters: [
+            { name: "n", type: "integer", description: "数量" },
             { name: "image_size", type: "string", description: "尺寸" },
             { name: "quality", type: "string", enumValues: ["medium", "high"], defaultValue: "high", description: "质量" },
           ],
