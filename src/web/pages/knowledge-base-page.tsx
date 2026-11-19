@@ -9,6 +9,7 @@ import { ConfirmationDialog } from "../components/configuration/confirmation-dia
 
 import { KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT } from "../router";
 import "../configuration.css";
+import "../library-workspace.css";
 import "../knowledge-base.css";
 
 export { KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT } from "../router";

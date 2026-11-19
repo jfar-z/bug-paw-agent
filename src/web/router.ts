@@ -21,6 +21,7 @@ export type AppRoute =
   | { page: "aigc-workflow-detail"; workflowId: string }
   | { page: "workspace-resources" }
   | { page: "knowledge-base" }
+  | { page: "media-library"; libraryId?: string }
   | { page: "scheduled-tasks" }
   | { page: "configuration-overview" }
   | { page: "capabilities" }
@@ -100,6 +101,15 @@ export function parseRoute(pathname: string, search = ""): AppRoute {
     }
   }
   if (normalized === "/resources") return { page: "workspace-resources" };
+  if (normalized === "/media-library") return { page: "media-library" };
+  const mediaLibraryMatch = normalized.match(/^\/media-library\/([^/]+)$/);
+  if (mediaLibraryMatch) {
+    try {
+      return { page: "media-library", libraryId: decodeURIComponent(mediaLibraryMatch[1]) };
+    } catch {
+      return { page: "media-library" };
+    }
+  }
   if (normalized === "/knowledge-base") return { page: "knowledge-base" };
   if (normalized === "/scheduled-tasks") return { page: "scheduled-tasks" };
   if (normalized === "/settings") {
@@ -175,6 +185,8 @@ export function routePath(route: AppRoute): string {
       return `/aigc/workflows/${encodeURIComponent(route.workflowId)}`;
     case "workspace-resources":
       return "/resources";
+    case "media-library":
+      return route.libraryId ? `/media-library/${encodeURIComponent(route.libraryId)}` : "/media-library";
     case "knowledge-base":
       return "/knowledge-base";
     case "scheduled-tasks":

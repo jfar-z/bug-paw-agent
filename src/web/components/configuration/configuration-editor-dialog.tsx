@@ -14,6 +14,7 @@ interface ConfigurationEditorDialogProps {
   closeLabel?: string;
   returnFocusSelector?: string;
   classPrefix?: string;
+  className?: string;
   title: string;
   description: string;
   busy: boolean;
@@ -24,7 +25,7 @@ interface ConfigurationEditorDialogProps {
 }
 
 /** 管理配置编辑弹层的焦点、滚动与返回焦点，避免关闭确认和抽屉争抢键盘。 */
-export function ConfigurationEditorDialog({ variant, title, description, busy, suspended = false, closeLabel = "关闭语音配置编辑", returnFocusSelector = "[data-tts-create]", classPrefix = "tts", onClose, children, footer }: ConfigurationEditorDialogProps) {
+export function ConfigurationEditorDialog({ variant, title, description, busy, suspended = false, closeLabel = "关闭语音配置编辑", returnFocusSelector = "[data-tts-create]", classPrefix = "tts", className = "", onClose, children, footer }: ConfigurationEditorDialogProps) {
   const id = useId();
   const root = useRef<HTMLElement>(null);
   const latest = useRef({ busy, suspended, onClose });
@@ -43,7 +44,7 @@ export function ConfigurationEditorDialog({ variant, title, description, busy, s
         if (!latest.current.busy) latest.current.onClose();
       }
       if (event.key !== "Tab") return;
-      const controls = [...(root.current?.querySelectorAll<HTMLElement>("button, input, select, textarea, summary, a[href]") ?? [])]
+      const controls = [...(root.current?.querySelectorAll<HTMLElement>("button, input, select, textarea, summary, a[href], video[controls], audio[controls], [tabindex]") ?? [])]
         .filter((element) => !element.matches(":disabled, [tabindex='-1']") && element.getClientRects().length > 0);
       const first = controls[0];
       const last = controls.at(-1);
@@ -72,7 +73,7 @@ export function ConfigurationEditorDialog({ variant, title, description, busy, s
 
   return createPortal(<div className={variant === "drawer" ? `configuration-editor-backdrop ${classPrefix}-drawer-backdrop` : "configuration-dialog-backdrop"}
     onMouseDown={(event) => { if (variant === "drawer" && event.target === event.currentTarget && !busy && !suspended) onClose(); }}>
-    <section ref={root} tabIndex={-1} className={variant === "drawer" ? `configuration-editor-drawer ${classPrefix}-drawer` : "configuration-dialog provider-rename-dialog"}
+    <section ref={root} tabIndex={-1} className={variant === "drawer" ? `configuration-editor-drawer ${classPrefix}-drawer` : ("configuration-dialog provider-rename-dialog " + className)}
       role="dialog" aria-modal={!suspended} aria-hidden={suspended || undefined} inert={suspended || undefined}
       aria-labelledby={id} aria-describedby={`${id}-description`} aria-busy={busy}>
       <header className={variant === "drawer" ? "configuration-editor-drawer__header" : undefined}><div><h2 id={id}>{title}</h2><p id={`${id}-description`}>{description}</p></div>

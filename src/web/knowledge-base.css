@@ -60,51 +60,9 @@
 
 /* 知识库保持资源工作台的低对比信息层次，同时以资料为核心而非 Agent 从属关系。 */
 
-.knowledge-base-page { position: relative; display: grid; grid-template-columns: var(--secondary-sidebar-width) minmax(0, 1fr); height: 100%; background: var(--surface); overflow: hidden; }
-
-.knowledge-base-page--empty { display: grid; grid-template-columns: 1fr; place-items: center; overflow: auto; }
-
-.knowledge-base-empty-state { display: grid; justify-items: center; gap: 10px; width: min(440px, calc(100% - 32px)); text-align: center; }
-
 .knowledge-base-empty-state__mark { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid var(--border); border-radius: 14px; color: var(--fg); background: var(--panel); }
 
 .knowledge-base-empty-state > span, .knowledge-base-workspace__heading span, .knowledge-base-documents header span, .knowledge-base-side-panel header span, .knowledge-base-search-panel header span, .knowledge-base-dialog header span { color: var(--fg); font: 11px var(--font-mono); letter-spacing: .1em; }
-
-.knowledge-base-empty-state h1 { margin: 0; color: var(--text-primary); font-size: 30px; letter-spacing: -.06em; }
-
-.knowledge-base-empty-state p { max-width: 340px; margin: 0 0 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.7; text-wrap: pretty; }
-
-.knowledge-base-navigation { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; padding: 0 10px 12px; border-right: 1px solid var(--border); background: var(--surface-soft); }
-
-.knowledge-base-navigation > .secondary-sidebar-header { padding: 22px 12px 17px; }
-
-.knowledge-base-navigation nav { display: grid; align-content: start; gap: 3px; overflow: auto; }
-
-.knowledge-base-navigation nav button { display: flex; min-width: 0; align-items: center; gap: 9px; padding: 9px 8px; border: 1px solid transparent; border-radius: 8px; color: var(--text-secondary); background: transparent; text-align: left; cursor: pointer; }
-
-.knowledge-base-navigation nav button:hover, .knowledge-base-navigation nav button.is-active { border-color: var(--border); color: var(--text-primary); background: var(--panel); }
-
-.knowledge-base-navigation nav button > span { display: grid; min-width: 0; gap: 2px; }
-
-.knowledge-base-navigation nav strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-
-.knowledge-base-navigation nav small { color: var(--text-tertiary); font: 11px var(--font-mono); }
-
-.knowledge-base-navigation__create { width: 100%; margin-top: 12px; padding: 9px 8px; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-secondary); background: transparent; font-size: 10px; cursor: pointer; }
-
-.knowledge-base-navigation__create:hover { color: var(--fg); border-color: var(--fg); }
-
-.knowledge-base-workspace { min-width: 0; padding: clamp(22px, 3vw, 42px); overflow: auto; }
-
-.knowledge-base-workspace__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
-
-.knowledge-base-workspace__heading > div { display: grid; gap: 5px; }
-
-.knowledge-base-workspace__heading h1 { margin: 0; color: var(--text-primary); font-size: clamp(25px, 3vw, 34px); letter-spacing: -.05em; }
-
-.knowledge-base-workspace__heading p { margin: 0; color: var(--text-secondary); font-size: 12px; }
-
-.knowledge-base-workspace__actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 
 .knowledge-base-upload-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 
@@ -263,18 +221,6 @@
 .knowledge-base-page__error { position: absolute; right: 24px; bottom: 20px; max-width: min(380px, calc(100% - 48px)); }
 
 @media (max-width: 760px) {
-  .knowledge-base-page { display: block; height: 100%; overflow: auto; }
-  .knowledge-base-navigation { display: none; }
-  .knowledge-base-navigation.is-mobile-open { position: fixed; z-index: 71; top: 56px; bottom: 0; left: 0; display: grid; width: min(300px, calc(100vw - 54px)); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; padding: 14px; border-right: 1px solid var(--border); border-bottom: 0; box-shadow: var(--shadow-float); }
-  .knowledge-base-navigation__scrim { position: fixed; z-index: 70; inset: 56px 0 0; border: 0; background: rgba(13, 18, 15, .45); }
-  .knowledge-base-navigation header { padding: 0; }
-  .knowledge-base-navigation nav { grid-column: auto; display: grid; align-content: start; gap: 5px; min-height: 0; margin-top: 12px; overflow-x: hidden; overflow-y: auto; }
-  .knowledge-base-navigation nav button { width: 100%; }
-  .knowledge-base-navigation__create { align-self: end; width: 100%; margin: 12px 0 0; }
-  .knowledge-base-workspace { padding: 20px 14px 28px; overflow: visible; }
-  .knowledge-base-workspace__heading { display: grid; gap: 14px; }
-  .knowledge-base-workspace__actions { display: grid; grid-template-columns: 1fr 1fr; }
-  .knowledge-base-workspace__actions .configuration-primary-action, .knowledge-base-workspace__actions .configuration-secondary-action { width: 100%; justify-content: center; }
   .knowledge-base-danger-zone { align-items: stretch; flex-direction: column; }
   .knowledge-base-danger-zone .danger-button { width: 100%; justify-content: center; }
   .knowledge-base-overview { grid-template-columns: 1fr; margin-top: 20px; }

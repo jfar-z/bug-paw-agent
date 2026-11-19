@@ -1,3 +1,4 @@
+import type { MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
@@ -416,7 +417,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** 媒体路由统一编码标识，供列表操作及受会话保护的播放器复用。 */
+function mediaLibraryPath(libraryId: string) {
+  return `/api/media-libraries/${encodeURIComponent(libraryId)}`;
+}
+
+function mediaFilePath(libraryId: string, fileId: string) {
+  return `${mediaLibraryPath(libraryId)}/files/${encodeURIComponent(fileId)}`;
+}
+
 export const api = {
+  listMediaLibraries: (signal?: AbortSignal) =>
+    request<{ libraries: MediaLibrary[] }>("/api/media-libraries", { signal }),
+  getMediaLibrary: (libraryId: string) => request<MediaLibrary>(mediaLibraryPath(libraryId)),
+  createMediaLibrary: (name: string) =>
+    request<MediaLibrary>("/api/media-libraries", { method: "POST", body: JSON.stringify({ name }) }),
+  deleteMediaLibrary: (libraryId: string, confirmation: MediaDeleteConfirmation) =>
+    request<void>(mediaLibraryPath(libraryId), { method: "DELETE", body: JSON.stringify(confirmation) }),
+  listMediaFiles: (libraryId: string, signal?: AbortSignal) =>
+    request<{ files: MediaFile[] }>(`${mediaLibraryPath(libraryId)}/files`, { signal }),
+  getMediaFile: (libraryId: string, fileId: string) =>
+    request<MediaFile>(mediaFilePath(libraryId, fileId)),
+  checkMediaName: (libraryId: string, name: string, excludeFileId?: string) => {
+    const query = new URLSearchParams({ name });
+    if (excludeFileId) query.set("excludeFileId", excludeFileId);
+    return request<{ available: boolean }>(`${mediaLibraryPath(libraryId)}/name-check?${query}`);
+  },
+  uploadMediaFile: (libraryId: string, file: File, name: string) => {
+    const data = new FormData();
+    data.append("file", file, name);
+    return request<MediaFile>(`${mediaLibraryPath(libraryId)}/files`, { method: "POST", body: data });
+  },
+  renameMediaFile: (libraryId: string, fileId: string, change: MediaRename) =>
+    request<MediaFile>(mediaFilePath(libraryId, fileId), { method: "PATCH", body: JSON.stringify(change) }),
+  mediaFileUrl: (libraryId: string, fileId: string, representation: "content" | "thumbnail") =>
+    apiV1Url(`${mediaFilePath(libraryId, fileId)}/${representation}`),
   listWorkflows: () => request<{ workflows: WorkflowSummary[] }>("/api/workflows"),
   getWorkflow: (id: string) => request<WorkflowDefinition>(`/api/workflows/${encodeURIComponent(id)}`),
   saveWorkflow: (draft: WorkflowDraft, id?: string, revision?: number) => request<WorkflowDefinition>(id ? `/api/workflows/${encodeURIComponent(id)}` : "/api/workflows", { method: id ? "PUT" : "POST", body: JSON.stringify({ ...draft, revision }) }),

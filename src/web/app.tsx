@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { api, ApiClientError, type SetupRequest } from "./api";
 import { toUnexpectedErrorNotice } from "./api-error-policy";
@@ -43,6 +43,7 @@ const ProvidersPage = lazy(() => import("./pages/providers-page").then((module) 
 const PiSettingsPage = lazy(() => import("./pages/pi-settings-page").then((module) => ({ default: module.PiSettingsPage })));
 const ResourcesPage = lazy(() => import("./pages/resources-page").then((module) => ({ default: module.ResourcesPage })));
 const WorkspaceResourcesPage = lazy(() => import("./pages/workspace-resources-page").then((module) => ({ default: module.WorkspaceResourcesPage })));
+const MediaLibraryPage = lazy(() => import("./pages/media-library-page").then((module) => ({ default: module.MediaLibraryPage })));
 const KnowledgeBasePage = lazy(() => import("./pages/knowledge-base-page").then((module) => ({ default: module.KnowledgeBasePage })));
 const ConfigurationOperationsPage = lazy(() => import("./pages/configuration-operations-page").then((module) => ({ default: module.ConfigurationOperationsPage })));
 const SecurityPage = lazy(() => import("./pages/security-page").then((module) => ({ default: module.SecurityPage })));
@@ -125,13 +126,13 @@ export function App() {
   const login = async (password: string, remember: boolean) => {
     const result = await api.login(password, remember);
     if (result?.authenticated === false) return result;
-    navigateTo({ page: "chat" }, true);
+    if (route.page !== "media-library") navigateTo({ page: "chat" }, true);
     setPage("workbench");
   };
 
   const verifyTotp = async (code: string, recovery: boolean) => {
     await api.verifyLoginTotp(code, recovery);
-    navigateTo({ page: "chat" }, true);
+    if (route.page !== "media-library") navigateTo({ page: "chat" }, true);
     setPage("workbench");
   };
 
@@ -172,6 +173,8 @@ export function App() {
         return <AigcPublicDirectoryPage />;
       case "workspace-resources":
         return <WorkspaceResourcesPage />;
+      case "media-library":
+        return <MediaLibraryPage libraryId={activeRoute.libraryId} />;
       case "knowledge-base":
         return <KnowledgeBasePage />;
       case "scheduled-tasks":
@@ -211,12 +214,14 @@ export function App() {
     }
   };
 
+  const onAuthenticationRequired = useCallback(() => {
+    clearAllQuestionDrafts();
+    if (window.location.pathname.split("/")[1] !== "media-library") navigateTo({ page: "chat" }, true);
+    setPage("login");
+  }, []);
+
   return (
-    <ApiTaskProvider onAuthenticationRequired={() => {
-      clearAllQuestionDrafts();
-      navigateTo({ page: "chat" }, true);
-      setPage("login");
-    }}>
+    <ApiTaskProvider onAuthenticationRequired={onAuthenticationRequired}>
       <div className="app-page-transition" key={page}>
         {page === "loading" && <AppLoadingState />}
         {page === "error" && <main className="app-status-page">无法连接 Agent 服务，请检查容器状态。</main>}

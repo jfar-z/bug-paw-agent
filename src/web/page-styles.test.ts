@@ -81,3 +81,19 @@ it("信号量管理具有独立懒加载与主题响应式边界", async () => {
   expect(main).not.toContain("workflow-semaphores.css");
   expect(css).toContain("var(--panel)"); expect(css).toContain("max-width:760px");
 });
+
+/** 媒体页独立加载，并直接复用知识库侧栏的三主题规则。 */
+it("媒体库按路由加载缩略图和预览样式", async () => {
+  const [app, main, page, css, theme] = await Promise.all([
+    "src/web/app.tsx", "src/web/main.tsx", "src/web/pages/media-library-page.tsx",
+    "src/web/media-library.css", "src/web/bugpaw-theme.css",
+  ].map((path) => readFile(path, "utf8")));
+  expect(app).toContain('lazy(() => import("./pages/media-library-page")');
+  expect(page).toContain('import "../media-library.css"');
+  expect(page).toContain('import "../library-workspace.css"');
+  expect(main).not.toContain("media-library.css");
+  expect(app).not.toContain('import "./media-library.css"');
+  expect(page).toContain("knowledge-base-navigation media-library-navigation");
+  expect(theme).toContain(':root[data-theme="bug"] .knowledge-base-navigation');
+  expect(css).toContain(".media-library-preview__stage");
+});

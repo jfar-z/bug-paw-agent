@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiTaskProvider } from "./api-task-provider";
 import { ErrorToastProvider } from "./error-toast-provider";
 import { useUnsavedChanges } from "./components/configuration/unsaved-changes";
-import { navigateTo, useBrowserRoute } from "./router";
+import { navigateTo, parseRoute, routePath, useBrowserRoute } from "./router";
 
 /** 用真实 History API 与配置守卫验证路由恢复，不模拟路由实现。 */
 function RouterHarness({ save }: { save: () => Promise<boolean> }) {
@@ -62,4 +62,12 @@ describe("配置草稿与 History 导航", () => {
     await waitFor(() => expect(screen.getByTestId("route")).toHaveTextContent("diagnostics"));
     expect(window.history.length).toBe(length);
   });
+});
+
+/** 媒体库详情路径须保持标识完整，入口和无效编码回到媒体库首页。 */
+it("往返解析媒体库深链和入口", () => {
+  const route = { page: "media-library", libraryId: "测试/库" } as const;
+  expect(parseRoute(routePath(route))).toEqual(route);
+  expect(parseRoute("/media-library/")).toEqual({ page: "media-library" });
+  expect(parseRoute("/media-library/%z")).toEqual({ page: "media-library" });
 });

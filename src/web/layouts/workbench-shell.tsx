@@ -1,6 +1,6 @@
 import { WorkflowSidebar } from "./workflow-sidebar";
-import { Workflow, CalendarClock, ChevronDown, FolderOpen, GitFork, LibraryBig, LogOut, Menu, MessageSquare, Settings2, WandSparkles, X } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { Workflow, CalendarClock, ChevronDown, Film, FolderOpen, GitFork, LibraryBig, LogOut, Menu, MessageSquare, Settings2, WandSparkles, X } from "lucide-react";
+import { createContext, type ReactNode, useContext, useCallback, useEffect, useState } from "react";
 import { ProductMark } from "../components/product-mark";
 import { ThemeSwitcher } from "../components/theme-switcher";
 import { KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT, WORKBENCH_NAVIGATION_TOGGLE_EVENT, type AppRoute } from "../router";
@@ -8,6 +8,13 @@ import { WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT } from "../components/workspace
 import type { ThemePreference } from "../theme";
 import { AIGC_NAVIGATION_TOGGLE_EVENT, AigcWorkbenchSidebar } from "./aigc-workbench-sidebar";
 import { ConfigurationSidebar } from "./configuration-sidebar";
+
+const MediaNavigationContext = createContext({ open: false, close: () => {} });
+
+/** 媒体库页面与移动工作台共享同一个二级抽屉开关。 */
+export function useMediaNavigation() {
+  return useContext(MediaNavigationContext);
+}
 
 interface WorkbenchShellProps {
   route: AppRoute;
@@ -36,6 +43,10 @@ export function WorkbenchShell({
   const workflowRoute = route.page === "workflows" || route.page.startsWith("workflow-");
   const aigcRoute = isAigcRoute(route) || workflowRoute;
   const agentNavigationRoute = route.page === "workspace-resources" || route.page === "knowledge-base" || route.page === "scheduled-tasks";
+  const [mediaNavigationOpen, setMediaNavigationOpen] = useState(false);
+  const mediaLibraryRoute = route.page === "media-library";
+  const closeMediaNavigation = useCallback(() => setMediaNavigationOpen(false), []);
+  useEffect(() => { closeMediaNavigation(); }, [route, closeMediaNavigation]);
   const knowledgeBaseRoute = route.page === "knowledge-base";
   const primaryNavigation = [
     { label: "会话", route: { page: "chat" } as AppRoute, icon: MessageSquare, active: route.page === "chat" },
@@ -43,12 +54,16 @@ export function WorkbenchShell({
     { label: "工作流", route: { page: "workflows" } as AppRoute, icon: Workflow, active: workflowRoute },
     { label: "资源管理", route: { page: "workspace-resources" } as AppRoute, icon: FolderOpen, active: route.page === "workspace-resources" },
     { label: "知识库", route: { page: "knowledge-base" } as AppRoute, icon: LibraryBig, active: route.page === "knowledge-base" },
+    { label: "媒体库", route: { page: "media-library" } as AppRoute, icon: Film, active: mediaLibraryRoute },
     { label: "定时任务", route: { page: "scheduled-tasks" } as AppRoute, icon: CalendarClock, active: route.page === "scheduled-tasks" },
     { label: "配置中心", route: { page: "configuration-overview" } as AppRoute, icon: Settings2, active: configurationRoute },
   ];
 
   useEffect(() => {
-    const toggleNavigation = () => setMainNavigationOpen((current) => !current);
+    const toggleNavigation = () => {
+      setMediaNavigationOpen(false);
+      setMainNavigationOpen((current) => !current);
+    };
     window.addEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, toggleNavigation);
     return () => window.removeEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, toggleNavigation);
   }, []);
@@ -60,12 +75,13 @@ export function WorkbenchShell({
   }, []);
 
   const go = (nextRoute: AppRoute) => {
+    setMediaNavigationOpen(false);
     onNavigate(nextRoute);
     setMainNavigationOpen(false);
     setAigcNavigationOpen(false);
   };
 
-  const shellMode = configurationRoute ? "is-configuration" : aigcRoute ? "is-aigc" : agentNavigationRoute ? "is-workspace-resources" : "is-chat";
+  const shellMode = configurationRoute ? "is-configuration" : aigcRoute ? "is-aigc" : (agentNavigationRoute || mediaLibraryRoute) ? "is-workspace-resources" : "is-chat";
 
   return (
     <main className={`workbench-shell ${shellMode}`} style={{ height: "var(--app-viewport-height, 100dvh)" }}>
@@ -73,10 +89,15 @@ export function WorkbenchShell({
         <button
           type="button"
           className="icon-button workbench-secondary-menu"
-          aria-label={configurationRoute ? (configurationOpen ? "关闭配置导航" : "打开配置导航") : aigcRoute ? (aigcNavigationOpen ? (workflowRoute ? "关闭工作流导航" : "关闭 AIGC 导航") : (workflowRoute ? "打开工作流导航" : "打开 AIGC 导航")) : knowledgeBaseRoute ? "打开知识库列表" : agentNavigationRoute ? "打开 Agent 列表" : "当前工作台没有二级导航"}
-          aria-expanded={configurationRoute ? configurationOpen : aigcRoute ? aigcNavigationOpen : undefined}
-          disabled={!configurationRoute && !aigcRoute && !agentNavigationRoute}
+          aria-label={configurationRoute ? (configurationOpen ? "关闭配置导航" : "打开配置导航") : aigcRoute ? (aigcNavigationOpen ? (workflowRoute ? "关闭工作流导航" : "关闭 AIGC 导航") : (workflowRoute ? "打开工作流导航" : "打开 AIGC 导航")) : mediaLibraryRoute ? (mediaNavigationOpen ? "关闭媒体库列表" : "打开媒体库列表") : knowledgeBaseRoute ? "打开知识库列表" : agentNavigationRoute ? "打开 Agent 列表" : "当前工作台没有二级导航"}
+          aria-expanded={configurationRoute ? configurationOpen : aigcRoute ? aigcNavigationOpen : mediaLibraryRoute ? mediaNavigationOpen : undefined}
+          disabled={!configurationRoute && !aigcRoute && !agentNavigationRoute && !mediaLibraryRoute}
           onClick={() => {
+            if (mediaLibraryRoute) {
+              setMainNavigationOpen(false);
+              setMediaNavigationOpen((current) => !current);
+              return;
+            }
             if (aigcRoute) {
               setMainNavigationOpen(false);
               window.dispatchEvent(new Event(AIGC_NAVIGATION_TOGGLE_EVENT));
@@ -102,6 +123,7 @@ export function WorkbenchShell({
           onClick={() => {
             setConfigurationOpen(false);
             setAigcNavigationOpen(false);
+            setMediaNavigationOpen(false);
             setMainNavigationOpen((current) => !current);
           }}
         >
@@ -177,6 +199,10 @@ export function WorkbenchShell({
               {children}
             </section>
           </div>
+        ) : mediaLibraryRoute ? (
+          <MediaNavigationContext.Provider value={{ open: mediaNavigationOpen, close: closeMediaNavigation }}>
+            {children}
+          </MediaNavigationContext.Provider>
         ) : children}
       </div>
     </main>
