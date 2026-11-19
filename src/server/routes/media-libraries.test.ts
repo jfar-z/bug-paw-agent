@@ -1,4 +1,15 @@
 // @vitest-environment node
+import { Readable } from "node:stream";
+import { Check } from "typebox/value";
+import { MediaAccess, mediaReference } from "../media-library/media-access";
+import { MediaResults } from "../media-library/media-results";
+import { createMediaTool } from "../media-library/media-tool";
+import { AigcAssetService } from "../aigc/aigc-asset-service";
+import { WorkflowFiles } from "../workflows/workflow-files";
+import { WorkflowMediaInputs } from "../media-library/workflow-media-inputs";
+import { submitMediaInputs } from "../media-library/aigc-media-inputs";
+import { emptyWorkflow, newWorkflowNode } from "../../shared/workflow-contracts";
+import type { AgentProfile } from "../../shared/agent-contracts";
 import multipart from "@fastify/multipart";
 import Fastify from "fastify";
 import { mkdtemp, mkdir, readdir, rm } from "node:fs/promises";
@@ -21,6 +32,9 @@ let db: ReturnType<typeof openDatabase>;
 let app: ReturnType<typeof Fastify>;
 let repo: MediaRepository;
 let storage: MediaStorage;
+let assets: AigcAssetService;
+let files: WorkflowFiles;
+let workflowOutputs: Record<string, unknown>;
 let url: string;
 let png: Buffer;
 
@@ -36,11 +50,16 @@ beforeEach(async () => {
   registerApiV1Namespace(app);
   registerApiErrorHandler(app);
   await app.register(multipart);
+  assets = new AigcAssetService(join(root, "aigc"));
+  files = new WorkflowFiles(join(root, "dag"), {} as never, {} as never);
+  workflowOutputs = {};
   await registerMediaLibraryRoutes(
     app,
     { isAuthenticated: async (req) => req.headers["x-test-session"] === "active" } as AuthService,
     repo,
     storage,
+    new MediaResults(storage, { get: async () => undefined } as never, assets,
+      { getRun: () => ({ outputs: {}, nodes: [{ outputs: workflowOutputs }] }) } as never, files),
   );
   url = (await app.listen({ port: 0, host: "127.0.0.1" })) + "/api/v1/media-libraries";
   png = await sharp({ create: { width: 16, height: 24, channels: 3, background: "#abc" } })
@@ -65,6 +84,95 @@ function upload(lib: string, name: string, data = png) {
   body.append("file", new Blob([new Uint8Array(data)]), name);
   return fetch(url + "/" + lib + "/files", { method: "POST", headers: { "x-test-session": "active" }, body });
 }
+
+it("按运行输出标识归档指定文件，并发冲突保留独立原件", async () => {
+  const lib = repo.create("归档");
+  const one = await files.upload(Readable.from(png), "一.png", "image/png");
+  const second = await sharp(png).resize(7, 9).png().toBuffer();
+  const two = await files.upload(Readable.from(second), "二.png", "image/png");
+  workflowOutputs = { images: [one, two] };
+  const path = "/" + lib.id + "/files/from-result";
+  const body = { source: "workflow", taskId: "运行", assetId: two.assetId, name: "所选.png" };
+  expect((await request(path, "POST", { ...body, assetId: randomUUID() })).status).toBe(404);
+  const replies = await Promise.all([request(path, "POST", body), request(path, "POST", body)]);
+  expect(replies.map(r => r.status).sort()).toEqual([201, 409]);
+  const saved = await replies.find(r => r.ok)!.json();
+  await files.remove(two.assetId);
+  expect(Buffer.from(await (await request("/" + lib.id + "/files/" + saved.id + "/content")).arrayBuffer())).toEqual(second);
+});
+
+it("工具按当前库授权返回 JPEG 和执行引用，上传权限独立", async () => {
+  const a = repo.create("可读"), b = repo.create("可写");
+  const file = await storage.save(a.id, "原图.png", png);
+  const profile = { allowedTools: ["media_library"], mediaLibraryGrants: [
+    { libraryId: a.id, read: true, upload: false, publicTransfer: false },
+    { libraryId: b.id, read: false, upload: true, publicTransfer: false },
+  ] } as AgentProfile;
+  const access = new MediaAccess(repo, storage, async id => id === "A" ? profile : undefined,
+    { readFile: async () => ({ content: png, name: "上传.png" }) } as never);
+  const tool = createMediaTool("A", access);
+  const params = { action: "view" as const, libraryId: a.id, fileId: file.id, category: null, path: null, name: null };
+  expect(tool.parameters.type).toBe("object");
+  for (const key of ["anyOf", "oneOf", "allOf"]) expect(tool.parameters).not.toHaveProperty(key);
+  expect(Check(tool.parameters, {})).toBe(false);
+  expect(Check(tool.parameters, params)).toBe(true);
+  await expect(tool.execute("call", { ...params, path: "非法" }, undefined, undefined, {} as never)).rejects.toThrow("无关");
+  const viewed = await tool.execute("call", params, undefined, undefined, {} as never);
+  const preview = viewed.content[0];
+  expect(preview.type).toBe("image");
+  if (preview.type === "image") expect((await sharp(Buffer.from(preview.data, "base64")).metadata()).format).toBe("jpeg");
+  const uploaded = await access.upload("A", b.id, "上传.png", null);
+  await expect(access.read(mediaReference(b.id, uploaded.id), "image", "image", "A")).rejects.toThrow("读取");
+  await expect(access.files("A", b.id, null)).rejects.toThrow("读取");
+  await expect(access.libraries("B")).rejects.toThrow("工具权限");
+  const ref = mediaReference(a.id, file.id);
+  repo.renameFile(a.id, file.id, "改名.png", 1);
+  expect((await access.read(ref, "image", "image", "A")).content).toEqual(png);
+  await expect(access.read(ref, "image", "image", "A", true)).rejects.toThrow("公网传输");
+  profile.allowedTools = [];
+  await expect(access.read(ref, "image", "image", "A")).rejects.toThrow("工具权限");
+});
+
+it("DAG 按目标路径验证公网授权并固定执行副本", async () => {
+  const lib = repo.create("运行"), file = await storage.save(lib.id, "图.png", png);
+  const ref = mediaReference(lib.id, file.id);
+  const grant = { libraryId: lib.id, read: true, upload: false, publicTransfer: false };
+  const access = new MediaAccess(repo, storage, async () => ({ allowedTools: ["media_library"], mediaLibraryGrants: [grant] }) as AgentProfile, {} as never);
+  const inputs = new WorkflowMediaInputs(access, files, { get: async () => ({ protocol: "grok" }) } as never, "https://media.example");
+  const draft = emptyWorkflow();
+  const start = draft.nodes.find(n => n.kind === "input")!;
+  start.outputs.push({ name: "image", type: "image" });
+  const node = newWorkflowNode("aigc", "grok");
+  node.inputs.image = { kind: "reference", nodeId: start.id, field: "image" };
+  draft.nodes.push(node);
+  const definition = { ...draft, id: "dag", revision: 1, createdAt: "", updatedAt: "" };
+  const checks: (() => Promise<unknown>)[] = [];
+  await expect(inputs.copyForRun(definition, {}, { image: ref }, "A", false, [], checks)).rejects.toThrow("公网传输");
+  await expect(inputs.copyForRun(definition, {}, { image: ref }, undefined, false, [], checks)).rejects.toThrow("确认");
+  grant.publicTransfer = true;
+  const result = await inputs.copyForRun(definition, {}, { image: ref }, "A", false, [], checks);
+  await checks[0]();
+  repo.removeFile(lib.id, file.id, 1);
+  await storage.discard(file.id);
+  expect((await files.buffer(result.image, "A", undefined, true)).content).toEqual(png);
+});
+
+it("Grok 校验和显式确认先于公共副本创建，提交失败回收副本", async () => {
+  const lib = repo.create("公网"), file = await storage.save(lib.id, "原图.png", png);
+  const input = { interfaceId: "grok", inputs: { image: mediaReference(lib.id, file.id), prompt: "编辑" } };
+  const { AigcPublicFileService } = await import("../aigc/aigc-public-file-service");
+  const publicFiles = new AigcPublicFileService(join(root, "public"));
+  const deps = { mediaAccess: new MediaAccess(repo, storage, async () => undefined, {} as never),
+    assets, publicFiles, publicOrigin: "https://media.example", workflows: {} as never,
+    interfaces: { get: async () => ({ protocol: "grok", enabled: true, capability: "image-edit", config: { model: "image" } }) } as never,
+    tasks: { createRun: async () => { throw new Error("队列关闭"); } } as never };
+  await expect(submitMediaInputs(input, deps)).rejects.toThrow("确认");
+  await expect(submitMediaInputs({ ...input, confirmPublicTransfer: true }, { ...deps, publicOrigin: undefined })).rejects.toThrow("Origin");
+  await expect(submitMediaInputs({ ...input, confirmPublicTransfer: true, inputs: { ...input.inputs, size: "bad" } }, deps)).rejects.toThrow("WIDTHxHEIGHT");
+  expect(await publicFiles.list()).toHaveLength(0);
+  await expect(submitMediaInputs({ ...input, confirmPublicTransfer: true }, deps)).rejects.toThrow("队列关闭");
+  expect(await publicFiles.list()).toHaveLength(0);
+});
 
 it("并发同库重名只提交一次，预检、筛选、读取、改名共用稳定标识", async () => {
   const a = await (await request("", "POST", { name: "甲" })).json();

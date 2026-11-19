@@ -29,7 +29,7 @@ export function createAigcAgentTools(context: AigcAgentContext, service: AigcAge
       Type.Boolean(),
       Type.Array(Type.String({ minLength: 1, maxLength: 1_024 }), { minItems: 1, maxItems: 16 }),
       Type.Null(),
-    ], { description: "按接口字段类型提供原生 JSON 值；图片编辑 image 可传有序工作区路径数组，其他媒体传单个路径，可选媒体未提供时传 JSON null" }),
+    ], { description: "按接口字段类型提供原生 JSON 值；媒体可传工作区相对路径或 media_library 返回的 reference，图片编辑 image 支持有序数组，可选媒体未提供时传 JSON null" }),
   }, { additionalProperties: false }), { maxItems: 100, description: "每项只提供 name 和 value，禁止添加其他值字段" });
   const runParameters = Type.Object({ taskIds: Type.Array(Type.String({ minLength: 1, maxLength: 120 }), { minItems: 1, maxItems: 2, uniqueItems: true }) }, { additionalProperties: false });
   return [

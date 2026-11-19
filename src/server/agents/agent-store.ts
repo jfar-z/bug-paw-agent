@@ -274,6 +274,7 @@ export class AgentStore {
       name,
       avatar: patch.avatar ?? current.profile.avatar,
       instructions: current.profile.instructions,
+      mediaLibraryGrants: patch.mediaLibraryGrants ?? current.profile.mediaLibraryGrants ?? [],
       allowedTools: patch.allowedTools ? [...patch.allowedTools] : current.profile.allowedTools,
       id: current.profile.id,
       cwd: requestedCwd,

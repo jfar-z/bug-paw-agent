@@ -171,6 +171,11 @@ function buildPayload(
   return payload;
 }
 
+/** 在生成可公开副本之前复用适配器的完整请求校验。 */
+export function validateGrokInputs(capability: AigcExecutionInput["item"]["capability"], config: AigcGrokInterfaceConfig, inputs: Record<string, unknown>) {
+  buildPayload(operationFor(capability), config, inputs);
+}
+
 /** 返回协议端点相对路径。 */
 function endpointFor(operation: GrokOperation): string {
   switch (operation) {

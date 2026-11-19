@@ -1,3 +1,4 @@
+import type { WorkflowMediaInputs } from "../media-library/workflow-media-inputs";
 import { TaskExecutionQueue } from "../core/task-execution-queue";
 import { workflowNodesDeep, type WorkflowSemaphoreInput } from "../../shared/workflow-contracts";
 import { createHash, randomUUID } from "node:crypto";
@@ -82,6 +83,7 @@ export class WorkflowService {
     private readonly executor: WorkflowExecutor,
     private readonly backgroundError: (error: Error) => void = () => undefined,
     private readonly checkFiles?: (definition: WorkflowDraft, inputs?: unknown) => Promise<void>,
+    readonly mediaInputs?: WorkflowMediaInputs,
   ) {}
   /** 重启后不重复提交可能计费的节点；中断运行明确标记失败。 */
   async initialize(): Promise<void> {
@@ -287,8 +289,8 @@ export class WorkflowService {
 
   /** 手动入口仍支持立即运行，Agent 必须先使用 createPrepared 创建。 */
   async start(workflowId: string, inputs: Record<string, unknown>, requestKey: string,
-    origin?: WorkflowRun["origin"], idempotencyInputs: Record<string, unknown> = inputs): Promise<WorkflowRun> {
-    return this.create(workflowId, inputs, requestKey, origin, idempotencyInputs);
+    origin?: WorkflowRun["origin"], idempotencyInputs: Record<string, unknown> = inputs, confirmPublicTransfer = false): Promise<WorkflowRun> {
+    return this.create(workflowId, inputs, requestKey, origin, idempotencyInputs, undefined, undefined, confirmPublicTransfer);
   }
 
   /** 保存已校验任务，不占运行额度，也不执行任何节点。 */
@@ -306,6 +308,7 @@ export class WorkflowService {
     idempotencyInputs: Record<string, unknown> = inputs,
     preparation?: TaskPreparation,
     expectedDefinition?: string,
+    confirmPublicTransfer = false,
   ): Promise<WorkflowRun> {
     return this.lock.run("submit", async () => {
       if (this.closing) throw new DomainError("CONFLICT", "工作流服务正在关闭");
@@ -344,38 +347,48 @@ export class WorkflowService {
       }
       for (const snapshot of [definition, ...Object.values(dependencies)])
         await this.checkFiles?.(snapshot);
-      if (!preparation) await this.checkFiles?.(definition, inputs);
-      const values = validateValues(
-        definition.nodes.find((n) => n.kind === "input")!.outputs,
-        inputs,
-      );
-      if (preparation) {
-        preparation = { ...preparation, values: { ...values, ...preparation.values }, definitionHash: await this.preparationFingerprint(definition, dependencies) };
+      const uploaded: string[] = [];
+      const checks: (() => Promise<unknown>)[] = [];
+      try {
+        if (!preparation && this.mediaInputs)
+          inputs = await this.mediaInputs.copyForRun(definition, dependencies, inputs, origin?.agentId, confirmPublicTransfer, uploaded, checks);
+        if (!preparation) await this.checkFiles?.(definition, inputs);
+        const values = validateValues(
+          definition.nodes.find((n) => n.kind === "input")!.outputs,
+          inputs,
+        );
+        if (preparation) {
+          preparation = { ...preparation, values: { ...values, ...preparation.values }, definitionHash: await this.preparationFingerprint(definition, dependencies) };
+        }
+        const run: WorkflowRun = {
+          id: randomUUID(),
+          workflowId,
+          definition,
+          dependencies,
+          status: preparation ? "prepared" : "queued",
+          inputs: preparation?.values ?? values,
+          ...(preparation ? { preparation } : { submittedAt: new Date().toISOString(), queueOrder: ++this.sequence }),
+          outputs: {},
+          nodes: definition.nodes.map((n) => ({
+            nodeId: n.id,
+            status: "queued",
+            events: [],
+          })),
+          createdAt: new Date().toISOString(),
+          origin,
+          requestKey,
+          requestHash: hash,
+        };
+        new WorkflowExecutionBudget(run);
+        for (const check of checks) await check();
+        await this.repository.saveRun(run);
+        uploaded.length = 0;
+        this.runs.set(run.id, run);
+        if (!preparation) this.enqueue(run);
+        return structuredClone(run);
+      } finally {
+        if (uploaded.length) await this.mediaInputs!.discard(uploaded);
       }
-      const run: WorkflowRun = {
-        id: randomUUID(),
-        workflowId,
-        definition,
-        dependencies,
-        status: preparation ? "prepared" : "queued",
-        inputs: preparation?.values ?? values,
-        ...(preparation ? { preparation } : { submittedAt: new Date().toISOString(), queueOrder: ++this.sequence }),
-        outputs: {},
-        nodes: definition.nodes.map((n) => ({
-          nodeId: n.id,
-          status: "queued",
-          events: [],
-        })),
-        createdAt: new Date().toISOString(),
-        origin,
-        requestKey,
-        requestHash: hash,
-      };
-      new WorkflowExecutionBudget(run);
-      await this.repository.saveRun(run);
-      this.runs.set(run.id, run);
-      if (!preparation) this.enqueue(run);
-      return structuredClone(run);
     });
   }
   /** 整批重新验证定义和输入，提交凭据落盘后才按顺序入队。 */

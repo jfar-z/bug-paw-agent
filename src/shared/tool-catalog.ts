@@ -38,6 +38,7 @@ export const RETIRED_AGENT_TOOL_NAMES = ["edit_own_prompts"] as const;
 
 /** 由能力扩展模块提供、可按全局开关停用的工具。 */
 export const CAPABILITY_TOOL_CATALOG: ToolCatalogItem[] = [
+  { name: "media_library", description: "按授权浏览、查看或上传媒体库文件，返回稳定的执行引用", source: "capability", highRisk: true },
   { name: "workflow_list", description: "查询已发布工作流及输入输出参数", source: "capability", highRisk: false },
   { name: "workflow_get_parameters", description: "仅查询工作流出入参，不包含内部节点与脚本", source: "capability", highRisk: false },
   { name: "workflow_get_definition", description: "查询工作流节点与连线定义", source: "capability", highRisk: false },
@@ -70,7 +71,7 @@ export const CAPABILITY_TOOL_CATALOG: ToolCatalogItem[] = [
 
 /** 新建 Agent 的默认权限，保持现有开箱即用的能力。 */
 export const DEFAULT_AGENT_TOOL_NAMES = [...BUILTIN_TOOL_CATALOG, ...SYSTEM_TOOL_CATALOG, ...CAPABILITY_TOOL_CATALOG]
-  .filter(({ name }) => !["browser_input", "browser_submit", "browser_upload"].includes(name))
+  .filter(({ name }) => !["media_library", "browser_input", "browser_submit", "browser_upload"].includes(name))
   .filter(({ name }) => !name.startsWith("aigc_") && !name.startsWith("workflow_"))
   .map(({ name }) => name);
 

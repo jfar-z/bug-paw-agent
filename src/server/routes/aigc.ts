@@ -1,3 +1,6 @@
+import { DomainError } from "../core/errors";
+import type { MediaAccess } from "../media-library/media-access";
+import { submitMediaInputs } from "../media-library/aigc-media-inputs";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -38,6 +41,8 @@ interface AigcRouteDependencies {
   assets: AigcAssetService;
   publicFiles: AigcPublicFileService;
   comfyuiInputs: AigcComfyUiInputService;
+  mediaAccess?: MediaAccess;
+  publicOrigin?: string;
   mediaProjects?: AigcMediaProjectService;
 }
 
@@ -351,7 +356,8 @@ function registerTaskRoutes(app: FastifyInstance, dependencies: AigcRouteDepende
       return sendApiError(reply, 400, "VALIDATION_FAILED", "任务运行参数格式无效");
     }
     try {
-      const task = await dependencies.tasks.createRun(body as unknown as AigcRunRequest);
+      const input = body as unknown as AigcRunRequest;
+      const task = dependencies.mediaAccess ? await submitMediaInputs(input, { ...dependencies, mediaAccess: dependencies.mediaAccess }) : await dependencies.tasks.createRun(input);
       return reply.code(202).send(task);
     } catch (error) {
       return sendAigcError(reply, error);
@@ -677,6 +683,7 @@ function downloadContentDisposition(name: string): string {
 }
 
 function sendAigcError(reply: Parameters<typeof sendApiError>[0], error: unknown) {
+  if (error instanceof DomainError) throw error;
   if (error instanceof AigcMediaProjectError) {
     const status = error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : error.code === "QUEUE_FULL" ? 429 : 400;
     return sendApiError(reply, status, error.code === "CONFLICT" ? "CONFLICT" : error.code === "NOT_FOUND" ? "NOT_FOUND" : "VALIDATION_FAILED", error.message);

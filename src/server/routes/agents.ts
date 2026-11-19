@@ -356,6 +356,7 @@ function readCreateInput(body: Record<string, unknown>): CreateAgentInput {
       : readTtsCustomParameters(body.ttsCustomParameters),
     ttsAutoPlay: body.ttsAutoPlay === true,
     ttsStreamPlayback: body.ttsStreamPlayback === true,
+    mediaLibraryGrants: readMediaGrants(body.mediaLibraryGrants),
     allowedTools: readStringArray(body.allowedTools),
   };
 }
@@ -380,6 +381,7 @@ function readUpdateInput(body: Record<string, unknown>): UpdateAgentInput {
   else if (body.ttsCustomParameters !== undefined) input.ttsCustomParameters = readTtsCustomParameters(body.ttsCustomParameters);
   if (typeof body.ttsAutoPlay === "boolean") input.ttsAutoPlay = body.ttsAutoPlay;
   if (typeof body.ttsStreamPlayback === "boolean") input.ttsStreamPlayback = body.ttsStreamPlayback;
+  if (body.mediaLibraryGrants !== undefined) input.mediaLibraryGrants = readMediaGrants(body.mediaLibraryGrants);
   if (body.allowedTools !== undefined) input.allowedTools = readStringArray(body.allowedTools);
   return input;
 }
@@ -416,6 +418,21 @@ function readTitleGeneration(value: unknown): TitleGenerationConfig {
   const model = readModel(value.model);
   if (!model) throw new TypeError("单独标题模型不能为空");
   return { modelSource: "custom", model, thinkingEnabled: value.thinkingEnabled };
+}
+
+function readMediaGrants(value: unknown): CreateAgentInput["mediaLibraryGrants"] {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > SYSTEM_LIMITS.mediaLibraries)
+    throw new DomainError("VALIDATION_FAILED", "媒体库授权列表无效");
+  const ids = new Set<string>();
+  return value.map((entry: unknown) => {
+    if (!isRecord(entry) || typeof entry.libraryId !== "string" || !/^[a-f0-9-]{36}$/.test(entry.libraryId)
+      || ids.has(entry.libraryId) || typeof entry.read !== "boolean" || typeof entry.upload !== "boolean"
+      || typeof entry.publicTransfer !== "boolean" || (entry.publicTransfer && !entry.read))
+      throw new DomainError("VALIDATION_FAILED", "媒体库授权须按库唯一设置，公开传输须同时授予读取权限");
+    ids.add(entry.libraryId);
+    return { libraryId: entry.libraryId, read: entry.read, upload: entry.upload, publicTransfer: entry.publicTransfer };
+  });
 }
 
 function readStringArray(value: unknown): string[] | undefined {

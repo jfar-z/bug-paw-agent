@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { workflowThinkingLevels } from "./workflow-thinking";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Readable } from "node:stream";
@@ -563,7 +564,7 @@ export class WorkflowNodeExecutor implements WorkflowExecutor {
         for (const input of asFiles(inputs[name])) {
           const { file, content } = await this.dependencies.files.buffer(
             input,
-            ctx.run.origin?.agentId,
+            ctx.run.origin?.agentId, undefined, item.protocol === "grok",
           );
           if (!file.mediaType.startsWith(field.type + "/"))
             invalid(`AIGC 参数 ${name} 文件类型不匹配`);
@@ -572,7 +573,7 @@ export class WorkflowNodeExecutor implements WorkflowExecutor {
               invalid("Grok 媒体输入需要配置可访问的公开 Origin");
             const saved = await this.dependencies.publicFiles.save(
               Readable.from(content),
-              file.name,
+              `workflow-${randomUUID()}-${file.name}`,
               file.mediaType,
             );
             preparedPublic.push(saved.id);

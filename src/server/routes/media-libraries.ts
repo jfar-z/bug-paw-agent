@@ -1,3 +1,5 @@
+import type { SaveMediaResult } from "../../shared/media-library-contracts";
+import type { MediaResults } from "../media-library/media-results";
 import type { FastifyInstance } from "fastify";
 import type { MediaCategory, MediaDeleteConfirmation, MediaLibraryUpdate, MediaRename } from "../../shared/media-library-contracts";
 import { DomainError } from "../core/errors";
@@ -17,6 +19,7 @@ export function registerMediaLibraryRoutes(
   auth: AuthService,
   repo: MediaRepository,
   storage: MediaStorage,
+  results?: MediaResults,
 ) {
   return app.register(async (scoped) => {
     scoped.addHook("onRequest", async (request, reply) => {
@@ -28,6 +31,10 @@ export function registerMediaLibraryRoutes(
     const files = library + "/files";
     const file = files + "/:fileId";
 
+    if (results) scoped.post<{ Params: LibraryParams; Body: SaveMediaResult }>(files + "/from-result", async (req, reply) => {
+      repo.library(req.params.libraryId);
+      return reply.code(201).send(await results.save(req.params.libraryId, req.body));
+    });
     scoped.get(root, async () => ({ libraries: repo.list() }));
     scoped.post<{ Body: { name: string } }>(root, async (req, reply) =>
       reply.code(201).send(repo.create(req.body?.name)),
@@ -60,14 +67,10 @@ export function registerMediaLibraryRoutes(
         };
       },
     );
-    let activeUploads = 0;
     scoped.post<{ Params: LibraryParams }>(files, async (req, reply) => {
       repo.library(req.params.libraryId);
       if (!req.isMultipart()) throw new DomainError("VALIDATION_FAILED", "请以 multipart/form-data 上传媒体文件");
-      if (activeUploads >= SYSTEM_LIMITS.concurrentMediaUploads)
-        throw new DomainError("MEDIA_UPLOAD_BUSY", "同时处理的媒体上传已达上限，请稍后重新提交");
-      activeUploads++;
-      try {
+      return storage.withUpload(async () => {
         let upload: { name: string; data: Buffer } | undefined;
         try {
           for await (const part of req.parts({
@@ -90,9 +93,7 @@ export function registerMediaLibraryRoutes(
         }
         if (!upload || !req.raw.complete) throw new DomainError("VALIDATION_FAILED", "媒体上传未完整接收");
         return reply.code(201).send(await storage.save(req.params.libraryId, upload.name, upload.data));
-      } finally {
-        activeUploads--;
-      }
+      });
     });
     scoped.get<{ Params: FileParams }>(file, async (req) => repo.file(req.params.libraryId, req.params.fileId));
     scoped.patch<{ Params: FileParams; Body: MediaRename }>(file, async (req) =>

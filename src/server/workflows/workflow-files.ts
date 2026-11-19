@@ -12,6 +12,7 @@ import { workflowFileReferences } from "./workflow-file-references";
 import { record } from "./workflow-validation";
 
 interface StoredFile extends WorkflowFile {
+  mediaPublicTransfer?: boolean;
   owner?: string;
   directory?: "runtime" | "constants";
   createdAt?: string;
@@ -37,6 +38,7 @@ export class WorkflowFiles {
     owner?: string,
     directory: "runtime" | "constants" = "runtime",
     runId?: string,
+    mediaPublicTransfer?: boolean,
   ): Promise<WorkflowFile> {
     const assets = directory === "constants" ? this.constants : this.assets;
     const saved = await assets.saveInput(stream, name, mediaType);
@@ -52,7 +54,7 @@ export class WorkflowFiles {
       name: saved.name,
       mediaType: saved.mediaType,
       size: saved.size,
-      owner, directory, runId, createdAt: new Date().toISOString(),
+      mediaPublicTransfer, owner, directory, runId, createdAt: new Date().toISOString(),
     };
     await writeJsonAtomic(
       join(this.directory, "metadata", `${file.assetId}.json`),
@@ -81,7 +83,7 @@ export class WorkflowFiles {
   async resolve(
     value: unknown,
     owner?: string,
-  ): Promise<{ file: WorkflowFile; path: string }> {
+  ): Promise<{ file: WorkflowFile; path: string; mediaPublicTransfer?: boolean }> {
     if (
       !record(value) ||
       typeof value.assetId !== "string" ||
@@ -99,14 +101,17 @@ export class WorkflowFiles {
     const path = await (stored.directory === "constants" ? this.constants : this.assets).resolveInputPath(stored.assetId);
     if (!path)
       throw new DomainError("INVALID_ATTACHMENT", "工作流文件内容已不存在");
-    return { file: this.public(stored), path };
+    return { file: this.public(stored), path, mediaPublicTransfer: stored.mediaPublicTransfer };
   }
   async buffer(
     value: unknown,
     owner?: string,
     limit = 100 * 1024 * 1024,
+    publicTransfer = false,
   ): Promise<{ file: WorkflowFile; content: Buffer }> {
-    const { file, path } = await this.resolve(value, owner);
+    const { file, path, mediaPublicTransfer } = await this.resolve(value, owner);
+    if (publicTransfer && mediaPublicTransfer === false)
+      throw new DomainError("FORBIDDEN", "该次执行未授权将媒体库副本用于公网传输");
     if ((await stat(path)).size > limit)
       throw new DomainError(
         "INVALID_ATTACHMENT",

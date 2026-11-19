@@ -15,6 +15,21 @@ export const MediaCategorySchema = Type.Union([
   Type.Literal("video"),
   Type.Literal("audio"),
 ]);
+export const isMediaReference = (value: unknown): value is string =>
+  typeof value === "string" && value.startsWith("media-library://");
+
+export function mediaReference(libraryId: string, fileId: string) {
+  return `media-library://${libraryId}/${fileId}`;
+}
+
+export const SaveMediaResultSchema = Type.Object({
+  source: Type.Union([Type.Literal("aigc"), Type.Literal("workflow")]),
+  taskId: Type.String({ minLength: 1 }),
+  assetId: Type.String({ minLength: 1 }),
+  name: Type.Optional(Type.String()),
+}, { additionalProperties: false });
+export type SaveMediaResult = Static<typeof SaveMediaResultSchema>;
+
 export type MediaCategory = Static<typeof MediaCategorySchema>;
 export const MediaLibrarySchema = Type.Object({
   id: Type.String(),

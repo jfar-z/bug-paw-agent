@@ -79,6 +79,7 @@ export function createAgentProfile(id: string, cwd: string, input: CreateAgentIn
     } : {}),
     // 长期提示词只由五个独立 Markdown 文件维护，新建 Agent 一律从空分区开始。
     instructions: { ...EMPTY_AGENT_INSTRUCTIONS },
+    mediaLibraryGrants: input.mediaLibraryGrants ?? [],
     allowedTools: [...(input.allowedTools ?? DEFAULT_AGENT_TOOL_NAMES)],
     createdAt: now,
     updatedAt: now,

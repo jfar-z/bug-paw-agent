@@ -19,6 +19,16 @@ export class MediaStorage {
     private readonly repo: MediaRepository,
   ) {}
 
+  private activeUploads = 0;
+
+  /** 工作台上传、结果归档与 Agent 上传共享一个并发额度。 */
+  async withUpload<T>(work: () => Promise<T>): Promise<T> {
+    if (this.activeUploads >= SYSTEM_LIMITS.concurrentMediaUploads)
+      throw new DomainError("MEDIA_UPLOAD_BUSY", "同时处理的媒体上传已达上限，请稍后重新提交");
+    this.activeUploads++;
+    try { return await work(); } finally { this.activeUploads--; }
+  }
+
   async recover() {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     // 持有实例锁且尚未接受上传。清理中断上传或已提交删除留下的独立目录。
@@ -39,7 +49,7 @@ export class MediaStorage {
     }
   }
 
-  async save(libraryId: string, input: string, data: Buffer) {
+  async save(libraryId: string, input: string, data: Buffer, authorize?: () => Promise<void>) {
     this.repo.library(libraryId);
     const name = mediaName(input, true);
     const ext = extname(name).toLowerCase();
@@ -63,6 +73,7 @@ export class MediaStorage {
       } else {
         await validateRecording(dir, category, data);
       }
+      if (authorize) await authorize();
       return this.repo.add({ id, libraryId, name, category, mediaType, size: data.length, revision: 1 });
     } catch (error) {
       await this.discard(id);

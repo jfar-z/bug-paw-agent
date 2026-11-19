@@ -38,9 +38,9 @@ The interface editor stores an Agent-specific usage description. With `interface
 }
 ```
 
-每个参数项必须且只能提供 `name` 和 `value`。`value` 按接口字段类型使用原生 JSON 字符串、数字或布尔值；媒体字段使用工作区相对路径字符串。先读取接口定义，不猜测字段。可选字段缺失时使用已配置默认值；可选媒体字段也可显式传 `value: null`，等同于未提供。非媒体字段传 `null`、必填字段缺失或没有默认值时拒绝提交。枚举保留真实标量类型，数字枚举不能强制转为字符串。OpenAI“图片生成与编辑”接口省略参考图时调用文生图端点，提供参考图时调用图片编辑端点。OpenAI/Grok 图片编辑的 `image` 也接受有序路径数组，例如 `{ "name": "image", "value": ["attachments/first.png", "attachments/second.png"] }`；单张路径继续有效。OpenAI 最多 16 张，Grok 最多 5 张；其他媒体字段仍只接受单个路径。
+每个参数项必须且只能提供 `name` 和 `value`。`value` 按接口字段类型使用原生 JSON 字符串、数字或布尔值；媒体字段使用工作区相对路径或 `media_library` 返回的稳定引用字符串。先读取接口定义，不猜测字段。可选字段缺失时使用已配置默认值；可选媒体字段也可显式传 `value: null`，等同于未提供。非媒体字段传 `null`、必填字段缺失或没有默认值时拒绝提交。枚举保留真实标量类型，数字枚举不能强制转为字符串。OpenAI“图片生成与编辑”接口省略参考图时调用文生图端点，提供参考图时调用图片编辑端点。OpenAI/Grok 图片编辑的 `image` 也接受有序路径数组，例如 `{ "name": "image", "value": ["attachments/first.png", "attachments/second.png"] }`；单张路径继续有效。OpenAI 最多 16 张，Grok 最多 5 张；其他媒体字段仍只接受单个路径。
 
-创建只读校验工作区文件并保存内容指纹；运行时复核，文件变化必须重新创建任务。创建不复制到资产区或公开目录，不联系上游。所有接口的本地媒体均通过参数项的 `value` 指定当前 Agent 工作区相对路径，不接受任意资产 ID、宿主机路径、其他 Agent 文件或 ComfyUI input 文件名。服务端复用工作区路径、符号链接、大小和媒体类型校验，并按协议处理：OpenAI 保存到私有输入区后以 multipart 上传，ComfyUI 保存到私有输入区后上传到 ComfyUI input，Grok 自动复制到公开目录并提交稳定 URL。
+创建只读校验工作区文件并保存内容指纹；运行时复核，文件变化必须重新创建任务。创建不复制到资产区或公开目录，不联系上游。工作区来源的媒体通过参数项的 `value` 指定当前 Agent 工作区相对路径，不接受任意资产 ID、宿主机路径、其他 Agent 文件或 ComfyUI input 文件名。服务端复用工作区路径、符号链接、大小和媒体类型校验，并按协议处理：OpenAI 保存到私有输入区后以 multipart 上传，ComfyUI 保存到私有输入区后上传到 ComfyUI input，Grok 自动复制到公开目录并提交稳定 URL。
 
 Grok 本地媒体要求配置 `BUG_PAW_PUBLIC_ORIGIN`。该值必须是无需认证即可被上游访问的 HTTP(S) Origin，不得包含路径、凭据、查询参数或片段。未配置时，只有进程能读取到明确的 `BUG_PAW_BIND_ADDRESS` 才会回退到监听地址；通配地址不会被当作可访问地址。自动公开发生在显式运行的整批校验之后、提交执行之前；整批提交失败会清理本次副本，提交成功后保留在公开目录，可由用户统一管理。
 

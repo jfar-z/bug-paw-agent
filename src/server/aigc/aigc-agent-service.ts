@@ -1,3 +1,4 @@
+import { isMediaReference, type MediaAccess } from "../media-library/media-access";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { setTimeout as delay } from "node:timers/promises";
@@ -32,6 +33,7 @@ export interface AigcAgentDependencies {
   publicFiles: AigcPublicFileService;
   publicOrigin?: string;
   workspace: WorkspaceFileManager;
+  mediaAccess?: MediaAccess;
   files: WorkspaceFileService;
   allowedTools(agentId: string): Promise<string[]>;
 }
@@ -98,8 +100,8 @@ export class AigcAgentService {
         if (previous.agentOrigin?.requestHash !== requestHash) throw new AigcAgentError("AIGC_IDEMPOTENCY_CONFLICT", "相同 requestKey 的参数已改变，不能重复创建");
         return { ...this.summary(previous), parameters: previous.preparation?.values ?? previous.inputs };
       }
-      const media = await this.readMedia(context, definition.fields, values);
-      const files = Object.fromEntries([...media.values()].flat().map(({ path, file }) => [path, taskFileFingerprint(file)]));
+      const media = await this.readMedia(context, definition.fields, values, definition.item.protocol === "grok");
+      const files = Object.fromEntries([...media.values()].flat().map(({ path, file }) => [path, taskFileFingerprint(isMediaReference(path) ? { ...file, name: path } : file)]));
       if (definition.item.protocol === "grok" && media.size && !normalizePublicOrigin(this.dependencies.publicOrigin))
         throw new AigcAgentError("AIGC_PUBLIC_ORIGIN_UNAVAILABLE", "Grok 本地媒体需要配置 BUG_PAW_PUBLIC_ORIGIN，或使用明确的 BUG_PAW_BIND_ADDRESS");
       await this.authorize(context, "aigc_create_task");
@@ -159,8 +161,8 @@ export class AigcAgentService {
         if (!task.preparation || task.preparation.definitionHash !== taskFingerprint(definition))
           throw new AigcAgentError("AIGC_INTERFACE_CHANGED", `任务 ${task.id} 的接口或工作流定义已变化，请重新创建任务`);
         const values = validateAgentParameters(definition.fields, Object.entries(task.preparation.values).map(([name, value]) => ({ name, value })) as AigcAgentParameter[]);
-        const media = await this.readMedia(context, definition.fields, values);
-        const files = Object.fromEntries([...media.values()].flat().map(({ path, file }) => [path, taskFileFingerprint(file)]));
+        const media = await this.readMedia(context, definition.fields, values, definition.item.protocol === "grok");
+        const files = Object.fromEntries([...media.values()].flat().map(({ path, file }) => [path, taskFileFingerprint(isMediaReference(path) ? { ...file, name: path } : file)]));
         if (taskFingerprint(files) !== taskFingerprint(task.preparation.files))
           throw new AigcAgentError("AIGC_INPUT_CHANGED", `任务 ${task.id} 的输入文件已变化，请重新创建任务`);
         candidates.push({ task, definition, values, media });
@@ -195,6 +197,11 @@ export class AigcAgentService {
         for (const candidate of candidates)
           if (taskFingerprint(await this.published(candidate.task.interfaceId)) !== candidate.task.preparation!.definitionHash)
             throw new AigcAgentError("AIGC_INTERFACE_CHANGED", `任务 ${candidate.task.id} 的配置在准备期间变化，请重新创建任务`);
+        for (const candidate of candidates) {
+          for (const [field, entries] of candidate.media)
+            for (const { path } of entries)
+              if (isMediaReference(path)) await this.dependencies.mediaAccess!.describe(path, field, "file", context.agentId, candidate.definition.item.protocol === "grok");
+        }
         signal?.throwIfAborted();
         const started = entries.length ? await this.dependencies.tasks.submitPrepared(entries) : [];
         committed = true;
@@ -210,7 +217,7 @@ export class AigcAgentService {
   }
 
   /** 文件只读校验供创建和运行复用；保留读入内容以避免上传前再次读取产生竞争。 */
-  private async readMedia(context: AigcAgentContext, fields: ReturnType<typeof agentFields>, values: Record<string, unknown>) {
+  private async readMedia(context: AigcAgentContext, fields: ReturnType<typeof agentFields>, values: Record<string, unknown>, publish: boolean) {
     const media = new Map<string, { path: string; file: Awaited<ReturnType<WorkspaceFileManager["readFile"]>> }[]>();
     let totalBytes = 0;
     for (const field of fields) {
@@ -218,7 +225,9 @@ export class AigcAgentService {
       const references = (Array.isArray(values[field.name]) ? values[field.name] : [values[field.name]]) as string[];
       const entries = [];
       for (const path of references) {
-        const file = await this.dependencies.workspace.readFile(context.agentId, path, 100 * 1024 * 1024);
+        const file = isMediaReference(path) && this.dependencies.mediaAccess
+          ? await this.dependencies.mediaAccess.read(path, field.name, field.type, context.agentId, publish)
+          : await this.dependencies.workspace.readFile(context.agentId, path, 100 * 1024 * 1024);
         if (!file.mediaType.startsWith(`${field.type}/`)) throw new TypeError(`参数 ${field.name} 媒体类型不匹配`);
         totalBytes += file.content.length;
         if (totalBytes > 200 * 1024 * 1024) throw new TypeError("单任务媒体入参总量不能超过 200 MiB");
@@ -345,7 +354,7 @@ function agentDescription(item: { description: string; toolDescription?: string 
 }
 
 /** 归一化部署侧公开地址，避免把路径、凭据或查询参数带入媒体 URL。 */
-function normalizePublicOrigin(value: string | undefined): string | undefined {
+export function normalizePublicOrigin(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const url = new URL(value);
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash || !["", "/"].includes(url.pathname)) {

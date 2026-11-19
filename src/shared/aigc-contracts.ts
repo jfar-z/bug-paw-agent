@@ -604,6 +604,7 @@ export type AigcRunInputValue = AigcSingleRunInputValue | AigcSingleRunInputValu
 
 /** 手动试运行请求。 */
 export interface AigcRunRequest {
+  confirmPublicTransfer?: boolean;
   interfaceId: string;
   inputs: Record<string, AigcRunInputValue>;
 }

@@ -27,6 +27,7 @@
 | `/:libraryId/name-check` | GET 查询 name，可用 excludeFileId 排除当前文件 | `{available:boolean}` |
 | `/:libraryId/files` | GET，可选 category 为 image、video、audio | `{files: MediaFile[]}`，新上传的在前 |
 | `/:libraryId/files` | POST 一个 multipart 文件字段 file，filename 为拟保存的完整名称 | 201 文件对象 |
+| `/:libraryId/files/from-result` | POST `{source:"aigc"|"workflow",taskId,assetId,name?}`，工作流使用运行 ID | 201 独立入库的文件对象 |
 | `/:libraryId/files/:fileId` | GET 或 PATCH `{name,revision}` | 文件对象 |
 | `/:libraryId/files/:fileId` | DELETE `{revision}` | 204 |
 | `/:libraryId/files/:fileId/content`、`/thumbnail`（同一文件下） | GET、HEAD，GET 支持单一 bytes Range | 原件或 JPEG 封面；音频仅有原件 |
@@ -38,3 +39,7 @@
 删除确认取自最新库详情，例如 `{"name":"素材","fileCount":3,"revision":6}`。任一文件添加、删除、有效改名或库名、备注有效变更均更新库版本。版本过期返回 409 VERSION_CONFLICT，调用方刷新详情、清除原确认并再次提示。名称或数量不符返回 400 VALIDATION_FAILED。并发重名返回 409 MEDIA_NAME_CONFLICT，客户端保留输入。文件改名与删除使用文件自身的 revision。
 
 未登录返回 401 AUTH_REQUIRED，资源缺失或归属错误返回 404 NOT_FOUND。格式不支持为 415 MEDIA_FORMAT_UNSUPPORTED，无法解码为 422 MEDIA_FILE_INVALID，大小或数量超限为 413 MEDIA_UPLOAD_LIMIT，上传繁忙为 429 MEDIA_UPLOAD_BUSY。处理器缺失及正文存取故障使用 500 MEDIA_PROCESSING_FAILED 或 MEDIA_STORAGE_FAILED。不可满足的 Range 使用标准 416 和 Content-Range。其他错误遵循统一 API 错误文档。
+
+工作台提交单次 AIGC 或 DAG 运行时，媒体字段可传 `media-library://<libraryId>/<fileId>` 字符串，数组按原顺序传递。经过公网字段时请求体顶层须传 `confirmPublicTransfer: true`。需要确认时返回 400 VALIDATION_FAILED，`details.requiresPublicTransfer` 为 true，`details.field` 指出参数。返回 202 时执行已接管副本。DAG 请求继续使用原 requestKey。
+
+Agent 的创建和带 revision 的 PATCH 请求可携带 `mediaLibraryGrants: [{libraryId,read,upload,publicTransfer}]`。这是整组替换，缺省沿用已有设置，传空数组撤销全部。publicTransfer 须同时有 read。媒体工具名为 `media_library`，按当前 allowlist 和库授权执行。默认没有库授权。Agent 工具的媒体参数同样接受上述引用，待运行任务在提交时复核。授权仅适用于当前 Agent 的这次工具调用。

@@ -1,3 +1,4 @@
+import { isMediaReference } from "../media-library/media-access";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Readable } from "node:stream";
@@ -140,7 +141,9 @@ export class WorkflowToolService {
       return result;
     }
     if (["image", "video", "audio", "file"].includes(field.type)) {
-      if (typeof value !== "string") invalid(`媒体参数 ${field.name} 必须为当前 Agent 的工作区相对路径`);
+      if (typeof value !== "string") invalid(`媒体参数 ${field.name} 必须为工作区相对路径或媒体库引用`);
+      if (isMediaReference(value) && this.workflows.mediaInputs)
+        return expected ? value : this.workflows.mediaInputs.describe(value, field, context.agentId);
       const file = await this.files.inspectPath(context.agentId, value);
       if (field.type !== "file" && !file.mediaType.startsWith(`${field.type}/`)) invalid(`参数 ${field.name} 媒体类型不匹配`);
       const hash = taskFileFingerprint(file);
@@ -157,6 +160,7 @@ export class WorkflowToolService {
   /** 运行只接收真实任务 ID，当前入口自身权限足以执行和内部查询。 */
   async run(context: WorkflowToolContext, ids: string[], tool = "workflow_run", signal?: AbortSignal) {
     const uploaded: string[] = [];
+    const checks: (() => Promise<unknown>)[] = [];
     let committed = false;
     try {
       const runs = await this.workflows.startBatch(ids, context, async (run) => {
@@ -169,8 +173,14 @@ export class WorkflowToolService {
             && (typeof value === "string" || (Array.isArray(value) && value.every((entry) => typeof entry === "string"))))
             values[field.name] = await this.inputValue(context, field, value, {}, run.preparation!.files, uploaded);
         }
-        return values;
-      }, async () => { signal?.throwIfAborted(); await this.authorize(context, tool); });
+        return this.workflows.mediaInputs
+          ? this.workflows.mediaInputs.copyForRun(run.definition, run.dependencies ?? {}, values, context.agentId, false, uploaded, checks)
+          : values;
+      }, async () => {
+        signal?.throwIfAborted();
+        await this.authorize(context, tool);
+        for (const check of checks) await check();
+      });
       committed = true;
       return { tasks: runs.map((run) => ({ taskId: run.id, status: run.status, pollAfterMs: 2000 })) };
     } finally {
@@ -296,7 +306,7 @@ export function createWorkflowTools(
           ],
           {
             description:
-              "按定义提供 JSON 值；媒体使用当前 Agent 工作区相对路径，多媒体使用路径数组",
+              "按定义提供 JSON 值；媒体使用当前 Agent 工作区相对路径或 media_library 返回的 reference，多媒体按顺序提交数组",
           },
         ),
       },
@@ -339,7 +349,7 @@ export function createWorkflowTools(
       description:
         "读取已发布工作流的名称、说明、版本和输入输出参数（名称、类型、数组、必填、说明、默认值、枚举选项）。不返回节点、连线、脚本或参数绑定。先用 workflow_list 取得真实工作流 ID。",
       promptSnippet:
-        "调用工作流前优先用 workflow_get_parameters 查询出入参；仅需填写参数时不要读取完整定义。媒体传当前 Agent 工作区相对路径，媒体数组传路径数组。",
+        "调用工作流前优先用 workflow_get_parameters 查询出入参；仅需填写参数时不要读取完整定义。媒体传当前 Agent 工作区相对路径或 media_library 返回的 reference，多媒体按顺序提交数组。",
       parameters: Type.Object(
         { workflowId: id },
         { additionalProperties: false },

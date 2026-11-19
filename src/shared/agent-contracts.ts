@@ -19,6 +19,14 @@ export interface TitleGenerationConfig {
   thinkingEnabled: boolean;
 }
 
+/** 每个库独立授予浏览、写入和公开副本传输权限。 */
+export interface MediaLibraryGrant {
+  libraryId: string;
+  read: boolean;
+  upload: boolean;
+  publicTransfer: boolean;
+}
+
 /**
  * 持久化 Agent Profile v1。
  */
@@ -46,6 +54,7 @@ export interface AgentProfile {
   ttsStreamPlayback?: boolean;
   instructions: AgentInstructions;
   allowedTools: string[];
+  mediaLibraryGrants?: MediaLibraryGrant[];
   createdAt: string;
   updatedAt: string;
 }
@@ -75,6 +84,7 @@ export interface CreateAgentInput {
   ttsAutoPlay?: boolean;
   ttsStreamPlayback?: boolean;
   allowedTools?: string[];
+  mediaLibraryGrants?: MediaLibraryGrant[];
 }
 
 /**

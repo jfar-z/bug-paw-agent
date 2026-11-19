@@ -1,3 +1,8 @@
+import sharp from "sharp";
+import type { AgentProfile } from "../../shared/agent-contracts";
+import { MediaAccess, mediaReference } from "../media-library/media-access";
+import { MediaRepository } from "../media-library/media-repository";
+import { MediaStorage } from "../media-library/media-storage";
 import { createTestDatabase } from "../database/test-database";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -87,7 +92,7 @@ async function fixture(
     const state = await service.runAndWait(ctx, { taskIds: [created.taskId] }, signal, (batch) => progress?.(batch.tasks[0]));
     return { ...state.tasks[0], waitStatus: state.waitStatus };
   };
-  return { root, workspaces, service, tools, tasks, repository, run, wait, interfaces, connections, workflows, assets, publicFiles, adapter, item, submit,
+  return { root, workspaces, service, tools, tasks, dependencies, repository, run, wait, interfaces, connections, workflows, assets, publicFiles, adapter, item, submit,
     revoke: () => { allowed = []; },
     setAllowed: (names: string[]) => { allowed = names; },
     unpublish: async () => interfaces.update(item.id, { ...item, toolPublishEnabled: false }, (await interfaces.list()).revision),
@@ -451,6 +456,39 @@ describe("AIGC Agent 工具", () => {
       expect.objectContaining({ name: "preview.png", outputId: "preview", outputName: "" }),
       expect.objectContaining({ name: "final.png", outputId: "final", outputName: "" }),
     ]);
+  });
+
+  it("待运行引用改名后有效，撤权拒绝整批，已接受输入独立保留", async () => {
+    const f = await fixture();
+    await f.interfaces.update(f.item.id, { ...f.item, capability: "image-edit" }, (await f.interfaces.list()).revision);
+    const repo = new MediaRepository(createTestDatabase());
+    const storage = new MediaStorage(join(f.root, "media"), repo);
+    await storage.recover();
+    const a = repo.create("A"), b = repo.create("B");
+    const png = await sharp({ create: { width: 3, height: 4, channels: 3, background: "red" } }).png().toBuffer();
+    const image = await storage.save(a.id, "原图.png", png);
+    const other = await storage.save(b.id, "另图.png", png);
+    const grants = [a,b].map(lib => ({ libraryId: lib.id, read: true, upload: false, publicTransfer: false }));
+    const media = new MediaAccess(repo, storage, async () => ({ allowedTools: ["media_library"], mediaLibraryGrants: grants }) as AgentProfile, f.dependencies.workspace);
+    const service = new AigcAgentService({ ...f.dependencies, mediaAccess: media });
+    const ids: string[] = [];
+    for (const file of [image, other]) {
+      const prepared = await service.create(context, { ...f.submit(file.id), parameters: [
+        { name: "prompt", value: "编辑" }, { name: "image", value: mediaReference(file.libraryId, file.id) },
+      ] });
+      ids.push(prepared.taskId);
+    }
+    repo.renameFile(a.id, image.id, "改名.png", 1);
+    grants[1].read = false;
+    await expect(service.run(context, { taskIds: ids })).rejects.toThrow("读取权限");
+    expect((await f.tasks.listRecords()).every(task => task.status === "prepared")).toBe(true);
+    grants[1].read = true;
+    await service.run(context, { taskIds: ids });
+    const input = (await f.tasks.get(ids[0]))!.inputs.image as { assetId: string; name: string };
+    expect(input.name).toBe("改名.png");
+    repo.removeFile(a.id, image.id, 2);
+    await storage.discard(image.id);
+    expect(await readFile((await f.assets.resolveInputPath(input.assetId))!)).toEqual(png);
   });
 
   it("工作区媒体拒绝越界、符号链接和错误类型，正确文件进入私有入参区", async () => {

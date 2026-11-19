@@ -103,6 +103,10 @@ import { createKnowledgeRepository } from "./knowledge-base/knowledge-repository
 import { createKnowledgeBaseService } from "./knowledge-base/knowledge-base-service";
 import { registerMediaLibraryRoutes } from "./routes/media-libraries";
 import { MediaRepository } from "./media-library/media-repository";
+import { WorkflowMediaInputs } from "./media-library/workflow-media-inputs";
+import { MediaResults } from "./media-library/media-results";
+import { MediaAccess } from "./media-library/media-access";
+import { createMediaTool } from "./media-library/media-tool";
 import { MediaStorage } from "./media-library/media-storage";
 import { registerKnowledgeBaseRoutes } from "./routes/knowledge-bases";
 import { createKnowledgeManageTool, createKnowledgeReadTool, createKnowledgeSearchTool } from "./knowledge-base/knowledge-tools";
@@ -380,10 +384,14 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     },
   }, aigcAgentLimits);
   await aigcTasks.initialize();
+  const mediaRepository = new MediaRepository(applicationDatabase);
+  const mediaStorage = new MediaStorage(join(paths.appDir, "media-library"), mediaRepository);
+  await mediaStorage.recover();
+  const mediaAccess = new MediaAccess(mediaRepository, mediaStorage, async id => (await agentStore.get(id))?.profile, workspaceFileManager);
   const aigcAgentService = new AigcAgentService({
     interfaces: aigcInterfaces, workflows: aigcWorkflows, connections: aigcConnections,
     tasks: aigcTasks, assets: aigcAssets, publicFiles: aigcPublicFiles, publicOrigin: aigcPublicOrigin,
-    workspace: workspaceFileManager, files: workspaceFiles,
+    workspace: workspaceFileManager, files: workspaceFiles, mediaAccess,
     allowedTools: async (agentId) => (await agentStore.get(agentId))?.profile.allowedTools ?? [],
   }, aigcAgentLimits, aigcSubmissionLocks);
   const aigcMcpService = new AigcMcpService({
@@ -445,6 +453,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
           allowedTools: profile.profile.allowedTools,
           retrievalCapabilities,
           customTools: [
+            ...(profile.profile.allowedTools.includes("media_library") ? [createMediaTool(agentId, mediaAccess)] : []),
             ...(retrievalCapabilities.knowledgeSearch ? [createKnowledgeSearchTool(agentId, knowledgeBases)] : []),
             ...(retrievalCapabilities.knowledgeRead ? [createKnowledgeReadTool(agentId, knowledgeBases)] : []),
             ...(profile.profile.allowedTools.includes("knowledge_manage")
@@ -569,7 +578,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const workflows = new WorkflowService(new WorkflowRepository(join(paths.appDir, "workflows"), applicationDatabase), workflowExecutor, error => {
     backgroundErrors.record("REQUEST_FAILED");
     app.log.error(error, "工作流持久化或后台执行失败");
-  }, (definition, inputs) => workflowFiles.checkReferences(definition, inputs));
+  }, (definition, inputs) => workflowFiles.checkReferences(definition, inputs),
+    new WorkflowMediaInputs(mediaAccess, workflowFiles, aigcInterfaces, aigcPublicOrigin));
   await workflows.initialize();
   workflowTools = new WorkflowToolService(workflows, workflowFiles, async agentId => (await agentStore.get(agentId))?.profile.allowedTools ?? []);
   await agentStore.removeToolPermissions(RETIRED_AGENT_TOOL_NAMES);
@@ -635,10 +645,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     runAgentMutation: (agentId, operation) => agentLifecycle.runMutation(agentId, operation),
   });
   registerDataFileRoutes(app, { authService, files: dataFiles });
-  const mediaRepository = new MediaRepository(applicationDatabase);
-  const mediaStorage = new MediaStorage(join(paths.appDir, "media-library"), mediaRepository);
-  await mediaStorage.recover();
-  await registerMediaLibraryRoutes(app, authService, mediaRepository, mediaStorage);
+
+  await registerMediaLibraryRoutes(app, authService, mediaRepository, mediaStorage, new MediaResults(mediaStorage, aigcTasks, aigcAssets, workflows, workflowFiles));
   registerKnowledgeBaseRoutes(app, { authService, service: knowledgeBases });
   registerWorkspaceFileRoutes(app, {
     authService,
@@ -780,7 +788,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     assets: aigcAssets,
     publicFiles: aigcPublicFiles,
     comfyuiInputs: aigcComfyUiInputs,
-    mediaProjects: aigcMediaProjects,
+    mediaProjects: aigcMediaProjects, mediaAccess, publicOrigin: aigcPublicOrigin,
   });
   registerAigcMcpRoutes(app, { authService, service: aigcMcpService });
   registerWorkflowRoutes(app, { authService, service: workflows, executor: workflowExecutor, files: workflowFiles });

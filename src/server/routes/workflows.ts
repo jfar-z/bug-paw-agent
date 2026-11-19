@@ -99,7 +99,7 @@ export function registerWorkflowRoutes(
     );
     router.post<{
       Params: { id: string };
-      Body: { inputs: Record<string, unknown>; requestKey: string };
+      Body: { inputs: Record<string, unknown>; requestKey: string; confirmPublicTransfer?: boolean };
     }>("/api/workflows/:id/run", async (request, reply) => {
       if (!record(request.body)) invalid("工作流运行请求必须是对象");
       return reply
@@ -108,7 +108,7 @@ export function registerWorkflowRoutes(
           await service.start(
             request.params.id,
             request.body.inputs,
-            request.body.requestKey,
+            request.body.requestKey, undefined, request.body.inputs, request.body.confirmPublicTransfer === true,
           ),
         );
     });
