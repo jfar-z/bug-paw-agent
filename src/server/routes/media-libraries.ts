@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { MediaCategory, MediaDeleteConfirmation, MediaRename } from "../../shared/media-library-contracts";
+import type { MediaCategory, MediaDeleteConfirmation, MediaLibraryUpdate, MediaRename } from "../../shared/media-library-contracts";
 import { DomainError } from "../core/errors";
 import { SYSTEM_LIMITS } from "../core/limits";
 import { MediaRepository, mediaName } from "../media-library/media-repository";
@@ -33,8 +33,8 @@ export function registerMediaLibraryRoutes(
       reply.code(201).send(repo.create(req.body?.name)),
     );
     scoped.get<{ Params: LibraryParams }>(library, async (req) => repo.library(req.params.libraryId));
-    scoped.patch<{ Params: LibraryParams; Body: MediaRename }>(library, async (req) =>
-      repo.renameLibrary(req.params.libraryId, req.body?.name, req.body?.revision),
+    scoped.patch<{ Params: LibraryParams; Body: MediaLibraryUpdate }>(library, async (req) =>
+      repo.updateLibrary(req.params.libraryId, req.body?.name, req.body?.revision, req.body?.note),
     );
     scoped.delete<{ Params: LibraryParams; Body: MediaDeleteConfirmation }>(library, async (req, reply) => {
       const ids = repo.removeLibrary(req.params.libraryId, req.body ?? {});

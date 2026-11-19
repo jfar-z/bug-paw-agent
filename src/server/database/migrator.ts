@@ -1,3 +1,4 @@
+import { mediaLibraryNoteMigration } from "./migrations/010-media-library-note";
 import { mediaLibraryMigration } from "./migrations/009-media-library";
 import { workflowIndexMigration } from "./migrations/008-workflow-index";
 import { totpMigration } from "./migrations/007-totp";
@@ -19,6 +20,7 @@ const MIGRATIONS = [
   totpMigration,
   workflowIndexMigration,
   mediaLibraryMigration,
+  mediaLibraryNoteMigration,
 ] as const;
 
 /** 按版本顺序执行未应用的数据库 Migration。 */

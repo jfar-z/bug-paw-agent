@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
+import { MEDIA_LIBRARY_NOTE_MAX_LENGTH } from "../../shared/media-library-contracts";
 import type {
   MediaFile,
   MediaLibrary,
@@ -17,7 +18,7 @@ const files = "SELECT id,libraryId,name,category,mediaType,size,revision FROM me
 export function mediaName(input: unknown, file = false): string {
   const name = typeof input === "string" ? input.trim().normalize("NFC") : "";
   if (!name || name.length > 200 || /[\\/:*?"<>|\u0000-\u001f\u007f]/u.test(name) || /^\.+$/.test(name)) {
-    throw new DomainError("VALIDATION_FAILED", "名称须为 1 至 200 个字符，不能包含路径分隔符、控制字符或非法标点");
+    throw new DomainError("VALIDATION_FAILED", "名称须为 1 至 200 个字符，不能包含路径分隔符、控制字符或非法标点", { field: "name" });
   }
   if (file && (!extname(name) || !name.slice(0, -extname(name).length).trim())) {
     throw new DomainError("VALIDATION_FAILED", "请填写主文件名并保留扩展名");
@@ -54,13 +55,22 @@ export class MediaRepository {
     });
   }
 
-  renameLibrary(id: string, input: unknown, revision: unknown) {
+  updateLibrary(id: string, input: unknown, revision: unknown, rawNote?: unknown) {
     const name = mediaName(input);
+    if (rawNote !== undefined && typeof rawNote !== "string")
+      throw new DomainError("VALIDATION_FAILED", "媒体库备注须为纯文本", { field: "note" });
+    const note = rawNote?.trim();
+    if (note !== undefined && Array.from(note).length > MEDIA_LIBRARY_NOTE_MAX_LENGTH)
+      throw new DomainError("VALIDATION_FAILED", "媒体库备注最多 500 个字符", { field: "note" });
     return this.db.transaction(() => {
       const current = this.library(id);
       checkRevision(revision, current.revision);
-      if (current.name !== name)
-        this.db.write("UPDATE media_libraries SET name=?, revision=revision+1 WHERE id=?", [name, id]);
+      // 旧客户端只提交库名，须在版本校验后沿用已保存的备注。
+      const nextNote = note ?? current.note;
+      if (current.name === name && current.note === nextNote) return current;
+      this.db.write("UPDATE media_libraries SET name=?, note=?, revision=revision+1 WHERE id=?", [
+        name, nextNote, id,
+      ]);
       return this.library(id);
     });
   }

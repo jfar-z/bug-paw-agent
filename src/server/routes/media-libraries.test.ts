@@ -160,3 +160,68 @@ it("超限文件和不完整上传不会改变删除确认范围", async () => {
   expect(repo.library(lib.id)).toEqual(lib);
   expect(await readdir(join(root, "objects"))).toEqual([]);
 });
+
+it("库资料原子保存、按码点计数，并保护旧编辑和删除确认", async () => {
+  const lib = repo.create("旧名称");
+  const other = repo.create("é");
+  const item = await (await upload(lib.id, "图.png")).json();
+  const before = repo.library(lib.id);
+  const path = "/" + lib.id;
+  const note = "<b>用途</b>\n" + "😀".repeat(490);
+  expect(Array.from(note)).toHaveLength(500);
+  const draft = { name: " e\u0301 ", note: " " + note + " ", revision: before.revision };
+  expect((await fetch(url + path, { method: "PATCH" })).status).toBe(401);
+  const saved = await (await request(path, "PATCH", draft)).json();
+  expect(saved).toEqual({ ...before, name: other.name, note, revision: before.revision + 1 });
+  expect(repo.library(other.id)).toEqual(other);
+  expect((await (await request("")).json()).libraries).toContainEqual(saved);
+  expect(Buffer.from(await (await request(path + "/files/" + item.id + "/content")).arrayBuffer())).toEqual(png);
+
+  for (const [changes, field] of [
+    [{ name: "  ", note: "新备注" }, "name"],
+    [{ name: "新名称", note: note + "!" }, "note"],
+    [{ name: "新名称", note: null }, "note"],
+  ] as const) {
+    const res = await request(path, "PATCH", { ...changes, revision: saved.revision });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatchObject({
+      code: "VALIDATION_FAILED", message: expect.stringContaining(field === "name" ? "名称" : "备注"),
+      details: { field }, requestId: res.headers.get("x-request-id"),
+    });
+  }
+  expect(await (await request(path, "PATCH", { name: saved.name, revision: saved.revision })).json()).toEqual(saved);
+  const cleared = await (await request(path, "PATCH", { ...saved, note: " \n " })).json();
+  expect(cleared).toEqual({ ...saved, note: "", revision: saved.revision + 1 });
+  for (const method of ["PATCH", "DELETE"]) {
+    const res = await request(path, method, saved);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatchObject({
+      code: "VERSION_CONFLICT", message: expect.stringContaining("重新确认"), requestId: res.headers.get("x-request-id"),
+    });
+  }
+  expect(await (await request(path)).json()).toEqual(cleared);
+  expect((await request(path, "DELETE", cleared)).status).toBe(204);
+  expect((await request(path, "PATCH", saved)).status).toBe(404);
+});
+
+it("升级已有库后，空备注可编辑并在数据库重开后读取", () => {
+  const file = join(root, "legacy.sqlite");
+  const legacy = openDatabase(file);
+  try {
+    runMigrations(legacy, { throughVersion: 9 });
+    legacy.write("INSERT INTO media_libraries(id,name,revision) VALUES (?,?,?)", ["legacy", "旧库", 7]);
+    runMigrations(legacy);
+    const upgraded = new MediaRepository(legacy);
+    expect(upgraded.library("legacy")).toEqual({ id: "legacy", name: "旧库", revision: 7, fileCount: 0, note: "" });
+    upgraded.updateLibrary("legacy", "旧库", 7, "用途");
+  } finally {
+    legacy.close();
+  }
+  const reopened = openDatabase(file);
+  try {
+    runMigrations(reopened);
+    expect(new MediaRepository(reopened).library("legacy")).toMatchObject({ note: "用途", revision: 8 });
+  } finally {
+    reopened.close();
+  }
+});

@@ -2,6 +2,7 @@ import { Type, type Static } from "typebox";
 
 /** 工作台上传与重名预检共用的公开约束。 */
 export const MEDIA_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const MEDIA_LIBRARY_NOTE_MAX_LENGTH = 500;
 export const MEDIA_FORMATS = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -18,6 +19,7 @@ export type MediaCategory = Static<typeof MediaCategorySchema>;
 export const MediaLibrarySchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
+  note: Type.String(),
   revision: Type.Integer(),
   fileCount: Type.Integer(),
 });
@@ -33,4 +35,5 @@ export const MediaFileSchema = Type.Object({
 });
 export type MediaFile = Static<typeof MediaFileSchema>;
 export type MediaRename = { name: string; revision: number };
+export type MediaLibraryUpdate = MediaRename & { note?: string };
 export type MediaDeleteConfirmation = { name: string; revision: number; fileCount: number };

@@ -22,7 +22,7 @@
 | 相对路径 | 方法与参数 | 成功响应 |
 | --- | --- | --- |
 | 根路径 | GET 或 POST `{name}` | `{libraries: MediaLibrary[]}` 或 201 库对象 |
-| `/:libraryId` | GET 或 PATCH `{name,revision}` | 库对象 |
+| `/:libraryId` | GET 或 PATCH `{name,revision,note?}` | 库对象 |
 | `/:libraryId` | DELETE `{name,fileCount,revision}` | 204 |
 | `/:libraryId/name-check` | GET 查询 name，可用 excludeFileId 排除当前文件 | `{available:boolean}` |
 | `/:libraryId/files` | GET，可选 category 为 image、video、audio | `{files: MediaFile[]}`，新上传的在前 |
@@ -33,6 +33,8 @@
 
 名称去首尾空白、规范化 NFC，文件名按小写完整名称在库内判重。上传示例为 `formData.append("file", selectedFile, editedStem + extension)`。有效扩展名为 jpg、jpeg、png、mp4、mp3。单文件最大 50 MiB，图片最大 6400 万像素，音视频需在 60 秒内解码。服务同时接收最多 3 个上传，最多 500 个库和每库 5000 个文件。
 
-删除确认取自最新库详情，例如 `{"name":"素材","fileCount":3,"revision":6}`。任一文件添加、删除、有效改名或库改名均更新库版本。版本过期返回 409 VERSION_CONFLICT，调用方刷新详情、清除原确认并再次提示。名称或数量不符返回 400 VALIDATION_FAILED。并发重名返回 409 MEDIA_NAME_CONFLICT，客户端保留输入。文件改名与删除使用文件自身的 revision。
+库对象始终含字符串 `note`，无备注时为 `""`。编辑按 ID 一次提交，例如 `{"name":"素材","note":"第一行\n第二行","revision":6}`。仅修改备注时也提交当前名称。省略 note 保留旧值，传空白清空。备注去除首尾空白，保留内部换行，按 Unicode 码点最多 500 个。名称和备注全部校验通过后同时保存，值有变化才递增一次库版本。字段错误返回 400 VALIDATION_FAILED，details.field 为 name 或 note。
+
+删除确认取自最新库详情，例如 `{"name":"素材","fileCount":3,"revision":6}`。任一文件添加、删除、有效改名或库名、备注有效变更均更新库版本。版本过期返回 409 VERSION_CONFLICT，调用方刷新详情、清除原确认并再次提示。名称或数量不符返回 400 VALIDATION_FAILED。并发重名返回 409 MEDIA_NAME_CONFLICT，客户端保留输入。文件改名与删除使用文件自身的 revision。
 
 未登录返回 401 AUTH_REQUIRED，资源缺失或归属错误返回 404 NOT_FOUND。格式不支持为 415 MEDIA_FORMAT_UNSUPPORTED，无法解码为 422 MEDIA_FILE_INVALID，大小或数量超限为 413 MEDIA_UPLOAD_LIMIT，上传繁忙为 429 MEDIA_UPLOAD_BUSY。处理器缺失及正文存取故障使用 500 MEDIA_PROCESSING_FAILED 或 MEDIA_STORAGE_FAILED。不可满足的 Range 使用标准 416 和 Content-Range。其他错误遵循统一 API 错误文档。
