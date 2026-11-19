@@ -1,4 +1,5 @@
-import type { SaveMediaResult } from "../../shared/media-library-contracts";
+import { deleteMediaBatch, type MediaDeleteConfirmations } from "../media-library/media-deletion";
+import type { MediaDeleteBatch, SaveMediaResult } from "../../shared/media-library-contracts";
 import type { MediaResults } from "../media-library/media-results";
 import type { FastifyInstance } from "fastify";
 import type { MediaCategory, MediaDeleteConfirmation, MediaLibraryUpdate, MediaRename } from "../../shared/media-library-contracts";
@@ -20,6 +21,7 @@ export function registerMediaLibraryRoutes(
   repo: MediaRepository,
   storage: MediaStorage,
   results?: MediaResults,
+  confirmations?: MediaDeleteConfirmations,
 ) {
   return app.register(async (scoped) => {
     scoped.addHook("onRequest", async (request, reply) => {
@@ -30,6 +32,19 @@ export function registerMediaLibraryRoutes(
     const library = root + "/:libraryId";
     const files = library + "/files";
     const file = files + "/:fileId";
+
+    scoped.post<{ Params: LibraryParams; Body: MediaDeleteBatch }>(files + "/delete", async (req) =>
+      deleteMediaBatch(repo, storage, req.params.libraryId, req.body));
+    if (confirmations) {
+      type SessionParams = { agentId: string; sessionId: string };
+      const pending = root + "/confirmations/:agentId/:sessionId";
+      scoped.get<{ Params: SessionParams }>(pending, async ({ params }) =>
+        ({ confirmations: confirmations.list(params.agentId, params.sessionId) }));
+      scoped.post<{ Params: SessionParams & { id: string }; Body: { confirm: boolean } }>(pending + "/:id", async (req, reply) => {
+        confirmations.decide(req.params.agentId, req.params.sessionId, req.params.id, req.body?.confirm);
+        return reply.code(204).send();
+      });
+    }
 
     if (results) scoped.post<{ Params: LibraryParams; Body: SaveMediaResult }>(files + "/from-result", async (req, reply) => {
       repo.library(req.params.libraryId);

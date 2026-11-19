@@ -25,6 +25,7 @@ export interface MediaLibraryGrant {
   read: boolean;
   upload: boolean;
   publicTransfer: boolean;
+  delete?: boolean;
 }
 
 /**

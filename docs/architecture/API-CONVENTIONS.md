@@ -27,6 +27,7 @@
 | `/:libraryId/name-check` | GET 查询 name，可用 excludeFileId 排除当前文件 | `{available:boolean}` |
 | `/:libraryId/files` | GET，可选 category 为 image、video、audio | `{files: MediaFile[]}`，新上传的在前 |
 | `/:libraryId/files` | POST 一个 multipart 文件字段 file，filename 为拟保存的完整名称 | 201 文件对象 |
+| `/:libraryId/files/delete` | POST `{files:[{id,revision}]}` | 200，按输入顺序返回 `{results:[{id,status,code?,message?}]}` |
 | `/:libraryId/files/from-result` | POST `{source:"aigc"|"workflow",taskId,assetId,name?}`，工作流使用运行 ID | 201 独立入库的文件对象 |
 | `/:libraryId/files/:fileId` | GET 或 PATCH `{name,revision}` | 文件对象 |
 | `/:libraryId/files/:fileId` | DELETE `{revision}` | 204 |
@@ -42,4 +43,8 @@
 
 工作台提交单次 AIGC 或 DAG 运行时，媒体字段可传 `media-library://<libraryId>/<fileId>` 字符串，数组按原顺序传递。经过公网字段时请求体顶层须传 `confirmPublicTransfer: true`。需要确认时返回 400 VALIDATION_FAILED，`details.requiresPublicTransfer` 为 true，`details.field` 指出参数。返回 202 时执行已接管副本。DAG 请求继续使用原 requestKey。
 
-Agent 的创建和带 revision 的 PATCH 请求可携带 `mediaLibraryGrants: [{libraryId,read,upload,publicTransfer}]`。这是整组替换，缺省沿用已有设置，传空数组撤销全部。publicTransfer 须同时有 read。媒体工具名为 `media_library`，按当前 allowlist 和库授权执行。默认没有库授权。Agent 工具的媒体参数同样接受上述引用，待运行任务在提交时复核。授权仅适用于当前 Agent 的这次工具调用。
+Agent 的创建和带 revision 的 PATCH 请求可携带 `mediaLibraryGrants: [{libraryId,read,upload,publicTransfer,delete?}]`。这是整组替换，缺省沿用已有设置，传空数组撤销全部。publicTransfer 须同时有 read。媒体工具名为 `media_library`，按当前 allowlist 和库授权执行。默认没有库授权。Agent 工具的媒体参数同样接受上述引用，待运行任务在提交时复核。授权仅适用于当前 Agent 的这次工具调用。
+
+批量删除要求一次提交同一库内 1 至 5000 个不同文件的 ID 和正整数版本。参数整体不合法时返回 400。每项事务单独校验版本并提交。结果中 `deleted` 表示删除及回收成功，`missing` 表示该 ID 已不在指定库，`failed` 表示删除失败（包括 VERSION_CONFLICT），`cleanup_failed` 表示记录已删除但受管目录回收失败，服务重启时重新清理。重试须按最新名称和版本再次确认。
+
+Agent 工具 `media_library_delete({libraryId,fileIds})` 需要独立工具白名单及指定库的 `delete: true`，缺省关闭。工具读取指定目标的确认快照，在当前会话等待登录用户决定。工作台以媒体库根路径为前缀，GET `/confirmations/:agentId/:sessionId` 获得 `{confirmations: MediaDeletePrompt[]}`。共享类型定义库名、文件名、标识、版本和毫秒时间戳 expiresAt。用户查看完整清单与永久删除提示后，POST `/confirmations/:agentId/:sessionId/:id`，正文为 `{"confirm":true}` 或 `{"confirm":false}`。204 表示决定已接收，实际删除结果由工具返回。停止运行、服务重启或五分钟超时使确认失效，跨会话及重复决定返回 404。执行前重新校验授权，按用户看到的版本逐项执行。

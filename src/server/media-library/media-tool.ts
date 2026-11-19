@@ -1,6 +1,8 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { MediaCategorySchema } from "../../shared/media-library-contracts";
+import { Check } from "typebox/value";
+import type { MediaDeleteConfirmations } from "./media-deletion";
+import { MediaCategorySchema, MediaDeleteIdSchema } from "../../shared/media-library-contracts";
 import { DomainError } from "../core/errors";
 import { mediaReference, type MediaAccess } from "./media-access";
 
@@ -35,6 +37,31 @@ export function createMediaTool(agentId: string, access: MediaAccess) {
         }
       } else throw new DomainError("VALIDATION_FAILED", "媒体库操作缺少必填字段或包含无关字段");
       return { content: [{ type: "text", text: JSON.stringify(value) }], details: value };
+    },
+  });
+}
+
+const deletionParameters = Type.Object({
+  libraryId: MediaDeleteIdSchema,
+  fileIds: Type.Array(MediaDeleteIdSchema, { minItems: 1, maxItems: 5000, uniqueItems: true }),
+}, { additionalProperties: false });
+
+/** 删除工具独立授权；确认清单仅由登录用户在当前对话中签收。 */
+export function createMediaDeleteTool(agentId: string, sessionId: string, access: MediaAccess, confirmations: MediaDeleteConfirmations) {
+  return defineTool({
+    name: "media_library_delete", label: "删除媒体文件",
+    description: "提交同一媒体库内明确指定的文件 ID。工作台将列出文件并等待用户确认永久删除。按名称请求时需在已有读取权限内先消歧。",
+    promptSnippet: "请求用户确认并永久删除明确指定的媒体库文件",
+    parameters: deletionParameters,
+    executionMode: "sequential",
+    async execute(_toolCallId, params, signal) {
+      if (!Check(deletionParameters, params))
+        throw new DomainError("VALIDATION_FAILED", "媒体删除需要一个库标识和互不重复的文件标识列表");
+      const result = await access.requestDeletion(agentId, sessionId, params.libraryId, params.fileIds, confirmations, signal);
+      // SDK 通过异常标记工具错误，保留完整逐项结果供对话展示。
+      if (result.results.some(item => item.status === "failed" || item.status === "cleanup_failed"))
+        throw new Error("媒体文件删除存在未完成项：" + JSON.stringify(result));
+      return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     },
   });
 }

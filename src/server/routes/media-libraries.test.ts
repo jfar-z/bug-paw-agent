@@ -3,7 +3,8 @@ import { Readable } from "node:stream";
 import { Check } from "typebox/value";
 import { MediaAccess, mediaReference } from "../media-library/media-access";
 import { MediaResults } from "../media-library/media-results";
-import { createMediaTool } from "../media-library/media-tool";
+import { MediaDeleteConfirmations } from "../media-library/media-deletion";
+import { createMediaDeleteTool, createMediaTool } from "../media-library/media-tool";
 import { AigcAssetService } from "../aigc/aigc-asset-service";
 import { WorkflowFiles } from "../workflows/workflow-files";
 import { WorkflowMediaInputs } from "../media-library/workflow-media-inputs";
@@ -17,7 +18,7 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { openDatabase } from "../database/database";
 import { runMigrations } from "../database/migrator";
 import { registerApiV1Namespace } from "../http/api-versioning";
@@ -27,6 +28,7 @@ import { MediaStorage } from "../media-library/media-storage";
 import { registerMediaLibraryRoutes } from "./media-libraries";
 import type { AuthService } from "./auth";
 
+let confirmations: MediaDeleteConfirmations;
 let root: string;
 let db: ReturnType<typeof openDatabase>;
 let app: ReturnType<typeof Fastify>;
@@ -46,20 +48,21 @@ beforeEach(async () => {
   repo = new MediaRepository(db);
   storage = new MediaStorage(join(root, "objects"), repo);
   await storage.recover();
-  app = Fastify();
+  app = Fastify({ forceCloseConnections: true });
   registerApiV1Namespace(app);
   registerApiErrorHandler(app);
   await app.register(multipart);
   assets = new AigcAssetService(join(root, "aigc"));
   files = new WorkflowFiles(join(root, "dag"), {} as never, {} as never);
   workflowOutputs = {};
+  confirmations = new MediaDeleteConfirmations();
   await registerMediaLibraryRoutes(
     app,
     { isAuthenticated: async (req) => req.headers["x-test-session"] === "active" } as AuthService,
     repo,
     storage,
     new MediaResults(storage, { get: async () => undefined } as never, assets,
-      { getRun: () => ({ outputs: {}, nodes: [{ outputs: workflowOutputs }] }) } as never, files),
+      { getRun: () => ({ outputs: {}, nodes: [{ outputs: workflowOutputs }] }) } as never, files), confirmations,
   );
   url = (await app.listen({ port: 0, host: "127.0.0.1" })) + "/api/v1/media-libraries";
   png = await sharp({ create: { width: 16, height: 24, channels: 3, background: "#abc" } })
@@ -334,5 +337,90 @@ it("升级已有库后，空备注可编辑并在数据库重开后读取", () =
     expect(new MediaRepository(reopened).library("legacy")).toMatchObject({ note: "用途", revision: 8 });
   } finally {
     reopened.close();
+  }
+});
+
+it("批删完整校验参数，逐项区分缺失、版本冲突、清理失败与成功", async () => {
+  const lib = repo.create("批删");
+  const [changed, cleanup, deleted] = await Promise.all(["改.png", "清.png", "删.png"].map(name => storage.save(lib.id, name, png)));
+  const path = "/" + lib.id + "/files/delete";
+  const targets = [changed, cleanup, deleted].map(({ id, revision }) => ({ id, revision }));
+  const bad = await request(path, "POST", { files: [...targets, targets[0]] });
+  expect(bad.status).toBe(400);
+  expect((await bad.json()).error).toMatchObject({ code: "VALIDATION_FAILED", requestId: bad.headers.get("x-request-id"), message: expect.stringContaining("重复") });
+  expect(repo.library(lib.id).fileCount).toBe(3);
+  repo.renameFile(lib.id, changed.id, "新.png", changed.revision);
+  vi.spyOn(storage, "discard").mockRejectedValueOnce(new Error("测试目录不可写"));
+  const missing = { id: randomUUID(), revision: 1 };
+  const body = { files: [...targets, missing] };
+  const response = await request(path, "POST", body);
+  expect(await response.json()).toMatchObject({ results: [
+    { id: changed.id, status: "failed", code: "VERSION_CONFLICT" },
+    { id: cleanup.id, status: "cleanup_failed", code: "MEDIA_STORAGE_FAILED" },
+    { id: deleted.id, status: "deleted" }, { id: missing.id, status: "missing" },
+  ] });
+  const replacement = await storage.save(lib.id, deleted.name, png);
+  await request(path, "POST", body);
+  expect(repo.listFiles(lib.id).map(f => f.id)).toEqual([replacement.id, changed.id]);
+  for (const suffix of ["/thumbnail", "/content"])
+    expect((await request("/" + lib.id + "/files/" + cleanup.id + suffix)).status).toBe(404);
+  await storage.recover();
+  expect(await readdir(join(root, "objects"))).not.toContain(cleanup.id);
+});
+
+it("删除工具绑定会话、确认快照和当前授权，用户决定仅可消费一次", async () => {
+  const lib = repo.create("源库"), other = repo.create("其他库");
+  const first = await storage.save(lib.id, "一.png", png), second = await storage.save(lib.id, "二.png", png);
+  const params = { libraryId: lib.id, fileIds: [first.id, second.id] };
+  const grant = { libraryId: lib.id, read: false, upload: false, publicTransfer: false, delete: true };
+  const profile = { allowedTools: ["media_library_delete"], mediaLibraryGrants: [grant] } as AgentProfile;
+  const access = new MediaAccess(repo, storage, async () => profile, {} as never);
+  const tool = createMediaDeleteTool("agent", "session", access, confirmations);
+  const invoke = (input = params) => tool.execute("call", input, undefined, undefined, {} as never);
+  const path = "/confirmations/agent/session";
+  expect(tool.parameters.type).toBe("object");
+  for (const key of ["anyOf", "oneOf", "allOf"]) expect(tool.parameters).not.toHaveProperty(key);
+  await expect(invoke({ ...params, confirm: true } as typeof params)).rejects.toThrow("标识");
+  await expect(access.files("agent", lib.id, null)).rejects.toThrow("工具权限");
+  await expect(invoke({ ...params, libraryId: other.id })).rejects.toThrow("授权");
+  const foreign = await storage.save(other.id, first.name, png);
+  await expect(invoke({ ...params, fileIds: [first.id, foreign.id] })).rejects.toThrow("指定库");
+  profile.allowedTools = ["media_library"];
+  await expect(invoke()).rejects.toThrow("授权");
+  profile.allowedTools = ["media_library_delete"];
+  for (const action of ["取消", "撤权", "确认"]) {
+    const outcome = invoke().then(value => value.details, error => String(error));
+    const [prompt] = (await (await request(path)).json()).confirmations;
+    expect(prompt).toMatchObject({ libraryName: lib.name, files: [first, second].map(({ id, name, revision }) => ({ id, name, revision })) });
+    expect(repo.library(lib.id).fileCount).toBe(2);
+    const decide = path + "/" + prompt.id;
+    expect((await fetch(url + decide, { method: "POST" })).status).toBe(401);
+    expect((await request(decide.replace("/session/", "/other/"), "POST", { confirm: true })).status).toBe(404);
+    if (action === "撤权") grant.delete = false;
+    expect((await request(decide, "POST", { confirm: action !== "取消" })).status).toBe(204);
+    if (action === "取消") expect(await outcome).toContain("取消");
+    if (action === "撤权") expect(await outcome).toContain("授权");
+    if (action === "确认") expect(await outcome).toMatchObject({ results: params.fileIds.map(id => ({ id, status: "deleted" })) });
+    expect((await request(decide, "POST", { confirm: true })).status).toBe(404);
+    grant.delete = true;
+  }
+  expect(repo.library(lib.id).fileCount).toBe(0);
+  expect(repo.library(other.id).fileCount).toBe(1);
+});
+
+it("停止或超时使会话确认失效", async () => {
+  const prompt = { libraryId: randomUUID(), libraryName: "确认", files: [] };
+  const controller = new AbortController();
+  const waiting = confirmations.wait("agent", "session", prompt, controller.signal);
+  controller.abort();
+  await expect(waiting).rejects.toThrow("停止");
+  vi.useFakeTimers();
+  try {
+    const expired = expect(confirmations.wait("agent", "session", prompt)).rejects.toThrow("过期");
+    await vi.advanceTimersByTimeAsync(300_001);
+    await expired;
+    expect(confirmations.list("agent", "session")).toEqual([]);
+  } finally {
+    vi.useRealTimers();
   }
 });

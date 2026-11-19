@@ -52,3 +52,24 @@ export type MediaFile = Static<typeof MediaFileSchema>;
 export type MediaRename = { name: string; revision: number };
 export type MediaLibraryUpdate = MediaRename & { note?: string };
 export type MediaDeleteConfirmation = { name: string; revision: number; fileCount: number };
+
+/** 删除只接受稳定标识及用户看到的版本。 */
+export const MediaDeleteIdSchema = Type.String({ pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$" });
+export const MediaDeleteBatchSchema = Type.Object({
+  files: Type.Array(Type.Object({ id: MediaDeleteIdSchema, revision: Type.Integer({ minimum: 1 }) },
+    { additionalProperties: false }), { minItems: 1, maxItems: 5000 }),
+}, { additionalProperties: false });
+export type MediaDeleteBatch = Static<typeof MediaDeleteBatchSchema>;
+export type MediaDeleteItemResult = {
+  id: string;
+  status: "deleted" | "missing" | "failed" | "cleanup_failed";
+  code?: string;
+  message?: string;
+};
+export type MediaDeletePrompt = {
+  id: string;
+  libraryId: string;
+  libraryName: string;
+  files: Pick<MediaFile, "id" | "name" | "revision">[];
+  expiresAt: number;
+};

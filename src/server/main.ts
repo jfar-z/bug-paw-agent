@@ -106,7 +106,8 @@ import { MediaRepository } from "./media-library/media-repository";
 import { WorkflowMediaInputs } from "./media-library/workflow-media-inputs";
 import { MediaResults } from "./media-library/media-results";
 import { MediaAccess } from "./media-library/media-access";
-import { createMediaTool } from "./media-library/media-tool";
+import { MediaDeleteConfirmations } from "./media-library/media-deletion";
+import { createMediaTool, createMediaDeleteTool } from "./media-library/media-tool";
 import { MediaStorage } from "./media-library/media-storage";
 import { registerKnowledgeBaseRoutes } from "./routes/knowledge-bases";
 import { createKnowledgeManageTool, createKnowledgeReadTool, createKnowledgeSearchTool } from "./knowledge-base/knowledge-tools";
@@ -387,6 +388,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   const mediaRepository = new MediaRepository(applicationDatabase);
   const mediaStorage = new MediaStorage(join(paths.appDir, "media-library"), mediaRepository);
   await mediaStorage.recover();
+  const mediaConfirmations = new MediaDeleteConfirmations();
   const mediaAccess = new MediaAccess(mediaRepository, mediaStorage, async id => (await agentStore.get(id))?.profile, workspaceFileManager);
   const aigcAgentService = new AigcAgentService({
     interfaces: aigcInterfaces, workflows: aigcWorkflows, connections: aigcConnections,
@@ -462,6 +464,8 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
           ],
           createRuntimeTools: ({ sessionText }) => createSessionTextTools(sessionText),
           createSessionTools: ({ searchRunState, sessionId, branchAnchorId }) => [
+            ...(profile.profile.allowedTools.includes("media_library_delete")
+              ? [createMediaDeleteTool(agentId, sessionId, mediaAccess, mediaConfirmations)] : []),
             ...(scheduledTasks && profile.profile.allowedTools.includes("scheduled_tasks")
               ? [createScheduledTasksTool({ agentId, sessionId }, scheduledTasks)] : []),
             ...(workflowTools ? createWorkflowTools({ agentId, sessionId }, workflowTools).filter(tool => profile.profile.allowedTools.includes(tool.name)) : []),
@@ -646,7 +650,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   });
   registerDataFileRoutes(app, { authService, files: dataFiles });
 
-  await registerMediaLibraryRoutes(app, authService, mediaRepository, mediaStorage, new MediaResults(mediaStorage, aigcTasks, aigcAssets, workflows, workflowFiles));
+  await registerMediaLibraryRoutes(app, authService, mediaRepository, mediaStorage, new MediaResults(mediaStorage, aigcTasks, aigcAssets, workflows, workflowFiles), mediaConfirmations);
   registerKnowledgeBaseRoutes(app, { authService, service: knowledgeBases });
   registerWorkspaceFileRoutes(app, {
     authService,

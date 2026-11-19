@@ -1,3 +1,4 @@
+import { deleteMediaBatch, type MediaDeleteConfirmations } from "./media-deletion";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import type { AgentProfile } from "../../shared/agent-contracts";
@@ -34,6 +35,27 @@ export class MediaAccess {
       throw new DomainError("FORBIDDEN", "当前 Agent 未获指定媒体库的" + ({ read: "读取", upload: "上传", publicTransfer: "公网传输" })[action] + "权限");
   }
 
+  async requestDeletion(agentId: string, sessionId: string, libraryId: string, fileIds: string[],
+    confirmations: MediaDeleteConfirmations, signal?: AbortSignal) {
+    await this.authorizeDeletion(agentId, libraryId);
+    const library = this.repo.library(libraryId);
+    const files = fileIds.map(fileId => {
+      const { id, name, revision } = this.repo.file(libraryId, fileId);
+      return { id, name, revision };
+    });
+    await confirmations.wait(agentId, sessionId, { libraryId, libraryName: library.name, files }, signal);
+    await this.authorizeDeletion(agentId, libraryId);
+    signal?.throwIfAborted();
+    return deleteMediaBatch(this.repo, this.storage, libraryId, { files: files.map(({ id, revision }) => ({ id, revision })) });
+  }
+
+  private async authorizeDeletion(agentId: string, libraryId: string) {
+    const profile = await this.profile(agentId);
+    if (!profile?.allowedTools.includes("media_library_delete") ||
+        !profile.mediaLibraryGrants?.some(grant => grant.libraryId === libraryId && grant.delete === true))
+      throw new DomainError("FORBIDDEN", "当前 Agent 缺少媒体删除工具或目标库删除授权");
+  }
+
   async libraries(agentId: string) {
     const grants = await this.grants(agentId);
     return this.repo.list().flatMap(({ id, name }) => {
@@ -59,6 +81,8 @@ export class MediaAccess {
       if (type !== "file" && type !== file.category) throw new DomainError("VALIDATION_FAILED", "媒体类型不匹配");
       return file;
     } catch (error) {
+      if (error instanceof DomainError && error.code === "NOT_FOUND")
+        throw new DomainError(error.code, "参数 " + field + " 的媒体文件已不可用，请重新选择", { field });
       if (error instanceof DomainError) throw new DomainError(error.code, "参数 " + field + "：" + error.message, { field });
       throw error;
     }

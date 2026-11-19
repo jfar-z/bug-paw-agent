@@ -428,10 +428,11 @@ function readMediaGrants(value: unknown): CreateAgentInput["mediaLibraryGrants"]
   return value.map((entry: unknown) => {
     if (!isRecord(entry) || typeof entry.libraryId !== "string" || !/^[a-f0-9-]{36}$/.test(entry.libraryId)
       || ids.has(entry.libraryId) || typeof entry.read !== "boolean" || typeof entry.upload !== "boolean"
+      || (entry.delete !== undefined && typeof entry.delete !== "boolean")
       || typeof entry.publicTransfer !== "boolean" || (entry.publicTransfer && !entry.read))
       throw new DomainError("VALIDATION_FAILED", "媒体库授权须按库唯一设置，公开传输须同时授予读取权限");
     ids.add(entry.libraryId);
-    return { libraryId: entry.libraryId, read: entry.read, upload: entry.upload, publicTransfer: entry.publicTransfer };
+    return { libraryId: entry.libraryId, read: entry.read, upload: entry.upload, publicTransfer: entry.publicTransfer, delete: entry.delete === true };
   });
 }
 
