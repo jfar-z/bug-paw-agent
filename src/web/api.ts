@@ -1,4 +1,4 @@
-import type { MediaCategory, SaveMediaResult, MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
+import type { MediaCategory, SaveMediaResult, MediaDeleteBatch, MediaDeleteConfirmation, MediaDeleteItemResult, MediaDeletePrompt, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
@@ -422,6 +422,11 @@ function mediaLibraryPath(libraryId: string) {
   return `/api/media-libraries/${encodeURIComponent(libraryId)}`;
 }
 
+/** 待确认删除只在当前 Agent 和会话范围内查询及提交。 */
+function mediaDeleteConfirmationPath(agentId: string, sessionId: string) {
+  return "/api/media-libraries/confirmations/" + encodeURIComponent(agentId) + "/" + encodeURIComponent(sessionId);
+}
+
 function mediaFilePath(libraryId: string, fileId: string) {
   return `${mediaLibraryPath(libraryId)}/files/${encodeURIComponent(fileId)}`;
 }
@@ -438,6 +443,16 @@ export const api = {
     request<void>(mediaLibraryPath(libraryId), { method: "DELETE", body: JSON.stringify(confirmation) }),
   listMediaFiles: (libraryId: string, signal?: AbortSignal, category?: MediaCategory) =>
     request<{ files: MediaFile[] }>(`${mediaLibraryPath(libraryId)}/files${category ? `?category=${category}` : ""}`, { signal }),
+  deleteMediaFiles: (libraryId: string, batch: MediaDeleteBatch) =>
+    request<{ results: MediaDeleteItemResult[] }>(mediaLibraryPath(libraryId) + "/files/delete", {
+      method: "POST", body: JSON.stringify(batch),
+    }),
+  listMediaDeleteConfirmations: (agentId: string, sessionId: string, signal: AbortSignal) =>
+    request<{ confirmations: MediaDeletePrompt[] }>(mediaDeleteConfirmationPath(agentId, sessionId), { signal }),
+  decideMediaDelete: (agentId: string, sessionId: string, id: string, confirm: boolean, signal: AbortSignal) =>
+    request<void>(mediaDeleteConfirmationPath(agentId, sessionId) + "/" + encodeURIComponent(id), {
+      method: "POST", body: JSON.stringify({ confirm }), signal,
+    }),
   saveMediaResult: (libraryId: string, input: SaveMediaResult) =>
     request<MediaFile>(`${mediaLibraryPath(libraryId)}/files/from-result`, { method: "POST", body: JSON.stringify(input) }),
   getMediaFile: (libraryId: string, fileId: string) =>

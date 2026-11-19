@@ -75,9 +75,21 @@ export function SaveMediaResultButton({ target }: { target: SaveTarget }) {
 export function useMediaPublicTransfer(operation: string, onValidation?: (message: string) => void) {
   const toast = useErrorToast();
   const [message, setMessage] = useState("");
+  const [missing, setMissing] = useState<{ field: string; message: string }>();
   return {
     message,
+    missing,
     clear: () => setMessage(""),
+    clearMissing: (field?: string) => setMissing((current) => !field || current?.field === field ? undefined : current),
+    /** 失效引用只标记对应参数，保留表单草稿供用户重选。 */
+    missingReference: (error: ApiClientError, hasMedia: (field: string) => boolean) => {
+      const field = error.details?.field;
+      if (typeof field === "string" && hasMedia(field)) {
+        setMissing({ field, message: [error.message, error.code, error.requestId].filter(Boolean).join(" · ") });
+      } else {
+        toast.push(toUnexpectedErrorNotice(error, operation));
+      }
+    },
     validation: (error: ApiClientError) => {
       if (error.details?.requiresPublicTransfer === true) {
         setMessage(error.message);

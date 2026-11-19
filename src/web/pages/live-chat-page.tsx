@@ -46,6 +46,7 @@ import { navigateTo, WORKBENCH_NAVIGATION_TOGGLE_EVENT } from "../router";
 import type { AgentReference } from "../../shared/agent-reference-contracts";
 import { ChatSidebar } from "../features/chat/components/chat-sidebar";
 import { ConversationTimelineView } from "../features/chat/components/conversation-timeline-view";
+import { ChatMediaDeleteConfirmation } from "../features/chat/components/media-delete-confirmation";
 import { ProfileDialog } from "../features/chat/components/profile-dialog";
 import type { IdentityPreview } from "../features/chat/chat-types";
 import { ChatInteractionCoordinator, type ChatInteractionTicket } from "../features/chat/chat-interaction-coordinator";
@@ -225,6 +226,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
   const [editingEntryId, setEditingEntryId] = useState<string>();
   const [draftReferences, setDraftReferences] = useState<AgentReference[]>([]);
   const [activeRun, setActiveRun] = useState<ChatRunSummary>();
+  const [mediaDeleteError, setMediaDeleteError] = useState<{ sessionId: string; error: { code: string; message: string } }>();
   const [questionSubmitting, setQuestionSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [runNotice, setRunNotice] = useState("");
@@ -1489,6 +1491,13 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
 
   const activeAgentId = session?.agentId ?? selectedAgentId;
   const activeAgent = agents.find((item) => item.profile.id === activeAgentId);
+  const reportMediaDeleteError = useCallback((confirmationError: { code: string; message: string }) => {
+    if (session?.id) setMediaDeleteError({ sessionId: session.id, error: confirmationError });
+  }, [session?.id]);
+  const confirmationErrorEntry: AgentTurn[] = mediaDeleteError && mediaDeleteError.sessionId === session?.id && !focusedHistory
+    ? [{ id: "media-delete-confirmation-error", type: "agent",
+        blocks: [{ id: "media-delete-error", type: "error", ...mediaDeleteError.error }] }]
+    : [];
   const noAvailableAgent = agents.length === 0;
   useEffect(() => {
     setWorkspaceLocationRequest(undefined);
@@ -1831,7 +1840,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         </header>
 
         <ConversationTimelineView
-          timeline={timeline}
+          timeline={confirmationErrorEntry.length ? [...timeline, ...confirmationErrorEntry] : timeline}
           theme={theme}
           activeAgent={activeAgent}
           activeAgentId={activeAgentId}
@@ -1951,6 +1960,11 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         onCancel={() => setSessionBulkPreview(undefined)}
         onConfirm={() => void executeSessionBulk()}
       /> : null}
+      {session?.agentId && activeRun?.sessionId === session.id && !isOpeningSession
+        && (activeAgent?.profile.allowedTools.includes("media_library_delete") || timeline.some((entry) => entry.type === "agent"
+          && entry.blocks.some((block) => block.type === "tool" && block.name === "media_library_delete" && block.status === "running")))
+        && <ChatMediaDeleteConfirmation key={activeRun.runId} agentId={session.agentId} sessionId={session.id}
+          onError={reportMediaDeleteError} />}
       {previewImage ? <MediaLightbox item={previewImage} images={collectTimelineImages(timeline, mediaSummaries)} agentId={activeAgentId} onClose={() => setPreviewImage(undefined)} /> : null}
       {previewFilePath && activeAgentId ? <DataFilePreviewDialog agentId={activeAgentId} path={previewFilePath} onClose={() => setPreviewFilePath(undefined)} /> : null}
       <ProfileDialog

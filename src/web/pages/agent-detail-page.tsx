@@ -432,11 +432,11 @@ function AgentMediaGrants({ grants, disabled, onChange }: {
   const libraries = useMediaLibraries();
   function change(grant: MediaLibraryGrant) {
     const remaining = grants.filter((entry) => entry.libraryId !== grant.libraryId);
-    onChange(grant.read || grant.upload ? [...remaining, grant] : remaining);
+    onChange(grant.read || grant.upload || grant.delete ? [...remaining, grant] : remaining);
   }
   return <section className="tool-permission-group" aria-label="媒体库授权">
     <h3>媒体库授权</h3>
-    <p className="configuration-help">按库授予读取或上传权限，使用媒体库工具还须启用 media_library。允许公网传输后，获准运行的 Grok 可通过公网读取执行副本。</p>
+    <p className="configuration-help">按库独立授予读取、上传和删除权限。读取和上传须启用 media_library，删除须启用 media_library_delete 并由用户在会话中确认。允许公网传输后，获准运行的 Grok 可通过公网读取执行副本。</p>
     <MediaLibraryCatalogStatus {...libraries} />
     {libraries.catalog.status === "ready" && libraries.catalog.items.map((library) => {
       const grant = grants.find((entry) => entry.libraryId === library.id)
@@ -447,6 +447,8 @@ function AgentMediaGrants({ grants, disabled, onChange }: {
           onChange={(event) => change({ ...grant, read: event.target.checked, publicTransfer: event.target.checked && grant.publicTransfer })} />读取</label>
         <label className="configuration-check-line"><input type="checkbox" checked={grant.upload}
           onChange={(event) => change({ ...grant, upload: event.target.checked })} />上传</label>
+        <label className="configuration-check-line"><input type="checkbox" checked={grant.delete ?? false}
+          onChange={(event) => change({ ...grant, delete: event.target.checked })} />删除</label>
         <label className="configuration-check-line"><input type="checkbox" checked={grant.publicTransfer} disabled={!grant.read}
           onChange={(event) => change({ ...grant, publicTransfer: event.target.checked })} />允许公网传输</label>
       </fieldset>;

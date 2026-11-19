@@ -5,6 +5,8 @@ interface ConfirmationDialogProps {
   description: string;
   confirmLabel: string;
   busy?: boolean;
+  confirmDisabled?: boolean;
+  confirmClassName?: string;
   destructive?: boolean;
   /** 可选影响清单独立滚动，避免项目较多时操作按钮落到视口外。 */
   children?: ReactNode;
@@ -15,7 +17,7 @@ interface ConfirmationDialogProps {
 /**
  * 为高影响操作提供应用内二次确认，避免使用浏览器原生确认框。
  */
-export function ConfirmationDialog({ title, description, confirmLabel, busy = false, destructive = true, children, onCancel, onConfirm }: ConfirmationDialogProps) {
+export function ConfirmationDialog({ title, description, confirmLabel, busy = false, confirmDisabled = false, confirmClassName, destructive = true, children, onCancel, onConfirm }: ConfirmationDialogProps) {
   const titleId = "configuration-confirmation-title";
   const root = useRef<HTMLElement>(null);
   const latest = useRef({ busy, onCancel });
@@ -28,7 +30,7 @@ export function ConfirmationDialog({ title, description, confirmLabel, busy = fa
     // 影响清单出现后先聚焦取消，避免键盘操作误触破坏性确认。
     root.current?.querySelector<HTMLButtonElement>("button")?.focus();
     function keydown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
         if (!latest.current.busy) latest.current.onCancel();
       }
@@ -58,7 +60,7 @@ export function ConfirmationDialog({ title, description, confirmLabel, busy = fa
         {children ? <div tabIndex={0} role="region" aria-label="操作影响清单" style={{ overflowY: "auto", minHeight: 0 }}>{children}</div> : null}
         <footer>
           <button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</button>
-          <button type="button" className={destructive ? "danger-button" : "configuration-primary-action"} disabled={busy} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
+          <button type="button" className={confirmClassName ?? (destructive ? "danger-button" : "configuration-primary-action")} disabled={busy || confirmDisabled} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
         </footer>
       </section>
     </div>

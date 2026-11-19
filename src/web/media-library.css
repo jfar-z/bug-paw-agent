@@ -156,7 +156,7 @@
 .media-library-file:hover { background: var(--surface-hover); }
 
 .media-library-file strong {
-  padding: 13px 48px 13px 12px;
+  padding: 8px 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -167,12 +167,15 @@
   border-radius: 8px 8px 0 0;
 }
 
-.media-library-rename {
-  position: absolute;
-  right: 3px;
-  bottom: 0;
-  min-width: 40px;
-  min-height: 40px;
+.media-library-file-actions {
+  display: flex;
+}
+
+.media-library-file-actions > * {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 44px;
 }
 
 .media-library-dialog {

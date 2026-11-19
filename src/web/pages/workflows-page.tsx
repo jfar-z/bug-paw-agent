@@ -1,4 +1,4 @@
-import { mediaReference } from "../../shared/media-library-contracts";
+import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
 import { workflowDraftFieldError } from "../features/workflows/workflow-field-guards";
 import type { WorkflowSummary } from "../../shared/workflow-contracts";
@@ -598,21 +598,24 @@ function Runner({
       clearTimeout(timer);
     };
   }, [runId, online, polling, runApiTask]);
+  const transfer = useMediaPublicTransfer("运行工作流");
   const change = (name: string, value: unknown) => {
+    transfer.clearMissing(name);
     setInputs((old) => ({ ...old, [name]: value }));
     key.current = workflowClientId();
   };
-  const transfer = useMediaPublicTransfer("运行工作流");
   const [mediaNames, setMediaNames] = useState<Record<string, string>>({});
   const start = async (confirmed = false) => {
     if (!definition || !online || busy) return;
     transfer.clear();
+    transfer.clearMissing();
     setBusy(true);
     const r = await runApiTask(
       () => confirmed
         ? api.runWorkflow(definition.id, inputs, key.current, true)
         : api.runWorkflow(definition.id, inputs, key.current),
-      { operation: "运行工作流", expected: { VALIDATION_FAILED: transfer.validation } },
+      { operation: "运行工作流", expected: { VALIDATION_FAILED: transfer.validation, NOT_FOUND: (error) =>
+        transfer.missingReference(error, (field) => [inputs[field]].flat().some(isMediaReference)) } },
     );
     if (r.status === "success") {
       setRun(r.data);
@@ -692,6 +695,7 @@ function Runner({
                     {f.description && (
                       <p className="wf-hint">{f.description}</p>
                     )}
+                    {transfer.missing?.field === f.name && <p className="configuration-inline-error" role="alert">{transfer.missing.message}</p>}
                     {["image", "video", "audio", "file"].includes(f.type) ? (
                       <>
                         <input

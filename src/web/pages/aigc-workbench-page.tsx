@@ -2,7 +2,7 @@ import { isMediaReference, mediaReference } from "../../shared/media-library-con
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import type {
   AigcChannelSummary,
   AigcComfyUiInputFile,
@@ -491,9 +491,11 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
       return;
     }
     setSubmitting(true);
+    transfer.clearMissing();
     const result = await runApiTask(() => api.runAigcInterface({ interfaceId: selected.id, inputs, ...(confirmed ? { confirmPublicTransfer: true } : {}) }), {
       operation: "创建 AIGC 生成任务",
-      expected: { VALIDATION_FAILED: transfer.validation },
+      expected: { VALIDATION_FAILED: transfer.validation, NOT_FOUND: (error) => transfer.missingReference(error,
+        (field) => [inputs[field]].flat().some(isMediaReference)) },
     });
     setSubmitting(false);
     if (result.status !== "success") return;
@@ -506,7 +508,8 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   const displayItems = runDisplayItems(fields, workflow, values);
 
   function renderRunField(field: AigcRunFieldDefinition) {
-    return (
+    return (<Fragment key={field.name}>
+      {transfer.missing?.field === field.name && <p className="configuration-inline-error" role="alert">{transfer.missing.message}</p>}
       <AigcRunField
         key={`${selectedId}/${field.name}`}
         field={field}
@@ -520,17 +523,22 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
         comfyInputFiles={comfyInputFiles[field.name] ?? []}
         comfyInputLoading={comfyInputLoading[field.name] === true}
         comfyChannelId={selected?.protocol === "comfyui" ? selected.channelId : undefined}
-        onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+        onChange={(value) => {
+          transfer.clearMissing(field.name);
+          setValues((current) => ({ ...current, [field.name]: value }));
+        }}
         onFile={(file) => void uploadFile(field, file)}
         onPublicFile={(file) => void uploadPublicFile(field, file)}
         onMediaSourceChange={(source) => changeMediaSource(field, source)}
         onSelectPublicFile={(file) => selectPublicMediaFile(field, file)}
         onSelectComfyInputFile={(file) => selectComfyInputFile(field, file)}
       />
+      </Fragment>
     );
   }
 
   function clearRunField(field: AigcRunFieldDefinition) {
+    transfer.clearMissing(field.name);
     setValues((current) => { const next = { ...current }; delete next[field.name]; return next; });
     setUploads((current) => { const next = { ...current }; delete next[field.name]; return next; });
   }

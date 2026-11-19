@@ -1,12 +1,14 @@
 import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { MediaCategory, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
+import type { MediaCategory, MediaDeleteItemResult, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
 import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
 import { MediaPreview } from "../components/media-library-preview";
+import { MediaFileDeleteDialog } from "../components/media-file-delete-dialog";
 import { MediaThumbnail } from "../components/media-thumbnail";
 import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
+import { useErrorToast } from "../error-toast-provider";
 import { useMediaNavigation } from "../layouts/workbench-shell";
 import { navigateTo } from "../router";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
@@ -275,19 +277,29 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
   onLibraryUpdate: (library: MediaLibrary) => void;
 }) {
   const { runApiTask } = useApiTask();
+  const toast = useErrorToast();
   const [files, setFiles] = useState<LoadState<MediaFile>>({ status: "loading" });
   const [refresh, setRefresh] = useState(0);
   const [dialog, setDialog] = useState<WorkspaceDialog>();
   const [category, setCategory] = useState<MediaCategory>("video");
   const [notice, setNotice] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteFiles, setDeleteFiles] = useState<MediaFile[]>();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteReport, setDeleteReport] = useState<{ message: string; entries: { name: string; result: MediaDeleteItemResult }[] }>();
+  const deleteInProgress = useRef(false);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const openedFileLink = useRef(false);
   const libraryId = library.id;
   const items = files.status === "ready" ? files.items : [];
   const visibleFiles = items.filter((file) => file.category === category);
+  const selectedFiles = visibleFiles.filter((file) => selected.has(file.id));
   const close = () => setDialog(undefined);
 
   // 归档链接直接定位原件，刷新后仍可打开同一文件。
   useEffect(() => {
-    if (!fileId || files.status !== "ready") return;
+    if (!fileId || files.status !== "ready" || openedFileLink.current) return;
+    openedFileLink.current = true;
     const file = files.items.find((entry) => entry.id === fileId);
     if (!file) {
       setNotice("链接指向的媒体文件已不存在。");
@@ -311,8 +323,73 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
     setRefresh((value) => value + 1);
   }
 
+  function chooseCategory(next: MediaCategory) {
+    if (next === category) return;
+    setSelected(new Set());
+    setDeleteReport(undefined);
+    setNotice("");
+    setCategory(next);
+  }
+
+  function toggleFile(id: string, checked: boolean) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  /** 提交弹窗打开时的版本，逐项保留仍有机会重试的目标。 */
+  async function removeFiles() {
+    if (!deleteFiles?.length || deleteInProgress.current || !online) return;
+    deleteInProgress.current = true;
+    setDeleting(true);
+    setDeleteReport(undefined);
+    setNotice("");
+    try {
+      const response = await runApiTask(() => api.deleteMediaFiles(libraryId, {
+        files: deleteFiles.map(({ id, revision }) => ({ id, revision })),
+      }), { operation: "永久删除媒体文件" });
+      setDeleteFiles(undefined);
+      reload();
+      if (response.status === "success") {
+        const names = new Map(deleteFiles.map(({ id, name }) => [id, name]));
+        const results = response.data.results;
+        const deleted = results.filter(({ status }) => status === "deleted").length;
+        const missing = results.filter(({ status }) => status === "missing").length;
+        const failed = results.filter(({ status }) => status === "failed").length;
+        const cleanup = results.filter(({ status }) => status === "cleanup_failed").length;
+        const message = "删除成功 " + deleted + " 项，已不存在 " + missing + " 项，删除失败 " + failed + " 项"
+          + (cleanup ? "，已不可访问但待清理 " + cleanup + " 项。" : "。");
+        const entries = results.filter(({ status }) => status !== "deleted")
+          .map((result) => ({ name: names.get(result.id) ?? result.id, result }));
+        setDeleteReport({ message, entries });
+        setSelected((current) => {
+          const next = new Set(current);
+          for (const item of results) {
+            if (item.status === "failed") next.add(item.id);
+            else next.delete(item.id);
+          }
+          return next;
+        });
+        const issue = entries.find(({ result }) => result.status === "failed" || result.status === "cleanup_failed");
+        if (issue) toast.push({ operation: "永久删除媒体文件", title: "部分媒体文件需要处理",
+          summary: issue.name + "：" + issue.result.message, code: issue.result.code });
+      }
+      requestAnimationFrame(() => {
+        if (document.activeElement === document.body) categoriesRef.current?.focus();
+      });
+      const detail = await runApiTask(() => api.getMediaLibrary(libraryId), { operation: "更新库内文件数量" });
+      if (detail.status === "success") onLibraryUpdate(detail.data);
+    } finally {
+      deleteInProgress.current = false;
+      setDeleting(false);
+    }
+  }
+
   async function saved(file: MediaFile, uploading: boolean) {
-    setCategory(file.category);
+    chooseCategory(file.category);
     setFiles((current) => current.status === "ready"
       ? { status: "ready", items: uploading ? [file, ...current.items] : current.items.map((item) => item.id === file.id ? file : item) }
       : current);
@@ -335,16 +412,28 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
     </section>}
     <p className="media-library-status" role="status">{notice}</p>
     <p className="media-library-status" role="status">{librarySaved ? "媒体库已保存。" : ""}</p>
+    {deleteReport && <section className="media-library-note" aria-label="媒体文件删除结果">
+      <p role="status">{deleteReport.message}</p>
+      {deleteReport.entries.length > 0 && <ul>{deleteReport.entries.map(({ name, result }) => <li key={result.id}>
+        {name} · {result.message} · {result.code}
+        {result.code === "VERSION_CONFLICT" && "。请核对刷新后的文件名并重新确认。"}
+        {result.status === "cleanup_failed" && "。服务重启时会继续回收。"}
+      </li>)}</ul>}
+    </section>}
     <section className="media-library-files" aria-label="库内文件">
-      <div className="media-library-categories" role="group" aria-label="媒体类别">
+      <div ref={categoriesRef} tabIndex={-1} className="media-library-categories" role="group" aria-label="媒体类别">
         {categoryOrder.map((key) => {
           const { icon: Icon, label } = categories[key];
           const count = items.filter((file) => file.category === key).length;
           return <button type="button" key={key} className="configuration-secondary-action" aria-pressed={category === key}
-            onClick={() => { setCategory(key); setNotice(""); }}>
+            disabled={deleting} onClick={() => chooseCategory(key)}>
             <Icon size={16} aria-hidden="true" />{label}{files.status === "ready" && <small>{count}</small>}
           </button>;
         })}
+        {visibleFiles.length > 0 && <button type="button" className="configuration-secondary-action configuration-secondary-action--danger"
+          disabled={!online || deleting || !selectedFiles.length || selectedFiles.length > 5000} onClick={() => setDeleteFiles(selectedFiles)}>
+          批量删除（已选 {selectedFiles.length} 项）
+        </button>}
       </div>
       {files.status === "loading" ? <p className="media-library-file-state" role="status">正在读取文件…</p> :
         files.status === "error" ? <div className="media-library-file-state"><p role="alert">无法读取库内文件。</p>
@@ -356,8 +445,15 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
               <MediaThumbnail file={file} />
               <strong title={file.name}>{file.name}</strong>
             </button>
-            <button type="button" className="icon-button media-library-rename" disabled={!online} aria-label={"重命名 " + file.name}
-              title="重命名" onClick={() => setDialog({ kind: "rename", file })}><Pencil size={16} aria-hidden="true" /></button>
+            <div className="media-library-file-actions">
+              <label title="选择文件"><input type="checkbox" aria-label={"选择 " + file.name} checked={selected.has(file.id)}
+                disabled={deleting || (!selected.has(file.id) && selectedFiles.length >= 5000)}
+                onChange={(event) => toggleFile(file.id, event.target.checked)} /></label>
+              <button type="button" className="icon-button" disabled={!online || deleting} aria-label={"重命名 " + file.name}
+                title="重命名" onClick={() => setDialog({ kind: "rename", file })}><Pencil size={16} aria-hidden="true" /></button>
+              <button type="button" className="icon-button" disabled={!online || deleting} aria-label={"删除 " + file.name}
+                title="删除" onClick={() => setDeleteFiles([file])}><Trash2 size={16} aria-hidden="true" /></button>
+            </div>
           </li>)}
         </ul> : <div className="media-library-file-state">
           <p>{items.length ? "此类别暂无" + categories[category].label + "。" : "此媒体库尚无文件。"}</p>
@@ -370,5 +466,7 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
     {dialog?.kind === "rename" && <MediaNameDialog library={library} file={dialog.file} online={online} onClose={close}
       onSaved={(file) => void saved(file, false)} onRefresh={reload} />}
     {dialog?.kind === "preview" && <MediaPreview file={dialog.file} onClose={close} returnFocusSelector="[data-media-upload]" />}
+    {deleteFiles && <MediaFileDeleteDialog libraryName={library.name} files={deleteFiles} online={online} busy={deleting}
+      onCancel={() => setDeleteFiles(undefined)} onConfirm={() => void removeFiles()} />}
   </section>;
 }
