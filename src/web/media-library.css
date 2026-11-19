@@ -1,4 +1,52 @@
 /* 媒体卡片和预览只随媒体库页面加载，共用知识库侧栏和工作台主题。 */
+/* 操作按钮与库导航分开，保留整行的选中背景和长名称省略。 */
+.media-library-nav-row { position: relative; min-width: 0; }
+.media-library-navigation .media-library-nav-row > button:first-child { width: 100%; padding-inline-end: 48px; }
+.media-library-nav-row > button:first-child > svg { flex-shrink: 0; }
+
+.media-library-navigation nav .media-library-nav-trigger {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: grid;
+  width: 44px;
+  height: 100%;
+  padding: 0;
+  place-items: center;
+}
+
+.media-library-actions {
+  position: fixed;
+  z-index: 72;
+  width: 174px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  padding: 6px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+.media-library-actions > button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--text-primary);
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+}
+
+.media-library-actions > button:hover,
+.media-library-actions > button:focus-visible { background: color-mix(in srgb, var(--surface), var(--surface-hover)); }
+.media-library-actions > .is-danger { color: color-mix(in srgb, var(--danger) 65%, var(--text-primary)); }
+
 .media-library-landing {
   display: grid;
   place-items: center;
@@ -22,8 +70,6 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
-
-.media-library-workspace .knowledge-base-workspace__actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; }
 
 .media-library-workspace h1,
 .media-library-dialog,
@@ -248,11 +294,12 @@
 
 @media (max-width: 760px) {
   .media-library-scrim { display: block; }
+  .media-library-actions > button { min-height: 44px; }
   .media-library-navigation button,
   .media-library-workspace button,
   .media-library-dialog button,
   .media-library-preview button { min-height: 44px; }
-  .media-library-workspace .knowledge-base-workspace__actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
+  .media-library-workspace .knowledge-base-workspace__actions { grid-template-columns: 1fr; }
   .media-library-grid { grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr)); }
   .media-library-landing { overflow: visible; }
 }

@@ -96,4 +96,6 @@ it("媒体库按路由加载缩略图和预览样式", async () => {
   expect(page).toContain("knowledge-base-navigation media-library-navigation");
   expect(theme).toContain(':root[data-theme="bug"] .knowledge-base-navigation');
   expect(css).toContain(".media-library-preview__stage");
+  expect(css).toMatch(/\.media-library-actions\s*\{[^}]*background:\s*var\(--surface\)/);
+  expect(css).toMatch(/\.media-library-actions > \.is-danger\s*\{[^}]*var\(--danger\)/);
 });

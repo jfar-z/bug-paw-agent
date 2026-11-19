@@ -3,7 +3,7 @@
   "lazyChunkGzipBytes": 153600,
   "css": {
     "entryGzipBytes": 24576,
-    "totalGzipBytes": 84992,
+    "totalGzipBytes": 85056,
     "routes": {
       "src/web/pages/chat-page.tsx": {
         "label": "聊天工作台",

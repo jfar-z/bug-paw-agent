@@ -232,7 +232,7 @@ export function MediaLibraryEditDialog({ id, online, onClose, onSaved }: {
 
   return <ConfigurationEditorDialog variant="confirmation" className="media-library-dialog" title="编辑媒体库"
     description={"备注可留空，最多 " + MEDIA_LIBRARY_NOTE_MAX_LENGTH + " 个字符。"}
-    busy={busy} onClose={onClose} returnFocusSelector="[data-media-edit]"
+    busy={busy} onClose={onClose} returnFocusSelector="[data-media-create]"
     footer={<>
       <button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>取消</button>
       <button type="submit" form={formId} className="configuration-primary-action"
