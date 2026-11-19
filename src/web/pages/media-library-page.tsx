@@ -8,7 +8,7 @@ import { useMediaNavigation } from "../layouts/workbench-shell";
 import { navigateTo } from "../router";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
 import { useOnlineStatus } from "../use-online-status";
-import { MediaDeleteDialog, MediaNameDialog, MediaPreview } from "./media-library-dialogs";
+import { MediaDeleteDialog, MediaLibraryEditDialog, MediaNameDialog, MediaPreview } from "./media-library-dialogs";
 import "../configuration-dialog.css";
 import "../library-workspace.css";
 import "../media-library.css";
@@ -21,7 +21,7 @@ const categories = {
 const categoryOrder: MediaCategory[] = ["video", "image", "audio"];
 
 type LoadState<T> = { status: "loading" | "error" } | { status: "ready"; items: T[] };
-type WorkspaceDialog = { kind: "upload" | "delete" } | { kind: "rename" | "preview"; file: MediaFile };
+type WorkspaceDialog = { kind: "upload" | "delete" | "edit" } | { kind: "rename" | "preview"; file: MediaFile };
 
 /** 用真实库标识恢复二级导航，加载失败与空列表各自呈现。 */
 export function MediaLibraryPage({ libraryId }: { libraryId?: string }) {
@@ -79,7 +79,7 @@ export function MediaLibraryPage({ libraryId }: { libraryId?: string }) {
 
   function updateLibrary(library: MediaLibrary) {
     setLibraries((current) => current.status === "ready"
-      ? { status: "ready", items: current.items.map((item) => item.id === library.id ? library : item) }
+      ? { status: "ready", items: current.items.map((item) => item.id === library.id && item.revision <= library.revision ? library : item) }
       : current);
   }
 
@@ -195,10 +195,15 @@ function MediaWorkspace({ library, online, onDeleted, onLibraryUpdate, onMissing
       <div className="knowledge-base-workspace__actions">
         <button type="button" data-media-upload className="configuration-primary-action" disabled={!online || files.status === "loading"}
           onClick={() => setDialog({ kind: "upload" })}><Upload size={16} aria-hidden="true" />上传文件</button>
+        <button type="button" data-media-edit className="configuration-secondary-action" disabled={!online}
+          onClick={() => setDialog({ kind: "edit" })}><Pencil size={16} aria-hidden="true" />编辑媒体库</button>
         <button type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!online}
           onClick={() => setDialog({ kind: "delete" })}><Trash2 size={16} aria-hidden="true" />删除媒体库</button>
       </div>
     </header>
+    {library.note && <section aria-label="媒体库备注">
+      <p className="media-library-note">{library.note}</p>
+    </section>}
     <p className="media-library-status" role="status">{notice}</p>
     <section className="media-library-files" aria-label="库内文件">
       <div className="media-library-categories" role="group" aria-label="媒体类别">
@@ -234,6 +239,8 @@ function MediaWorkspace({ library, online, onDeleted, onLibraryUpdate, onMissing
       onSaved={(file) => void saved(file, true)} />}
     {dialog?.kind === "rename" && <MediaNameDialog library={library} file={dialog.file} online={online} onClose={close}
       onSaved={(file) => void saved(file, false)} onRefresh={reload} />}
+    {dialog?.kind === "edit" && <MediaLibraryEditDialog id={library.id} online={online} onClose={close}
+      onSaved={(updated) => { onLibraryUpdate(updated); setNotice("媒体库已保存。"); close(); }} />}
     {dialog?.kind === "delete" && <MediaDeleteDialog id={library.id} online={online} onClose={close} onDeleted={onDeleted}
       onMissing={onMissing} onLibraryUpdate={onLibraryUpdate} onFilesChanged={reload} />}
     {dialog?.kind === "preview" && <MediaPreview file={dialog.file} onClose={close} />}

@@ -1,4 +1,4 @@
-import type { MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaRename } from "../shared/media-library-contracts";
+import type { MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
@@ -429,9 +429,11 @@ function mediaFilePath(libraryId: string, fileId: string) {
 export const api = {
   listMediaLibraries: (signal?: AbortSignal) =>
     request<{ libraries: MediaLibrary[] }>("/api/media-libraries", { signal }),
-  getMediaLibrary: (libraryId: string) => request<MediaLibrary>(mediaLibraryPath(libraryId)),
+  getMediaLibrary: (libraryId: string, signal?: AbortSignal) => request<MediaLibrary>(mediaLibraryPath(libraryId), { signal }),
   createMediaLibrary: (name: string) =>
     request<MediaLibrary>("/api/media-libraries", { method: "POST", body: JSON.stringify({ name }) }),
+  updateMediaLibrary: (libraryId: string, change: MediaLibraryUpdate) =>
+    request<MediaLibrary>(mediaLibraryPath(libraryId), { method: "PATCH", body: JSON.stringify(change) }),
   deleteMediaLibrary: (libraryId: string, confirmation: MediaDeleteConfirmation) =>
     request<void>(mediaLibraryPath(libraryId), { method: "DELETE", body: JSON.stringify(confirmation) }),
   listMediaFiles: (libraryId: string, signal?: AbortSignal) =>

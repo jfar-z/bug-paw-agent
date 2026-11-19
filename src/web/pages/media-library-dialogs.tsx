@@ -1,6 +1,6 @@
 import { Minus, Plus, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { MEDIA_FORMATS, MEDIA_UPLOAD_BYTES, type MediaFile, type MediaLibrary } from "../../shared/media-library-contracts";
+import { MEDIA_FORMATS, MEDIA_LIBRARY_NOTE_MAX_LENGTH, MEDIA_UPLOAD_BYTES, type MediaFile, type MediaLibrary } from "../../shared/media-library-contracts";
 import { api, type ApiClientError } from "../api";
 import { toUnexpectedErrorNotice } from "../api-error-policy";
 import { useApiTask } from "../api-task-provider";
@@ -130,6 +130,148 @@ export function MediaNameDialog(props: MediaNameDialogProps) {
       </label>
       {busy && uploading && <p role="status">正在发送文件并等待服务端生成预览。</p>}
       {error && <p id={formId + "-error"} className="configuration-inline-error" role="alert">{error}</p>}
+    </form>
+  </ConfigurationEditorDialog>;
+}
+
+type LibraryEditSnapshot = { status: "loading" | "error" | "missing" } | { status: "ready"; library: MediaLibrary };
+
+/** 编辑弹层以最新库版本初始化草稿，并要求用户确认冲突后的版本。 */
+export function MediaLibraryEditDialog({ id, online, onClose, onSaved }: {
+  id: string;
+  online: boolean;
+  onClose: () => void;
+  onSaved: (library: MediaLibrary) => void;
+}) {
+  const { runApiTask } = useApiTask();
+  const toast = useErrorToast();
+  const [snapshot, setSnapshot] = useState<LibraryEditSnapshot>({ status: "loading" });
+  const [retry, setRetry] = useState(0);
+  const [conflict, setConflict] = useState("");
+  const [draft, setDraft] = useState<{ name: string; note: string }>();
+  const [busy, setBusy] = useState(false);
+  const [fieldError, setFieldError] = useState<{ field: "name" | "note"; message: string }>();
+  const submitting = useRef(false);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const formId = useId();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void runApiTask(() => api.getMediaLibrary(id, controller.signal), {
+      operation: "读取媒体库编辑信息",
+      expected: { NOT_FOUND: (error) => {
+        if (!controller.signal.aborted) toast.push(toUnexpectedErrorNotice(error, "读取媒体库编辑信息"));
+      } },
+    }).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.status === "success") {
+        const library = result.data;
+        // 初次读取填写草稿。冲突时仅替换版本快照，保留用户输入。
+        setDraft((current) => current ?? { name: library.name, note: library.note });
+        setSnapshot({ status: "ready", library });
+      } else {
+        setSnapshot({ status: result.status === "handled" && result.error.code === "NOT_FOUND" ? "missing" : "error" });
+        if (result.status === "handled" && result.error.code === "AUTH_REQUIRED") {
+          toast.push(toUnexpectedErrorNotice(result.error, "读取媒体库编辑信息"));
+        }
+      }
+    });
+    return () => controller.abort();
+  }, [id, retry, runApiTask, toast]);
+
+  useEffect(() => {
+    const back = (event: Event) => {
+      event.preventDefault();
+      if (!submitting.current) onClose();
+    };
+    window.addEventListener(MOBILE_BACK_REQUEST_EVENT, back);
+    return () => window.removeEventListener(MOBILE_BACK_REQUEST_EVENT, back);
+  }, [onClose]);
+
+  function reload() {
+    setSnapshot({ status: "loading" });
+    setRetry((value) => value + 1);
+  }
+
+  async function submit() {
+    if (!online || submitting.current || conflict || !draft || snapshot.status !== "ready") return;
+    submitting.current = true;
+    setBusy(true);
+    setFieldError(undefined);
+    try {
+      const operation = "保存媒体库";
+      const result = await runApiTask(() => api.updateMediaLibrary(id, { ...draft, revision: snapshot.library.revision }), {
+        operation,
+        expected: {
+          VALIDATION_FAILED: (error) => {
+            const field = error.details?.field;
+            if (field === "name" || field === "note") setFieldError({ field, message: showApiError(error) });
+            else toast.push(toUnexpectedErrorNotice(error, operation));
+          },
+          VERSION_CONFLICT: (error) => { setConflict(showApiError(error)); reload(); },
+          NOT_FOUND: (error) => {
+            setSnapshot({ status: "missing" });
+            toast.push(toUnexpectedErrorNotice(error, operation));
+          },
+        },
+      });
+      if (result.status === "success") onSaved(result.data);
+      if (result.status === "handled" && result.error.code === "AUTH_REQUIRED") {
+        toast.push(toUnexpectedErrorNotice(result.error, operation));
+      }
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
+
+  function renderFieldError(field: "name" | "note") {
+    return fieldError?.field === field &&
+      <p id={formId + "-" + field} className="configuration-inline-error" role="alert">{fieldError.message}</p>;
+  }
+
+  return <ConfigurationEditorDialog variant="confirmation" className="media-library-dialog" title="编辑媒体库"
+    description={"备注可留空，最多 " + MEDIA_LIBRARY_NOTE_MAX_LENGTH + " 个字符。"}
+    busy={busy} onClose={onClose} returnFocusSelector="[data-media-edit]"
+    footer={<>
+      <button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>取消</button>
+      <button type="submit" form={formId} className="configuration-primary-action"
+        disabled={busy || !online || snapshot.status !== "ready" || !!conflict}>{busy ? "正在保存…" : "保存"}</button>
+    </>}>
+    <form id={formId} className="media-library-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      {snapshot.status === "loading" && <p role="status">正在读取最新媒体库信息…</p>}
+      {snapshot.status === "missing" && <p role="alert">此媒体库已不存在，无法保存。</p>}
+      {snapshot.status === "error" && <button type="button" className="configuration-secondary-action" disabled={!online}
+        onClick={reload}>重新读取媒体库</button>}
+      {conflict && <p role="alert">{conflict}。请查看最新库信息，确认后再保存草稿。</p>}
+      {conflict && snapshot.status === "ready" && <div>
+        <p>最新名称：{snapshot.library.name}</p>
+        <p className="media-library-note">最新备注：{snapshot.library.note || "无"}</p>
+        <button type="button" className="configuration-secondary-action" onClick={() => {
+          setConflict("");
+          nameInput.current?.focus();
+        }}>已核对，继续编辑</button>
+      </div>}
+      {draft && <>
+        <label>媒体库名称
+          <input ref={nameInput} value={draft.name} disabled={busy} aria-invalid={fieldError?.field === "name" || undefined}
+            aria-describedby={fieldError?.field === "name" ? formId + "-name" : undefined}
+            onChange={(event) => {
+              setDraft({ ...draft, name: event.target.value });
+              if (fieldError?.field === "name") setFieldError(undefined);
+            }} />
+        </label>
+        {renderFieldError("name")}
+        <label>媒体库备注
+          <textarea rows={4} value={draft.note} disabled={busy} aria-invalid={fieldError?.field === "note" || undefined}
+            aria-describedby={fieldError?.field === "note" ? formId + "-note" : undefined}
+            onChange={(event) => {
+              setDraft({ ...draft, note: event.target.value });
+              if (fieldError?.field === "note") setFieldError(undefined);
+            }} />
+        </label>
+        {renderFieldError("note")}
+      </>}
     </form>
   </ConfigurationEditorDialog>;
 }
