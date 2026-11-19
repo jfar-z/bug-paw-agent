@@ -1,5 +1,6 @@
-import { Film, Images, LibraryBig, Music2, Pencil, Trash2, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { MediaCategory, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
 import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
@@ -21,7 +22,7 @@ const categories = {
 const categoryOrder: MediaCategory[] = ["video", "image", "audio"];
 
 type LoadState<T> = { status: "loading" | "error" } | { status: "ready"; items: T[] };
-type WorkspaceDialog = { kind: "upload" | "delete" | "edit" } | { kind: "rename" | "preview"; file: MediaFile };
+type WorkspaceDialog = { kind: "upload" } | { kind: "rename" | "preview"; file: MediaFile };
 
 /** 用真实库标识恢复二级导航，加载失败与空列表各自呈现。 */
 export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fileId?: string }) {
@@ -31,6 +32,9 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
   const [libraries, setLibraries] = useState<LoadState<MediaLibrary>>({ status: "loading" });
   const [refresh, setRefresh] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [libraryAction, setLibraryAction] = useState<{ kind: "edit" | "delete"; id: string }>();
+  const [savedLibraryId, setSavedLibraryId] = useState<string>();
+  const [filesRevision, setFilesRevision] = useState(0);
   const bases = libraries.status === "ready" ? libraries.items : [];
   const selected = bases.find((base) => base.id === libraryId);
 
@@ -52,7 +56,7 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
       trigger?.focus();
     };
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") dismiss();
+      if (event.key === "Escape" && !event.defaultPrevented) dismiss();
     };
     const back = (event: Event) => {
       event.preventDefault();
@@ -87,8 +91,19 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
     setLibraries((current) => current.status === "ready"
       ? { status: "ready", items: current.items.filter((library) => library.id !== id) }
       : current);
-    select(undefined, true);
+    if (libraryId === id) select(undefined, true);
   }
+
+  function openLibraryAction(kind: "edit" | "delete", id: string) {
+    if (open && window.matchMedia("(max-width: 760px)").matches) {
+      document.querySelector<HTMLButtonElement>(".workbench-secondary-menu")?.focus();
+    }
+    close();
+    setSavedLibraryId(undefined);
+    setLibraryAction({ kind, id });
+  }
+
+  const closeLibraryAction = () => setLibraryAction(undefined);
 
   const createButton = (className: string) => (
     <button type="button" data-media-create className={className} disabled={!online} onClick={() => {
@@ -102,11 +117,14 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
     {(bases.length > 0 || open) && <aside className={"knowledge-base-navigation media-library-navigation" + (open ? " is-mobile-open" : "")}>
       <SecondarySidebarHeader eyebrow="MEDIA LIBRARIES" title="媒体库" />
       <nav aria-label="媒体库列表">
-        {bases.map((base) => <button key={base.id} type="button" className={base.id === libraryId ? "is-active" : undefined}
-          aria-current={base.id === libraryId ? "page" : undefined} title={base.name} onClick={() => select(base.id)}>
-          <LibraryBig size={16} aria-hidden="true" />
-          <span><strong>{base.name}</strong><small>{base.fileCount} 个文件</small></span>
-        </button>)}
+        {bases.map((base) => <div className="media-library-nav-row" key={base.id}>
+          <button type="button" className={base.id === libraryId ? "is-active" : undefined}
+            aria-current={base.id === libraryId ? "page" : undefined} title={base.name} onClick={() => select(base.id)}>
+            <LibraryBig size={16} aria-hidden="true" />
+            <span><strong>{base.name}</strong><small>{base.fileCount} 个文件</small></span>
+          </button>
+          <MediaLibraryActions name={base.name} online={online} drawerOpen={open} onAction={(kind) => openLibraryAction(kind, base.id)} />
+        </div>)}
       </nav>
       {createButton("knowledge-base-navigation__create")}
     </aside>}
@@ -115,7 +133,7 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
       document.querySelector<HTMLButtonElement>(".workbench-secondary-menu")?.focus();
     }} />}
     {selected ? <MediaWorkspace key={`${selected.id}/${fileId ?? ""}`} library={selected} fileId={fileId} online={online} onLibraryUpdate={updateLibrary}
-      onDeleted={() => removeLibrary(selected.id)} onMissing={() => { reload(); }} /> :
+      filesRevision={filesRevision} librarySaved={savedLibraryId === selected.id} /> :
       <section className="media-library-landing">
         <div className="knowledge-base-empty-state">
           <img className="knowledge-base-empty-state__image" src="/brand/bugpaw/bugpaw-sleeping.png" alt="" />
@@ -143,16 +161,116 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
       setCreating(false);
       select(library.id);
     }} />}
+    {libraryAction?.kind === "edit" && <MediaLibraryEditDialog id={libraryAction.id} online={online} onClose={closeLibraryAction}
+      onSaved={(updated) => {
+        updateLibrary(updated);
+        setSavedLibraryId(updated.id);
+        closeLibraryAction();
+      }} />}
+    {libraryAction?.kind === "delete" && <MediaDeleteDialog id={libraryAction.id} online={online} onClose={closeLibraryAction}
+      onDeleted={() => { removeLibrary(libraryAction.id); closeLibraryAction(); }}
+      onMissing={reload} onLibraryUpdate={updateLibrary}
+      onFilesChanged={() => {
+        if (libraryAction.id === libraryId) setFilesRevision((current) => current + 1);
+      }} />}
   </section>;
 }
 
-function MediaWorkspace({ fileId, library, online, onDeleted, onLibraryUpdate, onMissing }: {
+/** 媒体库行操作沿用会话列表的三点入口，浮层脱离侧栏的滚动区域。 */
+function MediaLibraryActions({ name, online, drawerOpen, onAction }: {
+  name: string;
+  online: boolean;
+  drawerOpen: boolean;
+  onAction: (kind: "edit" | "delete") => void;
+}) {
+  const menuId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const visible = open && online;
+
+  useLayoutEffect(() => {
+    const button = trigger.current;
+    const panel = menu.current;
+    if (!visible || !button || !panel) return;
+
+    const anchor = button.getBoundingClientRect();
+    const { width, height } = panel.getBoundingClientRect();
+    const margin = 8;
+    const gap = 4;
+    const below = anchor.bottom + gap;
+    const top = below + height <= window.innerHeight - margin ? below : Math.max(margin, anchor.top - gap - height);
+    const left = Math.min(Math.max(margin, anchor.right - width), window.innerWidth - margin - width);
+    panel.style.top = top + "px";
+    panel.style.left = left + "px";
+    panel.querySelector("button")?.focus();
+
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !panel.contains(event.target) && !button.contains(event.target)) setOpen(false);
+    };
+    const dismiss = () => {
+      if (panel.contains(document.activeElement)) button.focus({ preventScroll: true });
+      setOpen(false);
+    };
+    const closeOnScroll = (event: Event) => {
+      if (event.target !== panel) dismiss();
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (!online) setOpen(false);
+  }, [online]);
+
+  useEffect(() => {
+    if (!drawerOpen && window.matchMedia("(max-width: 760px)").matches) setOpen(false);
+  }, [drawerOpen]);
+
+  function choose(kind: "edit" | "delete") {
+    trigger.current?.focus();
+    setOpen(false);
+    onAction(kind);
+  }
+
+  return <>
+    <button ref={trigger} type="button" className="icon-button media-library-nav-trigger"
+      aria-label={`管理媒体库：${name}`} title="管理媒体库" aria-haspopup="menu" aria-expanded={visible}
+      aria-controls={visible ? menuId : undefined} disabled={!online} onClick={() => setOpen((current) => !current)}>
+      <MoreHorizontal size={16} aria-hidden="true" />
+    </button>
+    {visible && createPortal(<div ref={menu} className="media-library-actions" id={menuId} role="menu" aria-label={`管理媒体库：${name}`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.key === "Tab") {
+          if (event.key === "Escape") event.preventDefault();
+          trigger.current?.focus();
+          setOpen(false);
+        } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const items = event.currentTarget.querySelectorAll("button");
+          const last = event.key === "End" || (event.key.startsWith("Arrow") && document.activeElement === items[0]);
+          items[last ? 1 : 0]?.focus();
+        }
+      }}>
+      <button type="button" role="menuitem" tabIndex={-1} onClick={() => choose("edit")}><Pencil size={15} aria-hidden="true" />编辑媒体库</button>
+      <button type="button" role="menuitem" tabIndex={-1} className="is-danger" onClick={() => choose("delete")}><Trash2 size={15} aria-hidden="true" />删除媒体库</button>
+    </div>, document.body)}
+  </>;
+}
+
+function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, onLibraryUpdate }: {
   library: MediaLibrary;
   fileId?: string;
   online: boolean;
-  onDeleted: () => void;
+  filesRevision: number;
+  librarySaved: boolean;
   onLibraryUpdate: (library: MediaLibrary) => void;
-  onMissing: () => void;
 }) {
   const { runApiTask } = useApiTask();
   const [files, setFiles] = useState<LoadState<MediaFile>>({ status: "loading" });
@@ -184,7 +302,7 @@ function MediaWorkspace({ fileId, library, online, onDeleted, onLibraryUpdate, o
       setFiles(result.status === "success" ? { status: "ready", items: result.data.files } : { status: "error" });
     });
     return () => controller.abort();
-  }, [libraryId, refresh, runApiTask]);
+  }, [libraryId, refresh, filesRevision, runApiTask]);
 
   function reload() {
     setFiles({ status: "loading" });
@@ -208,16 +326,13 @@ function MediaWorkspace({ fileId, library, online, onDeleted, onLibraryUpdate, o
       <div className="knowledge-base-workspace__actions">
         <button type="button" data-media-upload className="configuration-primary-action" disabled={!online || files.status === "loading"}
           onClick={() => setDialog({ kind: "upload" })}><Upload size={16} aria-hidden="true" />上传文件</button>
-        <button type="button" data-media-edit className="configuration-secondary-action" disabled={!online}
-          onClick={() => setDialog({ kind: "edit" })}><Pencil size={16} aria-hidden="true" />编辑媒体库</button>
-        <button type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!online}
-          onClick={() => setDialog({ kind: "delete" })}><Trash2 size={16} aria-hidden="true" />删除媒体库</button>
       </div>
     </header>
     {library.note && <section aria-label="媒体库备注">
       <p className="media-library-note">{library.note}</p>
     </section>}
     <p className="media-library-status" role="status">{notice}</p>
+    <p className="media-library-status" role="status">{librarySaved ? "媒体库已保存。" : ""}</p>
     <section className="media-library-files" aria-label="库内文件">
       <div className="media-library-categories" role="group" aria-label="媒体类别">
         {categoryOrder.map((key) => {
@@ -252,10 +367,6 @@ function MediaWorkspace({ fileId, library, online, onDeleted, onLibraryUpdate, o
       onSaved={(file) => void saved(file, true)} />}
     {dialog?.kind === "rename" && <MediaNameDialog library={library} file={dialog.file} online={online} onClose={close}
       onSaved={(file) => void saved(file, false)} onRefresh={reload} />}
-    {dialog?.kind === "edit" && <MediaLibraryEditDialog id={library.id} online={online} onClose={close}
-      onSaved={(updated) => { onLibraryUpdate(updated); setNotice("媒体库已保存。"); close(); }} />}
-    {dialog?.kind === "delete" && <MediaDeleteDialog id={library.id} online={online} onClose={close} onDeleted={onDeleted}
-      onMissing={onMissing} onLibraryUpdate={onLibraryUpdate} onFilesChanged={reload} />}
     {dialog?.kind === "preview" && <MediaPreview file={dialog.file} onClose={close} />}
   </section>;
 }
