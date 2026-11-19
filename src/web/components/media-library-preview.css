@@ -1,0 +1,72 @@
+.media-library-preview h2,
+.media-library-preview p { overflow-wrap: anywhere; }
+
+/* 行高由视口约束，放大后的图片从左上角开始滚动，可到达全部边缘。 */
+.configuration-dialog.media-library-preview {
+  width: min(100%, 1080px);
+  height: calc(100dvh - 40px);
+  padding: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.media-library-preview > div { min-width: 0; min-height: 0; }
+
+.media-library-preview h2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.media-library-preview__stage {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.media-library-preview__stage.is-fitted { display: grid; place-items: center; }
+
+.media-library-preview__stage img {
+  display: none;
+  max-width: none;
+  margin-inline: auto;
+}
+
+.media-library-preview__stage img.is-loaded { display: block; }
+
+.media-library-preview__stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.media-library-preview__stage audio {
+  display: block;
+  width: min(100%, 480px);
+  margin: 12px auto;
+}
+
+.media-library-preview__stage p { padding: 12px; }
+
+.configuration-dialog.media-library-preview > footer {
+  flex-flow: row wrap;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.media-library-zoom .icon-button { min-width: 42px; }
+
+@media (max-width: 760px) {
+  .media-library-preview button { min-height: 44px; }
+}
+
+@media (max-height: 450px) {
+  .media-library-preview h2 { -webkit-line-clamp: 1; }
+  .media-library-preview > header p { display: none; }
+}

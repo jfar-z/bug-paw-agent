@@ -3,7 +3,7 @@
   "lazyChunkGzipBytes": 153600,
   "css": {
     "entryGzipBytes": 24576,
-    "totalGzipBytes": 85760,
+    "totalGzipBytes": 86400,
     "routes": {
       "src/web/pages/chat-page.tsx": {
         "label": "聊天工作台",
@@ -83,7 +83,7 @@
       },
       "src/web/pages/media-library-page.tsx": {
         "label": "媒体库",
-        "gzipBytes": 4096
+        "gzipBytes": 4544
       },
       "src/web/pages/knowledge-base-page.tsx": {
         "label": "知识库",

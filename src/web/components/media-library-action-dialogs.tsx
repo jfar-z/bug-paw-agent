@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { MediaCategory, MediaFile } from "../../shared/media-library-contracts";
 import { api } from "../api";
@@ -6,6 +7,8 @@ import { useOnlineStatus } from "../use-online-status";
 import { ConfigurationEditorDialog } from "./configuration/configuration-editor-dialog";
 import { ConfigurationSelect } from "./configuration/configuration-select";
 import { MediaLibraryCatalogStatus, useMediaLibraries, type Catalog, type SaveTarget } from "./media-library-actions";
+import { MediaPreview } from "./media-library-preview";
+import { MediaThumbnail } from "./media-thumbnail";
 import "../configuration-dialog.css";
 import "./media-library-action-dialogs.css";
 
@@ -20,15 +23,16 @@ function LibraryChoice({ catalog, retry, libraryId, disabled, onChange }: Return
 }
 
 /** 共用配置弹层的键盘和焦点处理，短视口下只滚动弹层正文。 */
-function MediaActionDialog({ title, description, footer, children, busy = false, onClose }: {
+function MediaActionDialog({ title, description, footer, children, busy = false, suspended, onClose }: {
   title: string;
   description: string;
   footer: ReactNode;
   children?: ReactNode;
   busy?: boolean;
+  suspended?: boolean;
   onClose: () => void;
 }) {
-  return <ConfigurationEditorDialog variant="confirmation" title={title} description={description} busy={busy} onClose={onClose}
+  return <ConfigurationEditorDialog variant="confirmation" title={title} description={description} busy={busy} suspended={suspended} onClose={onClose}
     className="media-action-dialog" footer={footer}>
     <div className="media-action-dialog__body">{children}</div>
   </ConfigurationEditorDialog>;
@@ -44,6 +48,9 @@ export function PickMediaDialog({ label, category, onClose, onSelect }: {
   const libraries = useMediaLibraries();
   const [libraryId, setLibraryId] = useState("");
   const [fileId, setFileId] = useState("");
+  const [preview, setPreview] = useState<MediaFile>();
+  const previewButton = useRef<HTMLButtonElement>(null);
+  const fileGroup = useId();
   const [files, setFiles] = useState<Catalog<MediaFile>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const selected = files.status === "ready" ? files.items.find((file) => file.id === fileId) : undefined;
@@ -57,24 +64,46 @@ export function PickMediaDialog({ label, category, onClose, onSelect }: {
     });
     return () => controller.abort();
   }, [attempt, category, label, libraryId, runApiTask]);
-  return <MediaActionDialog title="从媒体库选择" description={label} onClose={onClose} footer={<>
-    <button type="button" className="configuration-secondary-action" onClick={onClose}>取消</button>
-    <button type="button" className="configuration-primary-action" disabled={!selected} onClick={() => selected && onSelect(selected)}>使用此文件</button>
-  </>}>
-    <LibraryChoice {...libraries} libraryId={libraryId} onChange={(id) => {
-      setLibraryId(id);
-      setFileId("");
-      setFiles({ status: "loading" });
-    }} />
-    {libraryId && (files.status === "loading" ? <p role="status">正在读取库内文件…</p>
-      : files.status === "error" ? <button type="button" className="configuration-secondary-action" onClick={() => {
+  // 预览独立于选择，关闭后将焦点交还给原文件的预览按钮。
+  useEffect(() => {
+    if (!preview && previewButton.current) {
+      previewButton.current.focus();
+      previewButton.current = null;
+    }
+  }, [preview]);
+  return <>
+    <MediaActionDialog title="从媒体库选择" description={label} suspended={Boolean(preview)} onClose={onClose} footer={<>
+      <button type="button" className="configuration-secondary-action" onClick={onClose}>取消</button>
+      <button type="button" className="configuration-primary-action" disabled={!selected} onClick={() => selected && onSelect(selected)}>使用此文件</button>
+    </>}>
+      <LibraryChoice {...libraries} libraryId={libraryId} onChange={(id) => {
+        setLibraryId(id);
+        setFileId("");
         setFiles({ status: "loading" });
-        setAttempt((count) => count + 1);
-      }}>重新读取库内文件</button>
-      : files.items.length === 0 ? <p>当前库没有匹配的文件。</p>
-      : <ConfigurationSelect ariaLabel="库内文件" placeholder="选择文件" value={fileId}
-        options={files.items.map((file) => ({ value: file.id, label: file.name }))} onChange={setFileId} />)}
-  </MediaActionDialog>;
+      }} />
+      {libraryId && (files.status === "loading" ? <p role="status">正在读取库内文件…</p>
+        : files.status === "error" ? <button type="button" className="configuration-secondary-action" onClick={() => {
+          setFiles({ status: "loading" });
+          setAttempt((count) => count + 1);
+        }}>重新读取库内文件</button>
+        : files.items.length === 0 ? <p>当前库没有匹配的文件。</p>
+        : <fieldset className="media-picker-files">
+          <legend>库内文件</legend>
+          {files.items.map((file) => <div className="media-picker-file" key={file.id}>
+            <label>
+              <input type="radio" name={fileGroup} checked={fileId === file.id} onChange={() => setFileId(file.id)} />
+              <MediaThumbnail file={file} iconSize={20} />
+              <span>{file.name}</span>
+            </label>
+            <button type="button" className="icon-button" title="预览" aria-label={`预览 ${file.name}`} onClick={(event) => {
+              previewButton.current = event.currentTarget;
+              setPreview(file);
+            }}><Eye size={18} aria-hidden="true" /></button>
+          </div>)}
+        </fieldset>)}
+    </MediaActionDialog>
+    {preview && <MediaPreview file={preview} onClose={() => setPreview(undefined)} />}
+  </>;
 }
 
 export function SaveMediaDialog({ target, onClose }: { target: SaveTarget; onClose: () => void }) {

@@ -4,12 +4,14 @@ import { createPortal } from "react-dom";
 import type { MediaCategory, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
 import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
+import { MediaPreview } from "../components/media-library-preview";
+import { MediaThumbnail } from "../components/media-thumbnail";
 import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
 import { useMediaNavigation } from "../layouts/workbench-shell";
 import { navigateTo } from "../router";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
 import { useOnlineStatus } from "../use-online-status";
-import { MediaDeleteDialog, MediaLibraryEditDialog, MediaNameDialog, MediaPreview } from "./media-library-dialogs";
+import { MediaDeleteDialog, MediaLibraryEditDialog, MediaNameDialog } from "./media-library-dialogs";
 import "../configuration-dialog.css";
 import "../library-workspace.css";
 import "../media-library.css";
@@ -367,18 +369,6 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
       onSaved={(file) => void saved(file, true)} />}
     {dialog?.kind === "rename" && <MediaNameDialog library={library} file={dialog.file} online={online} onClose={close}
       onSaved={(file) => void saved(file, false)} onRefresh={reload} />}
-    {dialog?.kind === "preview" && <MediaPreview file={dialog.file} onClose={close} />}
+    {dialog?.kind === "preview" && <MediaPreview file={dialog.file} onClose={close} returnFocusSelector="[data-media-upload]" />}
   </section>;
-}
-
-function MediaThumbnail({ file }: { file: MediaFile }) {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const Icon = categories[file.category].icon;
-  return <span className="media-library-thumbnail">
-    {!loaded && <Icon size={30} aria-hidden="true" />}
-    {file.category !== "audio" && !failed && <img alt="" loading="lazy"
-      src={api.mediaFileUrl(file.libraryId, file.id, "thumbnail")}
-      className={loaded ? "is-loaded" : undefined} onLoad={() => setLoaded(true)} onError={() => setFailed(true)} />}
-  </span>;
 }
