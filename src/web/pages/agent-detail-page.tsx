@@ -1,6 +1,7 @@
+import { MediaLibraryCatalogStatus, useMediaLibraries } from "../components/media-library-actions";
 import { ArrowLeft, Check, Copy, Folder, Save, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { AgentInstructions, AgentProfile, AgentProfileDocument, TitleGenerationConfig } from "../../shared/agent-contracts";
+import type { AgentInstructions, AgentProfile, MediaLibraryGrant, AgentProfileDocument, TitleGenerationConfig } from "../../shared/agent-contracts";
 import type { AvatarCropArea } from "../../shared/avatar-contracts";
 import { BUILTIN_TOOL_CATALOG, CAPABILITY_TOOL_CATALOG, DEFAULT_AGENT_TOOL_NAMES, SYSTEM_TOOL_CATALOG } from "../../shared/tool-catalog";
 import { api, type ModelSummary, type ResourceCatalog } from "../api";
@@ -174,6 +175,7 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
         defaultThinkingLevel: document.profile.defaultThinkingLevel ?? null,
         titleGeneration: document.profile.titleGeneration ?? null,
         allowedTools: document.profile.allowedTools,
+        mediaLibraryGrants: document.profile.mediaLibraryGrants,
         ttsProfileId: document.profile.ttsProfileId ?? null,
         ttsVoice: document.profile.ttsVoice?.trim() || null,
         ttsCustomParameters: document.profile.ttsProfileId ? ttsCustomParameters ?? {} : null,
@@ -389,6 +391,8 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
             const title = source === "builtin" ? "内置工具" : source === "system" ? "系统工具" : source === "capability" ? "能力工具" : source === "extension" ? "已加载扩展" : "保留配置";
             return <section key={source} className="tool-permission-group" aria-label={title}><h3>{title}</h3><div className="tool-permission-grid">{tools.map((tool) => <label key={tool.name}><input type="checkbox" checked={agent.allowedTools.includes(tool.name)} onChange={(event) => updateProfile({ allowedTools: event.target.checked ? [...agent.allowedTools, tool.name] : agent.allowedTools.filter((item) => item !== tool.name) })} /><span><strong>{tool.name}</strong><small>{tool.description}</small></span>{tool.highRisk ? <em>高风险</em> : null}</label>)}</div></section>;
           })}
+          <AgentMediaGrants key={agentId} grants={agent.mediaLibraryGrants ?? []} disabled={saving || !online}
+            onChange={(mediaLibraryGrants) => updateProfile({ mediaLibraryGrants })} />
         </section>
       ) : null}
 
@@ -419,6 +423,37 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
 }
 
 /** 将 Agent、提示词、头像和工作目录业务错误保留在当前编辑页。 */
+/** 按库独立配置读写权，撤销读取时同步撤销公网授权。 */
+function AgentMediaGrants({ grants, disabled, onChange }: {
+  grants: MediaLibraryGrant[];
+  disabled: boolean;
+  onChange: (grants: MediaLibraryGrant[]) => void;
+}) {
+  const libraries = useMediaLibraries();
+  function change(grant: MediaLibraryGrant) {
+    const remaining = grants.filter((entry) => entry.libraryId !== grant.libraryId);
+    onChange(grant.read || grant.upload ? [...remaining, grant] : remaining);
+  }
+  return <section className="tool-permission-group" aria-label="媒体库授权">
+    <h3>媒体库授权</h3>
+    <p className="configuration-help">按库授予读取或上传权限，使用媒体库工具还须启用 media_library。允许公网传输后，获准运行的 Grok 可通过公网读取执行副本。</p>
+    <MediaLibraryCatalogStatus {...libraries} />
+    {libraries.catalog.status === "ready" && libraries.catalog.items.map((library) => {
+      const grant = grants.find((entry) => entry.libraryId === library.id)
+        ?? { libraryId: library.id, read: false, upload: false, publicTransfer: false };
+      return <fieldset key={library.id} className="agent-media-grant" disabled={disabled}>
+        <legend>{library.name}</legend>
+        <label className="configuration-check-line"><input type="checkbox" checked={grant.read}
+          onChange={(event) => change({ ...grant, read: event.target.checked, publicTransfer: event.target.checked && grant.publicTransfer })} />读取</label>
+        <label className="configuration-check-line"><input type="checkbox" checked={grant.upload}
+          onChange={(event) => change({ ...grant, upload: event.target.checked })} />上传</label>
+        <label className="configuration-check-line"><input type="checkbox" checked={grant.publicTransfer} disabled={!grant.read}
+          onChange={(event) => change({ ...grant, publicTransfer: event.target.checked })} />允许公网传输</label>
+      </fieldset>;
+    })}
+  </section>;
+}
+
 function agentDetailExpected(setError: (message: string) => void): ApiTaskPolicy["expected"] {
   const show = (error: { message: string }) => setError(error.message);
   return {

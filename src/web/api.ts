@@ -1,4 +1,4 @@
-import type { MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
+import type { MediaCategory, SaveMediaResult, MediaDeleteConfirmation, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
@@ -436,8 +436,10 @@ export const api = {
     request<MediaLibrary>(mediaLibraryPath(libraryId), { method: "PATCH", body: JSON.stringify(change) }),
   deleteMediaLibrary: (libraryId: string, confirmation: MediaDeleteConfirmation) =>
     request<void>(mediaLibraryPath(libraryId), { method: "DELETE", body: JSON.stringify(confirmation) }),
-  listMediaFiles: (libraryId: string, signal?: AbortSignal) =>
-    request<{ files: MediaFile[] }>(`${mediaLibraryPath(libraryId)}/files`, { signal }),
+  listMediaFiles: (libraryId: string, signal?: AbortSignal, category?: MediaCategory) =>
+    request<{ files: MediaFile[] }>(`${mediaLibraryPath(libraryId)}/files${category ? `?category=${category}` : ""}`, { signal }),
+  saveMediaResult: (libraryId: string, input: SaveMediaResult) =>
+    request<MediaFile>(`${mediaLibraryPath(libraryId)}/files/from-result`, { method: "POST", body: JSON.stringify(input) }),
   getMediaFile: (libraryId: string, fileId: string) =>
     request<MediaFile>(mediaFilePath(libraryId, fileId)),
   checkMediaName: (libraryId: string, name: string, excludeFileId?: string) => {
@@ -485,7 +487,7 @@ export const api = {
   saveWorkflowSemaphore: (input: WorkflowSemaphoreInput & { revision?: number }) => request<WorkflowSemaphore>("/api/workflow-semaphores", { method: "POST", body: JSON.stringify(input) }),
   deleteWorkflowSemaphore: (code: string, revision: number) => request<void>(`/api/workflow-semaphores/${encodeURIComponent(code)}`, { method: "DELETE", body: JSON.stringify({ revision }) }),
   getWorkflowCatalog: () => request<WorkflowCatalog>("/api/workflows/catalog"),
-  runWorkflow: (id: string, inputs: Record<string, unknown>, requestKey: string) => request<WorkflowRun>(`/api/workflows/${encodeURIComponent(id)}/run`, { method: "POST", body: JSON.stringify({ inputs, requestKey }) }),
+  runWorkflow: (id: string, inputs: Record<string, unknown>, requestKey: string, confirmPublicTransfer?: boolean) => request<WorkflowRun>(`/api/workflows/${encodeURIComponent(id)}/run`, { method: "POST", body: JSON.stringify({ inputs, requestKey, confirmPublicTransfer }) }),
   getWorkflowRun: (id: string) => request<WorkflowRun>(`/api/workflow-runs/${encodeURIComponent(id)}`),
   cancelWorkflowRun: (id: string) => request<WorkflowRun>(`/api/workflow-runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   listWorkflowRuns: () => request<{ runs: (Pick<WorkflowRun, "id" | "workflowId" | "status" | "createdAt" | "finishedAt" | "error"> & { name: string })[] }>("/api/workflow-runs"),

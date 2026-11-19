@@ -1020,3 +1020,21 @@ audio.aigc-media-input-preview {
   outline: 2px solid var(--eye);
   outline-offset: 2px;
 }
+
+/* 复用创作台的间距和颜色，长文件名在移动视口可以换行。 */
+.aigc-media-selection {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.aigc-media-selection li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

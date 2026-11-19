@@ -24,7 +24,7 @@ type LoadState<T> = { status: "loading" | "error" } | { status: "ready"; items: 
 type WorkspaceDialog = { kind: "upload" | "delete" | "edit" } | { kind: "rename" | "preview"; file: MediaFile };
 
 /** 用真实库标识恢复二级导航，加载失败与空列表各自呈现。 */
-export function MediaLibraryPage({ libraryId }: { libraryId?: string }) {
+export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fileId?: string }) {
   const { runApiTask } = useApiTask();
   const { open, close } = useMediaNavigation();
   const online = useOnlineStatus();
@@ -114,7 +114,7 @@ export function MediaLibraryPage({ libraryId }: { libraryId?: string }) {
       close();
       document.querySelector<HTMLButtonElement>(".workbench-secondary-menu")?.focus();
     }} />}
-    {selected ? <MediaWorkspace key={selected.id} library={selected} online={online} onLibraryUpdate={updateLibrary}
+    {selected ? <MediaWorkspace key={`${selected.id}/${fileId ?? ""}`} library={selected} fileId={fileId} online={online} onLibraryUpdate={updateLibrary}
       onDeleted={() => removeLibrary(selected.id)} onMissing={() => { reload(); }} /> :
       <section className="media-library-landing">
         <div className="knowledge-base-empty-state">
@@ -146,8 +146,9 @@ export function MediaLibraryPage({ libraryId }: { libraryId?: string }) {
   </section>;
 }
 
-function MediaWorkspace({ library, online, onDeleted, onLibraryUpdate, onMissing }: {
+function MediaWorkspace({ fileId, library, online, onDeleted, onLibraryUpdate, onMissing }: {
   library: MediaLibrary;
+  fileId?: string;
   online: boolean;
   onDeleted: () => void;
   onLibraryUpdate: (library: MediaLibrary) => void;
@@ -163,6 +164,18 @@ function MediaWorkspace({ library, online, onDeleted, onLibraryUpdate, onMissing
   const items = files.status === "ready" ? files.items : [];
   const visibleFiles = items.filter((file) => file.category === category);
   const close = () => setDialog(undefined);
+
+  // 归档链接直接定位原件，刷新后仍可打开同一文件。
+  useEffect(() => {
+    if (!fileId || files.status !== "ready") return;
+    const file = files.items.find((entry) => entry.id === fileId);
+    if (!file) {
+      setNotice("链接指向的媒体文件已不存在。");
+      return;
+    }
+    setCategory(file.category);
+    setDialog({ kind: "preview", file });
+  }, [fileId, files.status]);
 
   useEffect(() => {
     const controller = new AbortController();

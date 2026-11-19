@@ -1,3 +1,4 @@
+import { SaveMediaResultButton } from "../../components/media-library-actions";
 import { useEffect, useState } from "react";
 import type { WorkflowFile } from "../../../shared/workflow-contracts";
 import { ApiClientError } from "../../api";
@@ -17,7 +18,7 @@ function isWorkflowFile(value: unknown): value is WorkflowFile {
 }
 
 /** 预览和下载复用认证资产路由，浏览器解码错误也进入统一错误弹窗。 */
-function WorkflowMediaItem({ file }: { file: WorkflowFile }) {
+function WorkflowMediaItem({ file, outputRunId }: { file: WorkflowFile; outputRunId?: string }) {
   const { runApiTask } = useApiTask();
   const [large, setLarge] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -79,6 +80,9 @@ function WorkflowMediaItem({ file }: { file: WorkflowFile }) {
         <a className="wf-file-link" href={download} download={file.name}>
           下载
         </a>
+        {outputRunId && !failed && <SaveMediaResultButton target={{
+          source: "workflow", taskId: outputRunId, assetId: file.assetId, name: file.name, mediaType: file.mediaType,
+        }} />}
       </div>
       {large && (
         <ConfigurationEditorDialog
@@ -108,14 +112,14 @@ function WorkflowMediaItem({ file }: { file: WorkflowFile }) {
 }
 
 /** 字段保持原顺序，数组索引与对象层级均作为可见上下文保留。 */
-function WorkflowValueFields({ entries }: { entries: [string, unknown][] }) {
+function WorkflowValueFields({ entries, outputRunId }: { entries: [string, unknown][]; outputRunId?: string }) {
   return (
     <dl className="wf-value-fields">
       {entries.map(([name, child]) => (
         <div key={name}>
           <dt>{name}</dt>
           <dd>
-            <WorkflowValueNode value={child} />
+            <WorkflowValueNode value={child} outputRunId={outputRunId} />
           </dd>
         </div>
       ))}
@@ -124,15 +128,15 @@ function WorkflowValueFields({ entries }: { entries: [string, unknown][] }) {
 }
 
 /** 文件在所属字段内预览；额外业务字段直接显示，基础文件元数据可单独展开。 */
-function WorkflowValueNode({ value }: { value: unknown }) {
+function WorkflowValueNode({ value, outputRunId }: { value: unknown; outputRunId?: string }) {
   if (isWorkflowFile(value)) {
     const metadata = new Set(["assetId", "name", "mediaType", "size"]);
     const entries = Object.entries(value);
     return (
       <>
-        <WorkflowMediaItem file={value} />
+        <WorkflowMediaItem file={value} outputRunId={outputRunId} />
         <WorkflowValueFields
-          entries={entries.filter(([name]) => !metadata.has(name))}
+          entries={entries.filter(([name]) => !metadata.has(name))} outputRunId={outputRunId}
         />
         <details className="wf-value-branch">
           <summary>文件信息</summary>
@@ -154,7 +158,7 @@ function WorkflowValueNode({ value }: { value: unknown }) {
         <summary>
           {array ? `数组 · ${entries.length} 项` : `对象 · ${entries.length} 个字段`}
         </summary>
-        <WorkflowValueFields entries={entries} />
+        <WorkflowValueFields entries={entries} outputRunId={outputRunId} />
       </details>
     );
   }
@@ -198,9 +202,11 @@ async function copyWorkflowJson(text: string): Promise<void> {
 export function WorkflowValueView({
   value,
   label = "输出",
+  outputRunId,
 }: {
   value: unknown;
   label?: string;
+  outputRunId?: string;
 }) {
   const { runApiTask } = useApiTask();
   const [copied, setCopied] = useState(false);
@@ -210,12 +216,12 @@ export function WorkflowValueView({
     <div className="wf-value-view">
       {value && typeof value === "object" && !Array.isArray(value) && !isWorkflowFile(value) ? (
         Object.keys(value).length ? (
-          <WorkflowValueFields entries={Object.entries(value)} />
+          <WorkflowValueFields entries={Object.entries(value)} outputRunId={outputRunId} />
         ) : (
           <code>{"{}"}</code>
         )
       ) : (
-        <WorkflowValueNode value={value} />
+        <WorkflowValueNode value={value} outputRunId={outputRunId} />
       )}
       <details className="wf-output-data">
         <summary>查看完整{label}数据</summary>

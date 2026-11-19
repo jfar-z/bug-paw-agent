@@ -1,3 +1,4 @@
+import { SaveMediaResultButton } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { ChevronLeft, ChevronRight, Download, File, FileAudio, Image as ImageIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -78,7 +79,7 @@ function OutputCard({ item, onPreview }: { item: AigcOutputItem; onPreview: () =
       {item.kind === "other" ? <span className="aigc-output-card__type"><File size={34} aria-hidden="true" />{fileExtension(item.name)}</span> : null}
     </button>
     {item.kind === "audio" ? <audio src={source} controls preload="metadata" aria-label={`播放 ${item.name}`} /> : null}
-    <footer><span><strong title={item.name}>{item.name}</strong><small>{formatAigcOutputTime(item.taskCreatedAt)}</small><small>{formatFileSize(item.size)} · {item.interfaceName}</small></span><a href={aigcTaskAssetUrl(item.taskId, item.id, true)} download={item.name} aria-label={`下载 ${item.name}`} title="下载"><Download size={16} /></a></footer>
+    <footer><span><strong title={item.name}>{item.name}</strong><small>{formatAigcOutputTime(item.taskCreatedAt)}</small><small>{formatFileSize(item.size)} · {item.interfaceName}</small></span><a href={aigcTaskAssetUrl(item.taskId, item.id, true)} download={item.name} aria-label={`下载 ${item.name}`} title="下载"><Download size={16} /></a><SaveMediaResultButton target={{ ...item, source: "aigc", assetId: item.id }} /></footer>
   </article>;
 }
 

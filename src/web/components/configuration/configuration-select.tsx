@@ -75,7 +75,12 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
   }
 
   function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown") {
+    if (event.key === "Escape") {
+      // 先关闭下拉并恢复选择器焦点，避免同时关闭父弹层。
+      event.preventDefault();
+      closeMenu();
+      rootRef.current?.querySelector("button")?.focus();
+    } else if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((current) => Math.min(current + 1, Math.max(filteredOptions.length - 1, 0)));
     } else if (event.key === "ArrowUp") {

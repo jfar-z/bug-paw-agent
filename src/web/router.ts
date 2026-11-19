@@ -21,7 +21,7 @@ export type AppRoute =
   | { page: "aigc-workflow-detail"; workflowId: string }
   | { page: "workspace-resources" }
   | { page: "knowledge-base" }
-  | { page: "media-library"; libraryId?: string }
+  | { page: "media-library"; libraryId?: string; fileId?: string }
   | { page: "scheduled-tasks" }
   | { page: "configuration-overview" }
   | { page: "capabilities" }
@@ -105,7 +105,8 @@ export function parseRoute(pathname: string, search = ""): AppRoute {
   const mediaLibraryMatch = normalized.match(/^\/media-library\/([^/]+)$/);
   if (mediaLibraryMatch) {
     try {
-      return { page: "media-library", libraryId: decodeURIComponent(mediaLibraryMatch[1]) };
+      const fileId = new URLSearchParams(search).get("file");
+      return { page: "media-library", libraryId: decodeURIComponent(mediaLibraryMatch[1]), ...(fileId ? { fileId } : {}) };
     } catch {
       return { page: "media-library" };
     }
@@ -186,7 +187,7 @@ export function routePath(route: AppRoute): string {
     case "workspace-resources":
       return "/resources";
     case "media-library":
-      return route.libraryId ? `/media-library/${encodeURIComponent(route.libraryId)}` : "/media-library";
+      return route.libraryId ? `/media-library/${encodeURIComponent(route.libraryId)}${route.fileId ? `?file=${encodeURIComponent(route.fileId)}` : ""}` : "/media-library";
     case "knowledge-base":
       return "/knowledge-base";
     case "scheduled-tasks":

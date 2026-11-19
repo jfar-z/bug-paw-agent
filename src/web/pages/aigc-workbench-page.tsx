@@ -1,3 +1,5 @@
+import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
+import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -220,6 +222,7 @@ interface AigcRunFieldDefinition {
   help?: string;
   /** 为 true 时图片或视频输入使用公共 URL 下拉，而不是本地临时上传。 */
   publicUrl?: boolean;
+  maxMediaFiles?: number;
   /** ComfyUI 媒体入参对应的节点类型，用于读取 input 目录候选。 */
   nodeClass?: string;
   /** ComfyUI 媒体入参的字段路径，例如 inputs.image。 */
@@ -465,8 +468,11 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     }));
   }
 
-  async function submit() {
+  const transfer = useMediaPublicTransfer("创建 AIGC 生成任务", setMessage);
+
+  async function submit(confirmed = false) {
     if (!selected || !online || submitting || taskActive) return;
+    transfer.clear();
     setMessage("");
     setCreatedTask(undefined);
     setActiveAssetId("");
@@ -485,9 +491,9 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
       return;
     }
     setSubmitting(true);
-    const result = await runApiTask(() => api.runAigcInterface({ interfaceId: selected.id, inputs }), {
+    const result = await runApiTask(() => api.runAigcInterface({ interfaceId: selected.id, inputs, ...(confirmed ? { confirmPublicTransfer: true } : {}) }), {
       operation: "创建 AIGC 生成任务",
-      expected: aigcExpected(setMessage),
+      expected: { VALIDATION_FAILED: transfer.validation },
     });
     setSubmitting(false);
     if (result.status !== "success") return;
@@ -502,8 +508,9 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   function renderRunField(field: AigcRunFieldDefinition) {
     return (
       <AigcRunField
-        key={field.name}
+        key={`${selectedId}/${field.name}`}
         field={field}
+        disabled={!online || uploading !== undefined || submitting || taskActive}
         value={values[field.name]}
         uploaded={uploads[field.name]}
         uploading={uploading === field.name}
@@ -530,6 +537,8 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
 
   return (
     <div className={selected?.protocol === "comfyui" ? "aigc-workbench-page aigc-run-page has-readiness" : "aigc-workbench-page aigc-run-page"}>
+      {transfer.message && <MediaPublicTransferDialog message={transfer.message} onClose={transfer.clear}
+        disabled={!online || submitting} onConfirm={() => void submit(true)} />}
       <div className="aigc-run-toolbar">
         <header className="aigc-page-heading aigc-run-heading">
           <h1>创作与运行</h1>
@@ -664,6 +673,7 @@ function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage 
         <div><h2 id="aigc-run-preview-title">产物预览</h2><small>{task ? `${task.interfaceName} · ${task.assets.length} 个产物` : "等待生成"}</small></div>
         <div className="aigc-run-preview-actions">
           {task ? <span className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</span> : null}
+          {task && activeAsset ? <SaveMediaResultButton key={activeAsset.id} target={{ ...activeAsset, source: "aigc", taskId: task.id, assetId: activeAsset.id }} /> : null}
           {task && activeAsset ? <a className="icon-button" href={aigcTaskAssetUrl(task.id, activeAsset.id, true)} download={activeAsset.name} aria-label={`下载 ${activeAsset.name}`} title="下载产物"><Download size={15} /></a> : null}
           {task ? <a className="icon-button" href={`/aigc/tasks/${encodeURIComponent(task.id)}`} aria-label="查看任务详情" title="查看任务详情" onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-task-detail", taskId: task.id }); }}><Activity size={15} /></a> : null}
         </div>
@@ -757,6 +767,7 @@ function isPreviewableMedia(mediaType: string): boolean {
 function AigcRunField(props: {
   field: AigcRunFieldDefinition;
   value: AigcRunInputValue | undefined;
+  disabled: boolean;
   uploaded?: AigcUploadedAsset;
   uploading: boolean;
   publicFiles: AigcPublicFileSummary[];
@@ -775,6 +786,7 @@ function AigcRunField(props: {
   const {
     field,
     value,
+    disabled,
     uploaded,
     uploading,
     publicFiles,
@@ -790,6 +802,7 @@ function AigcRunField(props: {
     onSelectPublicFile,
     onSelectComfyInputFile,
   } = props;
+  const [mediaNames, setMediaNames] = useState<Record<string, string>>({});
   if (field.type === "bool") {
     return (
       <label className="configuration-check-line aigc-run-field aigc-run-field--bool">
@@ -814,6 +827,30 @@ function AigcRunField(props: {
   }
   if (field.type === "image" || field.type === "video" || field.type === "audio") {
     const accept = field.type === "video" ? "video/*" : field.type === "audio" ? "audio/*" : "image/*";
+    const entries = Array.isArray(value) ? value : hasRunValue(value) && value !== undefined ? [value] : [];
+    const hasLibraryFile = entries.some(isMediaReference);
+    const picker = <>
+      <MediaLibraryPicker label={field.label} category={field.type}
+        disabled={disabled || (field.maxMediaFiles !== undefined && entries.length >= field.maxMediaFiles)}
+        onSelect={(file) => {
+          const reference = mediaReference(file.libraryId, file.id);
+          setMediaNames((current) => ({ ...current, [reference]: file.name }));
+          // 多文件字段按选择顺序追加，也保留此前从其他来源选入的文件。
+          onChange(field.maxMediaFiles ? [...entries, reference] : reference);
+        }} />
+      {hasLibraryFile && <ul className="aigc-media-selection" aria-label={`已选择的文件 ${field.label}`}>
+        {entries.map((entry, index) => {
+          const name = isMediaReference(entry) ? mediaNames[entry] ?? "媒体库文件"
+            : typeof entry === "object" && "name" in entry ? entry.name : String(entry);
+          return <li key={index}><span>{name}</span><button type="button" className="configuration-secondary-action"
+            disabled={disabled} aria-label={`移除 ${name}`}
+            onClick={() => {
+              const remaining = entries.filter((_, current) => current !== index);
+              onChange(remaining.length > 1 ? remaining : remaining[0] ?? "");
+            }}>移除</button></li>;
+        })}
+      </ul>}
+    </>;
     if (field.publicUrl) {
       const selectedUrl = publicUrlFromValue(value);
       const availableFiles = publicFiles.filter((file) => file.mediaType.startsWith(`${field.type}/`));
@@ -838,7 +875,8 @@ function AigcRunField(props: {
             <span>上传到公共区</span>
             <input type="file" accept={accept} aria-label={`上传${field.label}到公共区`} onChange={(event) => onPublicFile(event.target.files?.[0])} />
           </label>
-          <small className="configuration-help">{uploading ? "上传中…" : selectedUrl || "选择公共文件或上传后自动填充公网地址"}</small>
+          {picker}
+          {!hasLibraryFile && <small className="configuration-help">{uploading ? "上传中…" : selectedUrl || "选择公共文件或上传后自动填充公网地址"}</small>}
         </div>
       );
     }
@@ -905,9 +943,10 @@ function AigcRunField(props: {
               />
             </label>
           ) : null}
+          {picker}
           {field.help ? <small className="configuration-help">{field.help}</small> : null}
         </div>
-        <div className="aigc-media-input__preview">
+        {!hasLibraryFile && <div className="aigc-media-input__preview">
           <MediaInputPreview
             field={field}
             value={value}
@@ -915,7 +954,7 @@ function AigcRunField(props: {
             publicFiles={publicFiles}
             comfyChannelId={comfyChannelId}
           />
-        </div>
+        </div>}
       </div>
     );
   }
@@ -1063,7 +1102,7 @@ function runFields(item: AigcInterfaceRecord, workflow?: AigcWorkflowDetail): Ai
   if (item.protocol === "grok") return grokRunFields(item);
   const fields: AigcRunFieldDefinition[] = [{ name: "prompt", label: "提示词", type: "string", required: true, placeholder: "描述要生成的画面或图片" }];
   if (item.capability === "image-edit") {
-    fields.push({ name: "image", label: "参考图片（可选）", type: "image", required: false, help: "不提供图片时执行文生图，提供图片时执行图片编辑。" });
+    fields.push({ name: "image", label: "参考图片（可选）", type: "image", required: false, maxMediaFiles: 16, help: "不提供图片时执行文生图，提供图片时执行图片编辑。" });
   }
   for (const parameter of resolveOpenAiParameterDefinitions(item.config as AigcOpenAiInterfaceConfig)) {
     fields.push(openAiParameterRunField(parameter));
@@ -1140,7 +1179,7 @@ function grokRunFields(item: AigcInterfaceRecord): AigcRunFieldDefinition[] {
     fields.push({ name: "count", label: "生成数量", type: "int", required: false, placeholder: "1" });
   }
   if (item.capability === "image-edit" || item.capability === "image-to-video") {
-    fields.push({ name: "image", label: "图片公网地址", type: "image", required: true, publicUrl: true });
+    fields.push({ name: "image", label: "图片公网地址", type: "image", required: true, publicUrl: true, maxMediaFiles: item.capability === "image-edit" ? 5 : undefined });
   }
   if (item.capability === "video-edit" || item.capability === "video-extend") {
     fields.push({ name: "video", label: "视频公网地址", type: "video", required: true, publicUrl: true });
@@ -1208,6 +1247,7 @@ function coerceRunValue(field: AigcRunFieldDefinition, value: AigcRunInputValue 
     return text;
   }
   if (field.type === "enum") return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined;
+  if (isMediaReference(value) || (field.maxMediaFiles && Array.isArray(value) && value.length)) return value;
   if (typeof value === "object" && ("assetId" in value || "url" in value || "filename" in value)) return value;
   return undefined;
 }
@@ -1699,7 +1739,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
                   {asset.mediaType.startsWith("audio/") ? <audio src={source} controls preload="metadata" aria-label={asset.name} /> : null}
                   {!asset.mediaType.startsWith("image/") && !asset.mediaType.startsWith("video/") && !asset.mediaType.startsWith("audio/") ? <div className="aigc-asset-card__file"><span>{asset.mediaType}</span></div> : null}
                 </div>
-                <figcaption><span><strong>{asset.name}</strong><small>{formatFileSize(asset.size)} · {asset.mediaType}</small></span><a href={aigcTaskAssetUrl(task.id, asset.id, true)} download={asset.name} aria-label="下载"><Download size={15} /><span>下载</span></a></figcaption>
+                <figcaption><span><strong>{asset.name}</strong><small>{formatFileSize(asset.size)} · {asset.mediaType}</small></span><a href={aigcTaskAssetUrl(task.id, asset.id, true)} download={asset.name} aria-label="下载"><Download size={15} /><span>下载</span></a><SaveMediaResultButton target={{ ...asset, source: "aigc", taskId: task.id, assetId: asset.id }} /></figcaption>
               </figure>
             );
           })}

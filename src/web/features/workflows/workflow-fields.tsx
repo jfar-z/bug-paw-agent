@@ -1,3 +1,4 @@
+import { isMediaReference } from "../../../shared/media-library-contracts";
 import {
   workflowFieldNameErrors,
   workflowSystemFieldIndices,
@@ -602,28 +603,32 @@ function WorkflowEnumValue({
 export function WorkflowSelectedFiles({
   field,
   value,
+  mediaNames,
   disabled,
   onChange,
 }: {
   field: WorkflowInputField;
   value: unknown;
+  mediaNames?: Readonly<Record<string, string>>;
   disabled: boolean;
   onChange: (value: unknown) => void;
 }) {
   const entries = (Array.isArray(value) ? value : value ? [value] : []).filter(
-    (item): item is WorkflowFile => !!item && typeof item.assetId === "string",
+    (item): item is WorkflowFile | string => isMediaReference(item) || (!!item && typeof item.assetId === "string"),
   );
   if (!entries.length) return null;
   return (
     <ul className="wf-selected-files" aria-label={`已选择的文件 ${field.name}`}>
-      {entries.map((file, index) => (
-        <li key={`${file.assetId}-${index}`}>
-          <span>{file.name}</span>
+      {entries.map((file, index) => {
+        const id = typeof file === "string" ? file : file.assetId;
+        const name = typeof file === "string" ? mediaNames?.[file] ?? "媒体库文件" : file.name;
+        return <li key={`${id}-${index}`}>
+          <span>{name}</span>
           <button
             type="button"
             className="wf-button"
             disabled={disabled}
-            aria-label={`移除 ${file.name}`}
+            aria-label={`移除 ${name}`}
             onClick={() => {
               // 单文件显式提交空值，防止服务端再次填回已移除的默认文件。
               onChange(field.multiple
@@ -633,8 +638,8 @@ export function WorkflowSelectedFiles({
           >
             移除
           </button>
-        </li>
-      ))}
+        </li>;
+      })}
     </ul>
   );
 }

@@ -93,10 +93,13 @@ it("按运行输出标识归档指定文件，并发冲突保留独立原件", a
   workflowOutputs = { images: [one, two] };
   const path = "/" + lib.id + "/files/from-result";
   const body = { source: "workflow", taskId: "运行", assetId: two.assetId, name: "所选.png" };
-  expect((await request(path, "POST", { ...body, assetId: randomUUID() })).status).toBe(404);
+  const missing = await request(path, "POST", { ...body, assetId: randomUUID() });
+  expect(missing.status).toBe(404);
+  expect(await missing.json()).toMatchObject({ error: { code: "NOT_FOUND" } });
   const replies = await Promise.all([request(path, "POST", body), request(path, "POST", body)]);
   expect(replies.map(r => r.status).sort()).toEqual([201, 409]);
   const saved = await replies.find(r => r.ok)!.json();
+  expect(await replies.find(r => !r.ok)!.json()).toMatchObject({ error: { code: "MEDIA_NAME_CONFLICT" } });
   await files.remove(two.assetId);
   expect(Buffer.from(await (await request("/" + lib.id + "/files/" + saved.id + "/content")).arrayBuffer())).toEqual(second);
 });

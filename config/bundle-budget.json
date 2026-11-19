@@ -3,7 +3,7 @@
   "lazyChunkGzipBytes": 153600,
   "css": {
     "entryGzipBytes": 24576,
-    "totalGzipBytes": 84992,
+    "totalGzipBytes": 85504,
     "routes": {
       "src/web/pages/chat-page.tsx": {
         "label": "聊天工作台",
@@ -11,7 +11,7 @@
       },
       "src/web/pages/aigc-workbench-page.tsx": {
         "label": "AIGC 工作台",
-        "gzipBytes": 7680
+        "gzipBytes": 8064
       },
       "src/web/pages/aigc-workflow-composer.tsx": {
         "label": "AIGC 工作流编排器",
@@ -103,7 +103,7 @@
       },
       "src/web/pages/aigc-interfaces-page.tsx": {
         "label": "AIGC 接口配置与授权",
-        "gzipBytes": 10496
+        "gzipBytes": 10944
       },
       "src/web/pages/security-page.tsx": {
         "label": "安全设置",

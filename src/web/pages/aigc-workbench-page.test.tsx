@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AIGC_TASK_BULK_DELETE_LIMIT } from "../../shared/aigc-contracts";
@@ -460,7 +460,8 @@ describe("AigcWorkbenchPage 创作台", () => {
     await screen.findByText("任务 0");
     fireEvent.click(screen.getByRole("button", { name: "全选" }));
     fireEvent.click(screen.getByRole("button", { name: `删除选中（${AIGC_TASK_BULK_DELETE_LIMIT + 1}）` }));
-    fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
+    // 在确认框内查询，避免对 501 张任务卡片逐个计算可访问名称。
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "删除选中" }));
 
     await waitFor(() => expect(deletedBatches).toHaveLength(2));
     expect(deletedBatches.map((batch) => batch.length)).toEqual([AIGC_TASK_BULK_DELETE_LIMIT, 1]);

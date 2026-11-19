@@ -1,4 +1,5 @@
 import { DomainError } from "../core/errors";
+import { statusForDomainError } from "../http/error-handler";
 import type { MediaAccess } from "../media-library/media-access";
 import { submitMediaInputs } from "../media-library/aigc-media-inputs";
 import { createReadStream } from "node:fs";
@@ -683,7 +684,7 @@ function downloadContentDisposition(name: string): string {
 }
 
 function sendAigcError(reply: Parameters<typeof sendApiError>[0], error: unknown) {
-  if (error instanceof DomainError) throw error;
+  if (error instanceof DomainError) return sendApiError(reply, statusForDomainError(error.code), error.code, error.message, error.details);
   if (error instanceof AigcMediaProjectError) {
     const status = error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : error.code === "QUEUE_FULL" ? 429 : 400;
     return sendApiError(reply, status, error.code === "CONFLICT" ? "CONFLICT" : error.code === "NOT_FOUND" ? "NOT_FOUND" : "VALIDATION_FAILED", error.message);

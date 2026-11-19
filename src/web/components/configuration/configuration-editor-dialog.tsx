@@ -39,7 +39,7 @@ export function ConfigurationEditorDialog({ variant, title, description, busy, s
     else root.current?.focus();
     function keydown(event: KeyboardEvent) {
       if (latest.current.suspended) return;
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
         if (!latest.current.busy) latest.current.onClose();
       }

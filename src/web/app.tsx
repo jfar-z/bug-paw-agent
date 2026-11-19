@@ -174,7 +174,7 @@ export function App() {
       case "workspace-resources":
         return <WorkspaceResourcesPage />;
       case "media-library":
-        return <MediaLibraryPage libraryId={activeRoute.libraryId} />;
+        return <MediaLibraryPage libraryId={activeRoute.libraryId} fileId={activeRoute.fileId} />;
       case "knowledge-base":
         return <KnowledgeBasePage />;
       case "scheduled-tasks":

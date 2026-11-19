@@ -1,3 +1,5 @@
+import { mediaReference } from "../../shared/media-library-contracts";
+import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
 import { workflowDraftFieldError } from "../features/workflows/workflow-field-guards";
 import type { WorkflowSummary } from "../../shared/workflow-contracts";
 import { WorkflowCopyDialog } from "../features/workflows/workflow-copy-dialog";
@@ -31,7 +33,6 @@ import {
   type WorkflowDraft,
   type WorkflowRun,
   type WorkflowCatalog,
-  type WorkflowFile,
   type WorkflowStatus,
 } from "../../shared/workflow-contracts";
 import { api } from "../api";
@@ -601,12 +602,17 @@ function Runner({
     setInputs((old) => ({ ...old, [name]: value }));
     key.current = workflowClientId();
   };
-  const start = async () => {
-    if (!definition) return;
+  const transfer = useMediaPublicTransfer("运行工作流");
+  const [mediaNames, setMediaNames] = useState<Record<string, string>>({});
+  const start = async (confirmed = false) => {
+    if (!definition || !online || busy) return;
+    transfer.clear();
     setBusy(true);
     const r = await runApiTask(
-      () => api.runWorkflow(definition.id, inputs, key.current),
-      { operation: "运行工作流" },
+      () => confirmed
+        ? api.runWorkflow(definition.id, inputs, key.current, true)
+        : api.runWorkflow(definition.id, inputs, key.current),
+      { operation: "运行工作流", expected: { VALIDATION_FAILED: transfer.validation } },
     );
     if (r.status === "success") {
       setRun(r.data);
@@ -621,6 +627,8 @@ function Runner({
   };
   return (
     <>
+      {transfer.message && <MediaPublicTransferDialog message={transfer.message} onClose={transfer.clear}
+        disabled={!online || busy} onConfirm={() => void start(true)} />}
       <header className="wf-page-heading">
         <div>
           <span className="wf-eyebrow">EXECUTION</span>
@@ -698,7 +706,7 @@ function Runner({
                             if (!files.length) return;
                             const existing =
                               f.multiple && Array.isArray(inputs[f.name])
-                                ? (inputs[f.name] as WorkflowFile[])
+                                ? (inputs[f.name] as unknown[])
                                 : [];
                             setBusy(true);
                             void runApiTask(
@@ -727,7 +735,17 @@ function Runner({
                             });
                           }}
                         />
+                        <MediaLibraryPicker label={f.name}
+                          category={f.type === "image" || f.type === "video" || f.type === "audio" ? f.type : undefined}
+                          disabled={busy || !online || (f.multiple === true && Array.isArray(inputs[f.name]) && (inputs[f.name] as unknown[]).length >= 100)}
+                          onSelect={(file) => {
+                            const reference = mediaReference(file.libraryId, file.id);
+                            const current = inputs[f.name];
+                            setMediaNames((names) => ({ ...names, [reference]: file.name }));
+                            change(f.name, f.multiple ? [...(Array.isArray(current) ? current : current ? [current] : []), reference] : reference);
+                          }} />
                         <WorkflowSelectedFiles
+                          mediaNames={mediaNames}
                           field={f}
                           value={inputs[f.name]}
                           disabled={busy || !online}
@@ -825,7 +843,7 @@ function Status({ status }: { status: WorkflowStatus }) {
   );
 }
 /** 快照中的节点名称和事件用于历史回放，不依赖当前已编辑的定义。 */
-function RunDetail({ run }: { run: WorkflowRun }) {
+function RunDetail({ run, rootRunId = run.id }: { run: WorkflowRun; rootRunId?: string }) {
   return (
     <>
       {run.error && (
@@ -893,7 +911,7 @@ function RunDetail({ run }: { run: WorkflowRun }) {
                       </>
                     )}
                   <h4>输出</h4>
-                  <WorkflowValueView value={state.outputs} />
+                  <WorkflowValueView value={state.outputs} outputRunId={rootRunId} />
                   {state.children?.map((child, childIndex) => (
                     <details
                       key={child.id}
@@ -909,7 +927,7 @@ function RunDetail({ run }: { run: WorkflowRun }) {
                           : `子工作流：${child.definition.name}`}{" "}
                         · {statusNames[child.status]}
                       </summary>
-                      <RunDetail run={child} />
+                      <RunDetail run={child} rootRunId={rootRunId} />
                     </details>
                   ))}
                   <h4>事件</h4>
@@ -930,7 +948,7 @@ function RunDetail({ run }: { run: WorkflowRun }) {
       {run.status === "succeeded" && (
         <div className="wf-final-output">
           <h3>工作流输出</h3>
-          <WorkflowValueView value={run.outputs} />
+          <WorkflowValueView value={run.outputs} outputRunId={rootRunId} />
         </div>
       )}
     </>
