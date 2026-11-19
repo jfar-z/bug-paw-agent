@@ -2,6 +2,13 @@ import { Type, type Static } from "typebox";
 
 /** API 使用的稳定错误码，客户端不得依赖展示文案判断流程。 */
 export const ApiErrorCodeSchema = Type.Union([
+  Type.Literal("MEDIA_NAME_CONFLICT"),
+  Type.Literal("MEDIA_FORMAT_UNSUPPORTED"),
+  Type.Literal("MEDIA_FILE_INVALID"),
+  Type.Literal("MEDIA_UPLOAD_LIMIT"),
+  Type.Literal("MEDIA_UPLOAD_BUSY"),
+  Type.Literal("MEDIA_PROCESSING_FAILED"),
+  Type.Literal("MEDIA_STORAGE_FAILED"),
   Type.Literal("TOTP_INVALID_CODE"),
   Type.Literal("TOTP_CHALLENGE_EXPIRED"),
   Type.Literal("TOTP_RATE_LIMITED"),

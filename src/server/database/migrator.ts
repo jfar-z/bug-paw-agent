@@ -1,3 +1,4 @@
+import { mediaLibraryMigration } from "./migrations/009-media-library";
 import { workflowIndexMigration } from "./migrations/008-workflow-index";
 import { totpMigration } from "./migrations/007-totp";
 import type { Database } from "./database";
@@ -17,6 +18,7 @@ const MIGRATIONS = [
   aigcMcpMigration,
   totpMigration,
   workflowIndexMigration,
+  mediaLibraryMigration,
 ] as const;
 
 /** 按版本顺序执行未应用的数据库 Migration。 */

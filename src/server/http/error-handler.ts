@@ -3,6 +3,13 @@ import type { ApiErrorCode } from "../../shared/api/common";
 import { DomainError } from "../core/errors";
 
 const STATUS_BY_ERROR_CODE: Partial<Record<ApiErrorCode, number>> = {
+  MEDIA_NAME_CONFLICT: 409,
+  MEDIA_FORMAT_UNSUPPORTED: 415,
+  MEDIA_FILE_INVALID: 422,
+  MEDIA_UPLOAD_BUSY: 429,
+  MEDIA_UPLOAD_LIMIT: 413,
+  MEDIA_PROCESSING_FAILED: 500,
+  MEDIA_STORAGE_FAILED: 500,
   TOTP_INVALID_CODE: 400,
   TOTP_CHALLENGE_EXPIRED: 410,
   TOTP_RATE_LIMITED: 429,

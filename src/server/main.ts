@@ -101,6 +101,9 @@ import { OpenAiEmbeddingClient } from "./knowledge-base/openai-embedding-client"
 import { registerKnowledgeRetrievalRoutes } from "./routes/knowledge-retrieval";
 import { createKnowledgeRepository } from "./knowledge-base/knowledge-repository";
 import { createKnowledgeBaseService } from "./knowledge-base/knowledge-base-service";
+import { registerMediaLibraryRoutes } from "./routes/media-libraries";
+import { MediaRepository } from "./media-library/media-repository";
+import { MediaStorage } from "./media-library/media-storage";
 import { registerKnowledgeBaseRoutes } from "./routes/knowledge-bases";
 import { createKnowledgeManageTool, createKnowledgeReadTool, createKnowledgeSearchTool } from "./knowledge-base/knowledge-tools";
 import { cleanupBundledRetrievalSkills } from "./retrieval/legacy-retrieval-skills";
@@ -632,6 +635,10 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     runAgentMutation: (agentId, operation) => agentLifecycle.runMutation(agentId, operation),
   });
   registerDataFileRoutes(app, { authService, files: dataFiles });
+  const mediaRepository = new MediaRepository(applicationDatabase);
+  const mediaStorage = new MediaStorage(join(paths.appDir, "media-library"), mediaRepository);
+  await mediaStorage.recover();
+  await registerMediaLibraryRoutes(app, authService, mediaRepository, mediaStorage);
   registerKnowledgeBaseRoutes(app, { authService, service: knowledgeBases });
   registerWorkspaceFileRoutes(app, {
     authService,
