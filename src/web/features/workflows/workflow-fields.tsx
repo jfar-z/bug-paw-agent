@@ -1,4 +1,4 @@
-import { Button, FilePickerButton } from "../../ui/controls";
+import { Button, FilePickerButton, IconButton, TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
 import { isMediaReference } from "../../../shared/media-library-contracts";
@@ -222,7 +222,7 @@ export function WorkflowFieldList({
             </div>
           ) : (
             <div className="wf-row">
-              <input
+              <TextField
                 aria-label={`参数 ${index + 1} 名称`}
                 placeholder="参数名，如 prompt"
                 value={field.name}
@@ -231,11 +231,9 @@ export function WorkflowFieldList({
                 onChange={(e) => update(index, { name: e.target.value })}
               />
               {[-1, 1].map((direction) => (
-                <button
+                <IconButton
                   key={direction}
-                  type="button"
-                  className="icon-button"
-                  aria-label={`${direction < 0 ? "上移" : "下移"}参数 ${field.name}`}
+                  label={`${direction < 0 ? "上移" : "下移"}参数 ${field.name}`}
                   disabled={
                     index + direction < 0 ||
                     index + direction >= fields.length ||
@@ -255,16 +253,15 @@ export function WorkflowFieldList({
                   ) : (
                     <ArrowDown size={15} />
                   )}
-                </button>
+                </IconButton>
               ))}
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`删除参数 ${field.name}`}
+              <IconButton
+                danger
+                label={`删除参数 ${field.name}`}
                 onClick={() => onChange(fields.filter((_, i) => i !== index))}
               >
-                <Trash2 size={15} />
-              </button>
+                <Trash2 />
+              </IconButton>
             </div>
           )}
           {errors[index] && (

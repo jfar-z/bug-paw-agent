@@ -1,5 +1,6 @@
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { X } from "lucide-react";
+import { IconButton } from "../ui/controls";
 import { AgentAvatar } from "./agent-avatar";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 
@@ -35,7 +36,7 @@ export function WorkspaceAgentNavigation({
         className="workspace-agent-navigation__header"
         eyebrow={eyebrow}
         title={title}
-        actions={<button type="button" className="icon-button workspace-agent-navigation__close" aria-label="关闭 Agent 列表" onClick={onClose}><X size={18} aria-hidden="true" /></button>}
+        actions={<IconButton className="workspace-agent-navigation__close" label="关闭 Agent 列表" onClick={onClose}><X /></IconButton>}
       />
       <nav aria-label={navigationLabel}>
         {agents.map((agent) => (
@@ -56,6 +57,6 @@ export function WorkspaceAgentNavigation({
   );
   return <>
     <aside className="workspace-agent-navigation">{content}</aside>
-    {mobileOpen ? <><button type="button" className="workspace-agent-navigation__scrim" aria-label="关闭 Agent 列表" onClick={onClose} /><aside className="workspace-agent-navigation is-mobile-open">{content}</aside></> : null}
+    {mobileOpen ? <><button type="button" className="workspace-agent-navigation__scrim" aria-label="关闭 Agent 列表抽屉" tabIndex={-1} onClick={onClose} /><aside className="workspace-agent-navigation is-mobile-open">{content}</aside></> : null}
   </>;
 }

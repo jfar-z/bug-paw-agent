@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { Button, Textarea } from "../../ui/controls";
 import { SearchSelect } from "../../ui/search-select";
 import { useEffect, useRef, useState } from "react";
 import type { ThinkingLevel } from "../../../shared/configuration-contracts";
@@ -217,7 +217,7 @@ export function WorkflowScriptAssist({
             )}
             <label className="wf-field">
               需求
-              <textarea
+              <Textarea
                 aria-label="脚本生成需求"
                 rows={5}
                 maxLength={8000}

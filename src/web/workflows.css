@@ -1004,52 +1004,18 @@
   }
 }
 
-/* 辅助生成控件沿用工作流主题，菜单仅在模型选择区域内定位。 */
+/* 辅助生成的思考强度入口与模型选择器底部对齐。 */
 .wf-assist-model-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
 }
-.wf-thinking-control {
-  position: relative;
-}
-.wf-thinking-control > .wf-button {
-  min-height: 44px;
-}
 .wf-assist-form details {
   margin: 0;
   padding: 0;
   border: 0;
 }
-.wf-thinking-menu {
-  position: absolute;
-  z-index: 5;
-  right: 0;
-  top: calc(100% + 6px);
-  min-width: 150px;
-  padding: 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.wf-thinking-menu button {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: 6px;
-}
-.wf-thinking-menu button:hover,
-.wf-thinking-menu button[aria-checked="true"] {
-  background: var(--surface-hover);
-}
-
 /* 循环体面包屑在窄屏换行，不挤占画布的横向尺寸。 */
 .wf-scope-path {
   display: flex;

@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, IconButton } from "../ui/controls";
 import { Minus, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MediaFile } from "../../shared/media-library-contracts";
@@ -55,13 +55,13 @@ export function MediaPreview({ file, onClose, returnFocusSelector }: {
     description="媒体预览" busy={false} onClose={onClose} returnFocusSelector={returnFocusSelector}
     footer={<>
       {!playable && <div className="media-library-zoom" role="group" aria-label="图片缩放">
-          <button type="button" className="icon-button" aria-label="缩小图片" disabled={zoom === 1 || state !== "ready"}
-            onClick={() => setZoom(zoom - 1)}><Minus size={18} aria-hidden="true" /></button>
+          <IconButton label="缩小图片" disabled={zoom === 1 || state !== "ready"}
+            onClick={() => setZoom(zoom - 1)}><Minus /></IconButton>
           <Button type="button" className="configuration-secondary-action" disabled={zoom === 1} onClick={() => setZoom(1)}>
             {zoom === 1 ? "完整显示" : "恢复完整显示"}
           </Button>
-          <button type="button" className="icon-button" aria-label="放大图片" disabled={zoom === 3 || state !== "ready"}
-            onClick={() => setZoom(zoom + 1)}><Plus size={18} aria-hidden="true" /></button>
+          <IconButton label="放大图片" disabled={zoom === 3 || state !== "ready"}
+            onClick={() => setZoom(zoom + 1)}><Plus /></IconButton>
       </div>}
       <Button type="button" className="configuration-secondary-action" onClick={onClose}><X size={18} aria-hidden="true" />关闭预览</Button>
     </>}>

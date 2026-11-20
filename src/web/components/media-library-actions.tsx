@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, IconButton } from "../ui/controls";
 import { Archive } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { MediaCategory, MediaFile, MediaLibrary, SaveMediaResult } from "../../shared/media-library-contracts";
@@ -66,8 +66,8 @@ export function SaveMediaResultButton({ target }: { target: SaveTarget }) {
   const [open, setOpen] = useState(false);
   if (!/^(image|audio|video)\//.test(target.mediaType)) return null;
   return <>
-    <button type="button" className="icon-button" title="保存到媒体库" aria-label={`保存到媒体库 ${target.name}`}
-      disabled={!online} onClick={() => setOpen(true)}><Archive size={16} aria-hidden="true" /></button>
+    <IconButton title="保存到媒体库" label={`保存到媒体库 ${target.name}`}
+      disabled={!online} onClick={() => setOpen(true)}><Archive /></IconButton>
     {open && <Suspense fallback={<MediaDialogFallback />}><SaveMediaDialog key={target.assetId} target={target} onClose={() => setOpen(false)} /></Suspense>}
   </>;
 }

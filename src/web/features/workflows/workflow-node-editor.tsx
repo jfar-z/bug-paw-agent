@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { Button, IconButton } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
 import { useEffect, useRef, useState } from "react";
@@ -241,14 +241,7 @@ export function WorkflowNodeEditor({
           <strong>{WORKFLOW_NODE_NAMES[node.kind]}节点</strong>
           <small>{node.id}</small>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="关闭节点配置"
-          onClick={onClose}
-        >
-          <X size={18} />
-        </button>
+        <IconButton label="关闭节点配置" onClick={onClose}><X /></IconButton>
       </header>
       <div className="wf-inspector-body">
         <label className="wf-field">
@@ -868,22 +861,8 @@ export function WorkflowNodeEditor({
         <span>修改后保存工作流</span>
         {!["input", "output"].includes(node.kind) && (
           <div className="wf-actions">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="复制节点"
-              onClick={onCopy}
-            >
-              <Copy size={16} />
-            </button>
-            <button
-              type="button"
-              className="icon-button wf-error"
-              aria-label="删除节点"
-              onClick={onDelete}
-            >
-              <Trash2 size={16} />
-            </button>
+            <IconButton label="复制节点" onClick={onCopy}><Copy /></IconButton>
+            <IconButton danger label="删除节点" onClick={onDelete}><Trash2 /></IconButton>
           </div>
         )}
       </footer>

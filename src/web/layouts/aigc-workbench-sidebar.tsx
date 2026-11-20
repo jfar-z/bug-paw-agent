@@ -1,4 +1,5 @@
 import { Activity, Boxes, FolderOpen, GalleryHorizontalEnd, GitFork, LayoutDashboard, Scissors, WandSparkles, X } from "lucide-react";
+import { IconButton } from "../ui/controls";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
 
@@ -30,9 +31,9 @@ export function AigcWorkbenchSidebar({ route, open, onClose, onNavigate }: AigcW
         className="aigc-workbench-sidebar__header"
         eyebrow="AIGC WORKBENCH"
         title="AIGC 工作台"
-        actions={<button type="button" className="icon-button aigc-workbench-sidebar__close" aria-label="关闭 AIGC 导航" onClick={onClose}>
-          <X size={18} aria-hidden="true" />
-        </button>}
+        actions={<IconButton className="aigc-workbench-sidebar__close" label="关闭 AIGC 导航" onClick={onClose}>
+          <X />
+        </IconButton>}
       />
 
       <nav className="aigc-workbench-nav" aria-label="AIGC 工作台导航">

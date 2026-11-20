@@ -70,7 +70,4 @@
   border-radius: 4px;
 }
 
-.media-picker-file .icon-button {
-  flex: 0 0 44px;
-  min-height: 44px;
-}
+.media-picker-file > .bp-button { flex-shrink: 0; }

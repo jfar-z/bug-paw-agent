@@ -1,4 +1,4 @@
-import { Button, TextField } from "../ui/controls";
+import { Button, IconButton, TextField } from "../ui/controls";
 import { Radio } from "../ui/choice";
 import { Eye } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -97,10 +97,10 @@ export function PickMediaDialog({ label, category, onClose, onSelect }: {
               <MediaThumbnail file={file} iconSize={20} />
               <span>{file.name}</span>
             </label>
-            <button type="button" className="icon-button" title="预览" aria-label={`预览 ${file.name}`} onClick={(event) => {
+            <IconButton title="预览" label={`预览 ${file.name}`} onClick={(event) => {
               previewButton.current = event.currentTarget;
               setPreview(file);
-            }}><Eye size={18} aria-hidden="true" /></button>
+            }}><Eye /></IconButton>
           </div>)}
         </fieldset>)}
     </MediaActionDialog>

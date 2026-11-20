@@ -1,6 +1,5 @@
-import { Button } from "../../ui/controls";
-import { BrainCircuit, Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { SearchSelect } from "../../ui/search-select";
+import { BrainCircuit } from "lucide-react";
 import type { ThinkingLevel } from "../../../shared/configuration-contracts";
 
 const labels: Record<ThinkingLevel | "default", string> = {
@@ -14,47 +13,26 @@ export function WorkflowThinkingControl({ levels, value, disabled, onChange }: {
   disabled: boolean;
   onChange(value: ThinkingLevel | undefined): void;
 }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
-  const label = `思考强度：${labels[value ?? "default"]}${disabled ? "；当前不可调整" : ""}`;
-  useEffect(() => {
-    if (!open || disabled) return;
-    menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
-    const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open, disabled]);
-  return <div className="wf-thinking-control" ref={root} onBlur={(event) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-  }}>
-    <Button ref={trigger} type="button" className="wf-button" title={label} aria-label={label}
-      disabled={disabled} aria-haspopup="menu" aria-expanded={open && !disabled}
-      onClick={() => setOpen(!open)}><BrainCircuit size={18} aria-hidden="true" /></Button>
-    {open && !disabled && <div ref={menu} className="wf-thinking-menu" role="menu" aria-label="思考强度" onKeyDown={(event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        setOpen(false);
-        trigger.current?.focus();
-      }
-      const options = Array.from(menu.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
-      const index = options.indexOf(document.activeElement as HTMLButtonElement);
-      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-        event.preventDefault();
-        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1
-          : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
-        options[next]?.focus();
-      }
-    }}>
-      {([undefined, ...levels] as const).map((level) => <button key={level ?? "default"} type="button"
-        role="menuitemradio" aria-checked={level === value} onClick={() => {
-          onChange(level);
-          setOpen(false);
-          trigger.current?.focus();
-        }}><span>{labels[level ?? "default"]}</span>{level === value && <Check size={14} aria-hidden="true" />}</button>)}
-    </div>}
-  </div>;
+  const selected = value ?? "default";
+  const label = `思考强度：${labels[selected]}${disabled ? "；当前不可调整" : ""}`;
+
+  const available: readonly (ThinkingLevel | "default")[] = ["default", ...levels];
+  return <SearchSelect
+    ariaLabel={label}
+    listLabel="思考强度"
+    triggerTitle={label}
+    iconOnly
+    placeholderIcon={<BrainCircuit size={18} />}
+    searchable={false}
+    disabled={disabled}
+    value={selected}
+    options={available.map((level) => ({
+      value: level,
+      label: labels[level],
+    }))}
+    onChange={(level) => {
+      // 选择模型默认时省略请求中的思考强度，由模型配置决定。
+      onChange(level === "default" ? undefined : level);
+    }}
+  />;
 }

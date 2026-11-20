@@ -1,4 +1,5 @@
 import { Workflow, Play, History, FolderOpen, SlidersHorizontal, X } from "lucide-react";
+import { IconButton } from "../ui/controls";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
 
@@ -42,14 +43,13 @@ export function WorkflowSidebar({
         eyebrow="WORKFLOWS"
         title="工作流"
         actions={
-          <button
-            type="button"
-            className="icon-button aigc-workbench-sidebar__close"
-            aria-label="关闭工作流导航"
+          <IconButton
+            className="aigc-workbench-sidebar__close"
+            label="关闭工作流导航"
             onClick={onClose}
           >
-            <X size={18} aria-hidden="true" />
-          </button>
+            <X />
+          </IconButton>
         }
       />
       <nav className="aigc-workbench-nav" aria-label="工作流导航">

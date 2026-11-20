@@ -10,6 +10,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { IconButton } from "../ui/controls";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import { Fragment } from "react";
 import { configurationGroups } from "../configuration-navigation";
@@ -37,9 +38,9 @@ export function ConfigurationSidebar({ route, open, onClose, onNavigate }: Confi
         className="configuration-sidebar__header"
         eyebrow="SETTINGS"
         title="配置中心"
-        actions={<button type="button" className="icon-button configuration-sidebar__close" aria-label="关闭配置导航" onClick={onClose}>
-          <X size={18} aria-hidden="true" />
-        </button>}
+        actions={<IconButton className="configuration-sidebar__close" label="关闭配置导航" onClick={onClose}>
+          <X />
+        </IconButton>}
       />
 
       <nav className="configuration-nav" aria-label="配置中心导航">
