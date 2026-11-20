@@ -1,8 +1,11 @@
-import { ArrowRight, BookOpen, Eye, EyeOff, HardDrive, LockKeyhole, Wifi, Wrench } from "lucide-react";
+import { ArrowRight, BookOpen, HardDrive, LockKeyhole, Wifi, Wrench } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { LoginResponse } from "../../shared/security-contracts";
 import { useOnlineStatus } from "../use-online-status";
 import { useApiTask } from "../api-task-provider";
+import { Checkbox } from "../ui/choice";
+import { SecretInput } from "../ui/secret-input";
+import { Button, TextField } from "../ui/controls";
 import { ProductMark } from "../components/product-mark";
 
 interface LoginPageProps {
@@ -121,46 +124,26 @@ export function LoginPage({ onLogin, onVerify }: LoginPageProps) {
           <form className="login-form" onSubmit={submitLogin} aria-busy={submitting}>
             {challenge ? <label className="login-field" key={recovery ? "recovery" : "totp"}>
               <span>{recovery ? "一次性恢复码" : "6 位验证码"}</span>
-              <input name="code" aria-label={recovery ? "一次性恢复码" : "6 位验证码"} value={code} onChange={(event) => setCode(event.target.value)} type="text" inputMode={recovery ? "text" : "numeric"} autoComplete="one-time-code" pattern={recovery ? undefined : "[0-9]{6}"} maxLength={recovery ? 64 : 6} required autoFocus disabled={submitting} />
+              <TextField name="code" aria-label={recovery ? "一次性恢复码" : "6 位验证码"} value={code} onChange={(event) => setCode(event.target.value)} type="text" inputMode={recovery ? "text" : "numeric"} autoComplete="one-time-code" pattern={recovery ? undefined : "[0-9]{6}"} maxLength={recovery ? 64 : 6} required autoFocus disabled={submitting} />
             </label> : <>
 
             <label className="login-field">
               <span>访问密码</span>
-              <span className="password-field">
-                <input
-                  name="password"
-                  type={passwordVisible ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                />
-                <button
-                  type="button"
-                  aria-label={passwordVisible ? "隐藏密码" : "显示密码"}
-                  onClick={() => setPasswordVisible((visible) => !visible)}
-                >
-                  {passwordVisible ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                </button>
-              </span>
+              <SecretInput name="password" visible={passwordVisible} onVisibilityChange={setPasswordVisible}
+                autoComplete="current-password" aria-label="访问密码" required />
             </label>
 
             <div className="remember-row">
-              <label>
-                <input
-                  name="remember"
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(event) => setRemember(event.currentTarget.checked)}
-                />
-                <span>保持登录</span>
-              </label>
+              <Checkbox label="保持登录" name="remember" checked={remember}
+                onChange={(event) => setRemember(event.currentTarget.checked)} />
             </div>
 
             </>}
 
-            <button className="login-submit" type="submit" disabled={submitting || !online}>
-              {submitting ? "正在验证…" : challenge ? "验证并登录" : "进入 BugPaw"}
+            <Button className="login-submit" variant="primary" type="submit" loading={submitting} disabled={!online}>
+              {challenge ? "验证并登录" : "进入 BugPaw"}
               <ArrowRight size={18} aria-hidden="true" />
-            </button>
+            </Button>
           </form>
           {challenge ? <div className="login-factor-actions"><button type="button" className="text-button" disabled={submitting} onClick={() => { setRecovery(!recovery); setCode(""); setError(""); }}>{recovery ? "使用验证器验证码" : "无法使用验证器？使用恢复码"}</button><button type="button" className="text-button" disabled={submitting} onClick={() => { setChallenge(undefined); setCode(""); setError(""); }}>返回密码登录</button></div> : null}
 

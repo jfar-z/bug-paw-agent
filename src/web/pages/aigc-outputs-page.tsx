@@ -1,3 +1,4 @@
+import { SearchSelect } from "../ui/search-select";
 import { SaveMediaResultButton } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { ChevronLeft, ChevronRight, Download, File, FileAudio, Image as ImageIcon, X } from "lucide-react";
@@ -49,7 +50,15 @@ export function AigcOutputsPage() {
   return <main className="aigc-assets-page">
     <header className="aigc-assets-heading">
       <div><span>AIGC WORKBENCH</span><h1>产物查看</h1></div>
-      <label>创建时间<select aria-label="产物创建时间排序" value={sort} onChange={(event) => changeSort(event.target.value as "asc" | "desc")}><option value="desc">最新在前</option><option value="asc">最早在前</option></select></label>
+      <label>创建时间<SearchSelect
+        ariaLabel="产物创建时间排序"
+        value={sort}
+        onChange={(next) => changeSort(next as "asc" | "desc")}
+        options={[
+          { value: "desc", label: "最新在前" },
+          { value: "asc", label: "最早在前" },
+        ]}
+      /></label>
     </header>
 
     <div className="aigc-assets-tabs" role="tablist" aria-label="产物类型">

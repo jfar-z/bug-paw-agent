@@ -1,3 +1,5 @@
+import { Button } from "../../ui/controls";
+import { SearchSelect } from "../../ui/search-select";
 import type { WorkflowEditorSettings } from "../../../shared/workflow-contracts";
 import type { AlignmentAction } from "./workflow-alignment";
 
@@ -9,12 +11,12 @@ export function WorkflowAlignmentControls({ settings, onChange, canAlign, onAlig
   onAlign: (action: AlignmentAction) => void;
 }) {
   const switches = ([['snapToGrid', '网格吸附'], ['snapToNodes', '节点对齐']] as const).map(([key, label]) => (
-    <button key={key} type="button" className="wf-button" role="switch"
+    <Button key={key} type="button" className="wf-button" role="switch"
       aria-label={label} aria-checked={settings[key]}
       title={`${label}仅影响当前工作流；按住 Alt 临时取消吸附`}
       onClick={() => onChange({ ...settings, [key]: !settings[key] })}>
       {label} · {settings[key] ? '开' : '关'}
-    </button>
+    </Button>
   ));
   return <>
     <div className="wf-alignment-switches">{switches}</div>
@@ -27,16 +29,16 @@ export function WorkflowAlignmentControls({ settings, onChange, canAlign, onAlig
       <summary className="wf-button">画布设置</summary>
       <div>{switches}</div>
     </details>
-    <select className="wf-alignment-actions" aria-label="对齐所选节点" value="" disabled={!canAlign}
-      title={canAlign ? '按所选节点整体边界对齐' : '请选择至少两个已显示的节点'}
-      onChange={(event) => onAlign(event.target.value as AlignmentAction)}>
-      <option value="" disabled>对齐</option>
-      <option value="left">左对齐</option>
-      <option value="centerX">水平居中</option>
-      <option value="right">右对齐</option>
-      <option value="top">顶部对齐</option>
-      <option value="centerY">垂直居中</option>
-      <option value="bottom">底部对齐</option>
-    </select>
+    <SearchSelect className="wf-alignment-actions" ariaLabel="对齐所选节点" placeholder="对齐" disabled={!canAlign}
+      onChange={onAlign}
+      options={[
+        { value: "left", label: "左对齐" },
+        { value: "centerX", label: "水平居中" },
+        { value: "right", label: "右对齐" },
+        { value: "top", label: "顶部对齐" },
+        { value: "centerY", label: "垂直居中" },
+        { value: "bottom", label: "底部对齐" },
+      ]}
+    />
   </>;
 }

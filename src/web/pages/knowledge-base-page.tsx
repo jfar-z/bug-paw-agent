@@ -1,3 +1,6 @@
+import { Button, IconButton } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
+import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { BookOpen, FileSearch, FileText, Pencil, Search, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
@@ -22,16 +25,22 @@ export function KnowledgeBasePage() {
   const [selectedId, setSelectedId] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [baseToDelete, setBaseToDelete] = useState<KnowledgeBaseDetail>();
-  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const navigation = useWorkbenchNavigation();
+  const [standaloneNavigationOpen, setStandaloneNavigationOpen] = useState(false);
+  const mobileNavigationOpen = navigation ? navigation.drawer === "secondary" : standaloneNavigationOpen;
+  const closeNavigation = () => navigation ? navigation.close() : setStandaloneNavigationOpen(false);
   const [error, setError] = useState("");
+  const [directoryStatus, setDirectoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const selected = bases.find((base) => base.id === selectedId);
 
   const reload = async () => {
+    setDirectoryStatus("loading");
     setError("");
     const result = await runApiTask(
       () => Promise.all([api.listKnowledgeBases(), api.listAgents()]),
       { operation: "加载知识库" },
     );
+    setDirectoryStatus(result.status === "success" ? "ready" : "error");
     if (result.status === "success") {
       const [{ knowledgeBases }, { agents: loadedAgents }] = result.data;
       const normalizedBases = knowledgeBases.map(normalizeKnowledgeBase);
@@ -43,7 +52,7 @@ export function KnowledgeBasePage() {
 
   useEffect(() => { void reload(); }, [runApiTask]);
   useEffect(() => {
-    const toggle = () => setMobileNavigationOpen((current) => !current);
+    const toggle = () => setStandaloneNavigationOpen((current) => !current);
     window.addEventListener(KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT, toggle);
     return () => window.removeEventListener(KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT, toggle);
   }, []);
@@ -61,7 +70,7 @@ export function KnowledgeBasePage() {
       setSelectedId((currentSelectedId) => currentSelectedId === base.id ? next?.id ?? "" : currentSelectedId);
       return remaining;
     });
-    setMobileNavigationOpen(false);
+    closeNavigation();
     return true;
   };
 
@@ -76,11 +85,19 @@ export function KnowledgeBasePage() {
           />
           <span>KNOWLEDGE BASE</span>
           <h1>知识库</h1>
-          <p>创建一个独立知识库，再将它绑定给一个或多个 Agent。</p>
-          <button type="button" className="configuration-primary-action" onClick={() => setCreateOpen(true)}>创建知识库</button>
+          {directoryStatus === "loading" ? <p role="status">正在读取知识库列表…</p>
+            : directoryStatus === "error" ? <>
+                <p role="alert">知识库列表未能加载，详情见错误通知。</p>
+                <Button onClick={() => void reload()}>重新读取列表</Button>
+              </>
+            : <>
+                <p>创建一个独立知识库，再将它绑定给一个或多个 Agent。</p>
+                <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setCreateOpen(true)}>创建知识库</Button>
+              </>}
+
           {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
         </section>
-        {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases([normalized]); setSelectedId(normalized.id); setMobileNavigationOpen(false); setCreateOpen(false); }} /> : null}
+        {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases([normalized]); setSelectedId(normalized.id); closeNavigation(); setCreateOpen(false); }} /> : null}
       </main>
     );
   }
@@ -88,16 +105,17 @@ export function KnowledgeBasePage() {
   return (
     <main className="knowledge-base-page">
       <aside className={mobileNavigationOpen ? "knowledge-base-navigation is-mobile-open" : "knowledge-base-navigation"}>
-        <SecondarySidebarHeader eyebrow="KNOWLEDGE BASES" title="知识库" />
+        <SecondarySidebarHeader eyebrow="KNOWLEDGE BASES" title="知识库"
+          actions={mobileNavigationOpen ? <IconButton label="关闭知识库列表" onClick={closeNavigation}><X size={18} /></IconButton> : undefined} />
         <nav aria-label="知识库列表">
-          {bases.map((base) => <button key={base.id} type="button" className={base.id === selectedId ? "is-active" : undefined} aria-current={base.id === selectedId ? "page" : undefined} aria-label={`选择知识库 ${base.name}`} onClick={() => { setSelectedId(base.id); setMobileNavigationOpen(false); }}><BookOpen size={16} aria-hidden="true" /><span><strong>{base.name}</strong><small>{base.documents.length} 份资料</small></span></button>)}
+          {bases.map((base) => <button key={base.id} type="button" className={base.id === selectedId ? "is-active" : undefined} aria-current={base.id === selectedId ? "page" : undefined} aria-label={`选择知识库 ${base.name}`} onClick={() => { setSelectedId(base.id); closeNavigation(); }}><BookOpen size={16} aria-hidden="true" /><span><strong>{base.name}</strong><small>{base.documents.length} 份资料</small></span></button>)}
         </nav>
         <button type="button" className="knowledge-base-navigation__create" onClick={() => setCreateOpen(true)}>+ 创建知识库</button>
       </aside>
-      {mobileNavigationOpen ? <button type="button" className="knowledge-base-navigation__scrim" aria-label="关闭知识库列表" onClick={() => setMobileNavigationOpen(false)} /> : null}
+      {mobileNavigationOpen ? <button type="button" className="knowledge-base-navigation__scrim" aria-label="关闭知识库抽屉" tabIndex={-1} onClick={() => closeNavigation()} /> : null}
       {selected ? <KnowledgeBaseWorkspace base={selected} agents={agents} onChanged={(base) => setBases((current) => current.map((item) => item.id === base.id ? base : item))} onDeleteRequested={setBaseToDelete} onError={setError} /> : null}
       {error ? <p className="configuration-inline-error knowledge-base-page__error" role="alert">{error}</p> : null}
-      {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases((current) => [...current, normalized]); setSelectedId(normalized.id); setMobileNavigationOpen(false); setCreateOpen(false); }} /> : null}
+      {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases((current) => [...current, normalized]); setSelectedId(normalized.id); closeNavigation(); setCreateOpen(false); }} /> : null}
       {baseToDelete ? <DeleteKnowledgeBaseDialog base={baseToDelete} onCancel={() => setBaseToDelete(undefined)} onConfirm={async () => { if (await removeKnowledgeBase(baseToDelete)) setBaseToDelete(undefined); }} /> : null}
     </main>
   );
@@ -168,8 +186,8 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
       <div><span>KNOWLEDGE BASE</span><h1>{base.name}</h1><p>{base.description || "独立管理的可检索资料集合。"}</p></div>
       <input ref={inputRef} id="knowledge-base-upload" className="knowledge-base-upload-input" type="file" accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={(event) => void upload(event.target.files)} />
       <div className="knowledge-base-workspace__actions">
-        <button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setEditOpen(true)}><Pencil size={15} aria-hidden="true" />编辑知识库</button>
-        <button type="button" className="configuration-primary-action" disabled={busy} onClick={() => inputRef.current?.click()}><Upload size={16} aria-hidden="true" />上传资料</button>
+        <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setEditOpen(true)}><Pencil size={15} aria-hidden="true" />编辑知识库</Button>
+        <Button variant="primary" type="button" className="configuration-primary-action" disabled={busy} onClick={() => inputRef.current?.click()}><Upload size={16} aria-hidden="true" />上传资料</Button>
       </div>
     </header>
     <section className="knowledge-base-overview" aria-label="知识库概览">
@@ -189,7 +207,7 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
     </section>
     <section className="knowledge-base-search-panel" aria-label="检索知识库">
       <header><div><span>SEARCH</span><h2>检索资料</h2></div></header>
-      <div className="knowledge-base-search-panel__form"><label><Search size={15} aria-hidden="true" /><input aria-label="检索知识库" value={query} placeholder="输入关键词，例如：请假流程" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} /></label><button type="button" className="configuration-secondary-action" disabled={busy || !query.trim()} onClick={() => void runSearch()}>检索</button></div>
+      <div className="knowledge-base-search-panel__form"><label><Search size={15} aria-hidden="true" /><input aria-label="检索知识库" value={query} placeholder="输入关键词，例如：请假流程" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void runSearch(); }} /></label><Button type="button" className="configuration-secondary-action" disabled={busy || !query.trim()} onClick={() => void runSearch()}>检索</Button></div>
       {results.length ? <ol className="knowledge-base-search-results">{results.map((result) => <li key={result.chunkId}><button type="button" onClick={() => void openDocument(result.documentId)}><strong>{base.documents.find((item) => item.id === result.documentId)?.name ?? "资料"}</strong><p>{result.text}</p></button></li>)}</ol> : null}
     </section>
     {bindingOpen ? <BindingDialog base={base} agents={agents} onCancel={() => setBindingOpen(false)} onSaved={(updated) => { onChanged(updated); setBindingOpen(false); }} /> : null}
@@ -215,7 +233,7 @@ function KnowledgeBaseDialog({ agents, onCancel, onCreated }: { agents: AgentPro
     }
     finally { setBusy(false); }
   };
-  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-create-title" onSubmit={submit}><header><div><span>KNOWLEDGE BASE</span><h2 id="knowledge-base-create-title">创建知识库</h2></div><button type="button" className="icon-button" aria-label="关闭创建知识库" onClick={onCancel}><X size={18} /></button></header><label>名称<input aria-label="知识库名称" value={name} maxLength={80} autoFocus onChange={(event) => setName(event.target.value)} /></label><label>说明<textarea aria-label="知识库说明" value={description} maxLength={300} onChange={(event) => setDescription(event.target.value)} /></label><fieldset><legend>绑定 Agent</legend>{agents.map((agent) => <label key={agent.profile.id} className="knowledge-base-agent-choice"><input type="checkbox" aria-label={`绑定 Agent ${agent.profile.name}`} checked={agentIds.includes(agent.profile.id)} onChange={() => setAgentIds((current) => current.includes(agent.profile.id) ? current.filter((id) => id !== agent.profile.id) : [...current, agent.profile.id])} />{agent.profile.name}</label>)}</fieldset>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><button className="configuration-primary-action" disabled={!name.trim() || busy}>创建知识库</button></footer></form></div>;
+  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-create-title" onSubmit={submit}><header><div><span>KNOWLEDGE BASE</span><h2 id="knowledge-base-create-title">创建知识库</h2></div><button type="button" className="icon-button" aria-label="关闭创建知识库" onClick={onCancel}><X size={18} /></button></header><label>名称<input aria-label="知识库名称" value={name} maxLength={80} autoFocus onChange={(event) => setName(event.target.value)} /></label><label>说明<textarea aria-label="知识库说明" value={description} maxLength={300} onChange={(event) => setDescription(event.target.value)} /></label><fieldset><legend>绑定 Agent</legend>{agents.map((agent) => <label key={agent.profile.id} className="knowledge-base-agent-choice"><Checkbox aria-label={`绑定 Agent ${agent.profile.name}`} checked={agentIds.includes(agent.profile.id)} onChange={() => setAgentIds((current) => current.includes(agent.profile.id) ? current.filter((id) => id !== agent.profile.id) : [...current, agent.profile.id])} />{agent.profile.name}</label>)}</fieldset>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><Button type="submit" variant="primary" className="configuration-primary-action" disabled={!name.trim() || busy}>创建知识库</Button></footer></form></div>;
 }
 
 /** 修改一个知识库的 Agent 多对多绑定关系。 */
@@ -225,7 +243,7 @@ function BindingDialog({ base, agents, onCancel, onSaved }: { base: KnowledgeBas
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submit = async (event: React.FormEvent) => { event.preventDefault(); setBusy(true); try { const result = await runApiTask(() => api.updateKnowledgeBase(base.id, { agentIds }), { operation: "保存知识库绑定", expected: knowledgeExpected(setError) }); if (result.status === "success") onSaved(result.data); } finally { setBusy(false); } };
-  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-binding-title" onSubmit={submit}><header><div><span>AGENT BINDINGS</span><h2 id="knowledge-base-binding-title">管理 Agent 绑定</h2></div><button type="button" className="icon-button" aria-label="关闭 Agent 绑定" onClick={onCancel}><X size={18} /></button></header><p>已绑定的 Agent 可使用知识库检索和单文件详情工具。</p><fieldset>{agents.map((agent) => <label key={agent.profile.id} className="knowledge-base-agent-choice"><input type="checkbox" aria-label={`绑定 Agent ${agent.profile.name}`} checked={agentIds.includes(agent.profile.id)} onChange={() => setAgentIds((current) => current.includes(agent.profile.id) ? current.filter((id) => id !== agent.profile.id) : [...current, agent.profile.id])} />{agent.profile.name}</label>)}</fieldset>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><button className="configuration-primary-action" disabled={busy}>保存绑定</button></footer></form></div>;
+  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-binding-title" onSubmit={submit}><header><div><span>AGENT BINDINGS</span><h2 id="knowledge-base-binding-title">管理 Agent 绑定</h2></div><button type="button" className="icon-button" aria-label="关闭 Agent 绑定" onClick={onCancel}><X size={18} /></button></header><p>已绑定的 Agent 可使用知识库检索和单文件详情工具。</p><fieldset>{agents.map((agent) => <label key={agent.profile.id} className="knowledge-base-agent-choice"><Checkbox aria-label={`绑定 Agent ${agent.profile.name}`} checked={agentIds.includes(agent.profile.id)} onChange={() => setAgentIds((current) => current.includes(agent.profile.id) ? current.filter((id) => id !== agent.profile.id) : [...current, agent.profile.id])} />{agent.profile.name}</label>)}</fieldset>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><Button type="submit" variant="primary" className="configuration-primary-action" disabled={busy}>保存绑定</Button></footer></form></div>;
 }
 
 /** 编辑知识库名称与说明，不改变其 Agent 绑定关系。 */
@@ -246,7 +264,7 @@ function EditKnowledgeBaseDialog({ base, onCancel, onDeleteRequested, onSaved }:
       setBusy(false);
     }
   };
-  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-edit-title" onSubmit={submit}><header><div><span>KNOWLEDGE BASE</span><h2 id="knowledge-base-edit-title">编辑知识库</h2></div><button type="button" className="icon-button" aria-label="关闭编辑知识库" onClick={onCancel}><X size={18} /></button></header><label>名称<input aria-label="知识库名称" value={name} maxLength={80} autoFocus onChange={(event) => setName(event.target.value)} /></label><label>说明<textarea aria-label="知识库说明" value={description} maxLength={300} onChange={(event) => setDescription(event.target.value)} /></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><button className="configuration-primary-action" disabled={!name.trim() || busy}>保存</button></footer><section className="knowledge-base-danger-zone" aria-label="危险操作"><div><strong>删除知识库</strong><p>永久删除其中的资料、检索索引和 Agent 绑定关系。</p></div><button type="button" className="danger-button" disabled={busy} onClick={onDeleteRequested}><Trash2 size={15} aria-hidden="true" />删除知识库</button></section></form></div>;
+  return <div className="configuration-dialog-backdrop" role="presentation"><form className="configuration-dialog knowledge-base-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-edit-title" onSubmit={submit}><header><div><span>KNOWLEDGE BASE</span><h2 id="knowledge-base-edit-title">编辑知识库</h2></div><button type="button" className="icon-button" aria-label="关闭编辑知识库" onClick={onCancel}><X size={18} /></button></header><label>名称<input aria-label="知识库名称" value={name} maxLength={80} autoFocus onChange={(event) => setName(event.target.value)} /></label><label>说明<textarea aria-label="知识库说明" value={description} maxLength={300} onChange={(event) => setDescription(event.target.value)} /></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" onClick={onCancel}>取消</button><Button type="submit" variant="primary" className="configuration-primary-action" disabled={!name.trim() || busy}>保存</Button></footer><section className="knowledge-base-danger-zone" aria-label="危险操作"><div><strong>删除知识库</strong><p>永久删除其中的资料、检索索引和 Agent 绑定关系。</p></div><button type="button" className="danger-button" disabled={busy} onClick={onDeleteRequested}><Trash2 size={15} aria-hidden="true" />删除知识库</button></section></form></div>;
 }
 
 /** 以知识库名称作为强确认条件，防止误删整库资料与索引。 */
@@ -269,7 +287,7 @@ function DeleteKnowledgeBaseDialog({ base, onCancel, onConfirm }: { base: Knowle
     }
   };
 
-  return <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog knowledge-base-dialog knowledge-base-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-delete-title"><header><div><span>DANGER ZONE</span><h2 id="knowledge-base-delete-title">永久删除知识库</h2></div></header><p className="knowledge-base-delete-dialog__summary">“{base.name}”包含 {base.documents.length} 份资料，已绑定 {base.agentIds.length} 个 Agent。资料、检索索引和绑定关系都将永久删除，且无法恢复。</p><label className="knowledge-base-delete-dialog__field">输入“{base.name}”以确认<input aria-label="输入知识库名称以确认" value={confirmation} disabled={busy} autoFocus onChange={(event) => setConfirmation(event.target.value)} /></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</button><button type="button" className="danger-button" disabled={!canDelete} onClick={() => void remove()}>{busy ? "删除中…" : "永久删除知识库"}</button></footer></section></div>;
+  return <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog knowledge-base-dialog knowledge-base-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-base-delete-title"><header><div><span>DANGER ZONE</span><h2 id="knowledge-base-delete-title">永久删除知识库</h2></div></header><p className="knowledge-base-delete-dialog__summary">“{base.name}”包含 {base.documents.length} 份资料，已绑定 {base.agentIds.length} 个 Agent。资料、检索索引和绑定关系都将永久删除，且无法恢复。</p><label className="knowledge-base-delete-dialog__field">输入“{base.name}”以确认<input aria-label="输入知识库名称以确认" value={confirmation} disabled={busy} autoFocus onChange={(event) => setConfirmation(event.target.value)} /></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<footer><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</Button><button type="button" className="danger-button" disabled={!canDelete} onClick={() => void remove()}>{busy ? "删除中…" : "永久删除知识库"}</button></footer></section></div>;
 }
 
 /** 显示单份资料的状态、原因和可读文本。 */

@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { readFile } from "node:fs/promises";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -328,7 +329,7 @@ describe("AigcWorkbenchPage 创作台", () => {
 
     renderAigcPage();
 
-    expect(await screen.findByLabelText("AIGC 接口")).toHaveValue("interface-1");
+    expect(await screen.findByLabelText("AIGC 接口")).toHaveAttribute("value", "interface-1");
     expect(await screen.findByLabelText("提示词")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "创作与运行" }).closest(".aigc-run-page")).not.toHaveClass("has-readiness");
     expect(screen.queryByText("生成结果")).not.toBeInTheDocument();
@@ -415,7 +416,7 @@ describe("AigcWorkbenchPage 创作台", () => {
       "选择任务 task-new",
       "选择任务 task-old",
     ]);
-    fireEvent.change(screen.getByLabelText("任务创建时间排序"), { target: { value: "asc" } });
+    chooseOption("任务创建时间排序", "asc");
     expect(screen.getAllByRole("checkbox").map((checkbox) => checkbox.getAttribute("aria-label"))).toEqual([
       "选择任务 task-old",
       "选择任务 task-new",

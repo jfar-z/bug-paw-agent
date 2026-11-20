@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -152,12 +153,12 @@ describe("配置快速交互改进", () => {
     vi.spyOn(api, "updateGlobalSettings").mockRejectedValue(new ApiClientError("VERSION_CONFLICT", "运行设置版本发生变化", 409));
     show(<PiSettingsPage />);
     await screen.findByLabelText("默认思考等级");
-    fireEvent.change(screen.getByLabelText("默认思考等级"), { target: { value: "high" } });
+    chooseOption("默认思考等级", "high");
     fireEvent.click(screen.getByRole("button", { name: "Agent 覆盖" }));
     fireEvent.click(screen.getByRole("button", { name: "保存并切换" }));
     await screen.findByText(/尚未完成保存/);
     expect(screen.getByRole("button", { name: "全局设置" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("high");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "high");
     expect(agentRead).not.toHaveBeenCalled();
   });
 

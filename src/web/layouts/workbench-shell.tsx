@@ -1,19 +1,29 @@
 import { WorkflowSidebar } from "./workflow-sidebar";
 import { Workflow, CalendarClock, ChevronDown, Film, FolderOpen, GitFork, LibraryBig, LogOut, Menu, MessageSquare, Settings2, WandSparkles, X } from "lucide-react";
-import { createContext, type ReactNode, useContext, useCallback, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useCallback, useEffect, useRef, useState } from "react";
 import { ProductMark } from "../components/product-mark";
 import { ThemeSwitcher } from "../components/theme-switcher";
-import { KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT, WORKBENCH_NAVIGATION_TOGGLE_EVENT, type AppRoute } from "../router";
-import { WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT } from "../components/workspace-agent-navigation";
+import { WORKBENCH_NAVIGATION_TOGGLE_EVENT, type AppRoute } from "../router";
+import { IconButton } from "../ui/controls";
 import type { ThemePreference } from "../theme";
 import { AIGC_NAVIGATION_TOGGLE_EVENT, AigcWorkbenchSidebar } from "./aigc-workbench-sidebar";
 import { ConfigurationSidebar } from "./configuration-sidebar";
 
-const MediaNavigationContext = createContext({ open: false, close: () => {} });
+type NavigationDrawer = "primary" | "secondary" | null;
+const NavigationContext = createContext<{
+  drawer: NavigationDrawer;
+  close: () => void;
+  openSecondary: () => void;
+} | null>(null);
 
-/** 媒体库页面与移动工作台共享同一个二级抽屉开关。 */
+/** 业务页共用移动导航状态，保留各自的目录与条目操作。 */
+export function useWorkbenchNavigation() {
+  return useContext(NavigationContext);
+}
+
 export function useMediaNavigation() {
-  return useContext(MediaNavigationContext);
+  const navigation = useWorkbenchNavigation();
+  return { open: navigation?.drawer === "secondary", close: navigation?.close ?? (() => {}) };
 }
 
 interface WorkbenchShellProps {
@@ -21,7 +31,7 @@ interface WorkbenchShellProps {
   theme: ThemePreference;
   children: ReactNode;
   onThemeChange: (theme: ThemePreference) => void;
-  onNavigate: (route: AppRoute) => void;
+  onNavigate: (route: AppRoute) => boolean | void;
   onLogout: () => void;
 }
 
@@ -36,18 +46,24 @@ export function WorkbenchShell({
   onNavigate,
   onLogout,
 }: WorkbenchShellProps) {
-  const [mainNavigationOpen, setMainNavigationOpen] = useState(false);
-  const [configurationOpen, setConfigurationOpen] = useState(false);
-  const [aigcNavigationOpen, setAigcNavigationOpen] = useState(false);
+  const [drawer, setDrawer] = useState<NavigationDrawer>(null);
+  const shell = useRef<HTMLElement>(null);
+  const close = useCallback(() => setDrawer(null), []);
+  const openSecondary = useCallback(() => setDrawer("secondary"), []);
+  const mainNavigationOpen = drawer === "primary";
+  const secondaryOpen = drawer === "secondary";
   const configurationRoute = isConfigurationRoute(route);
   const workflowRoute = route.page === "workflows" || route.page.startsWith("workflow-");
   const aigcRoute = isAigcRoute(route) || workflowRoute;
-  const agentNavigationRoute = route.page === "workspace-resources" || route.page === "knowledge-base" || route.page === "scheduled-tasks";
-  const [mediaNavigationOpen, setMediaNavigationOpen] = useState(false);
   const mediaLibraryRoute = route.page === "media-library";
-  const closeMediaNavigation = useCallback(() => setMediaNavigationOpen(false), []);
-  useEffect(() => { closeMediaNavigation(); }, [route, closeMediaNavigation]);
   const knowledgeBaseRoute = route.page === "knowledge-base";
+  const agentNavigationRoute = route.page === "workspace-resources" || route.page === "scheduled-tasks";
+  const hasSecondary = configurationRoute || aigcRoute || mediaLibraryRoute || knowledgeBaseRoute || agentNavigationRoute;
+  const secondaryLabel = configurationRoute ? "配置导航" : workflowRoute ? "工作流导航" : aigcRoute ? "AIGC 导航" :
+    mediaLibraryRoute ? "媒体库列表" : knowledgeBaseRoute ? "知识库列表" : "Agent 列表";
+  const context = { drawer, close, openSecondary };
+  const togglePrimary = useCallback(() => setDrawer((current) => current === "primary" ? null : "primary"), []);
+  const toggleSecondary = useCallback(() => setDrawer((current) => current === "secondary" ? null : "secondary"), []);
   const primaryNavigation = [
     { label: "会话", route: { page: "chat" } as AppRoute, icon: MessageSquare, active: route.page === "chat" },
     { label: "AIGC 工作台", route: { page: "aigc-overview" } as AppRoute, icon: WandSparkles, active: aigcRoute && !workflowRoute },
@@ -59,94 +75,94 @@ export function WorkbenchShell({
     { label: "配置中心", route: { page: "configuration-overview" } as AppRoute, icon: Settings2, active: configurationRoute },
   ];
 
+  // 等路由真正提交后收起导航，保留尚待处理的离开确认。
+  useEffect(close, [route, close]);
   useEffect(() => {
-    const toggleNavigation = () => {
-      setMediaNavigationOpen(false);
-      setMainNavigationOpen((current) => !current);
+    const mobile = window.matchMedia?.("(max-width: 760px)");
+    const resetDesktop = () => { if (!mobile?.matches) close(); };
+    mobile?.addEventListener("change", resetDesktop);
+    window.addEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, togglePrimary);
+    window.addEventListener(AIGC_NAVIGATION_TOGGLE_EVENT, toggleSecondary);
+    return () => {
+      mobile?.removeEventListener("change", resetDesktop);
+      window.removeEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, togglePrimary);
+      window.removeEventListener(AIGC_NAVIGATION_TOGGLE_EVENT, toggleSecondary);
     };
-    window.addEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, toggleNavigation);
-    return () => window.removeEventListener(WORKBENCH_NAVIGATION_TOGGLE_EVENT, toggleNavigation);
-  }, []);
+  }, [close, togglePrimary, toggleSecondary]);
 
   useEffect(() => {
-    const toggleAigcNavigation = () => setAigcNavigationOpen((current) => !current);
-    window.addEventListener(AIGC_NAVIGATION_TOGGLE_EVENT, toggleAigcNavigation);
-    return () => window.removeEventListener(AIGC_NAVIGATION_TOGGLE_EVENT, toggleAigcNavigation);
-  }, []);
+    if (!drawer) return;
+    const panel = shell.current?.querySelector<HTMLElement>(drawer === "primary" ? ".workbench-rail" :
+      ".configuration-sidebar.is-open, .aigc-workbench-sidebar.is-open, .knowledge-base-navigation.is-mobile-open, .workspace-agent-navigation.is-mobile-open, .chat-sidebar.is-open");
+    if (!panel) { close(); return; }
+    const trigger = shell.current?.querySelector<HTMLElement>(drawer === "primary"
+      ? '.chat-workbench-switcher[aria-expanded="true"]'
+      : '.workbench-secondary-menu[aria-expanded="true"], .live-chat-header .mobile-menu');
+    const focusable = () => [...panel.querySelectorAll<HTMLElement>("button, a[href], input, [tabindex]")]
+      .filter((element) => !element.matches(":disabled") && element.tabIndex >= 0 && element.getClientRects().length > 0);
+    (panel.querySelector<HTMLElement>('[aria-current="page"]') ?? focusable()[0])?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || document.querySelector('[aria-modal="true"]:not([aria-hidden="true"])')) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      } else if (event.key === "Tab") {
+        const controls = focusable();
+        const index = controls.indexOf(document.activeElement as HTMLElement);
+        if (index < 0 || (event.shiftKey ? index === 0 : index === controls.length - 1)) {
+          event.preventDefault();
+          (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      if (!panel.contains(document.activeElement) && document.activeElement !== document.body) return;
+      // 路由切换后，原入口可能由新页面的顶部栏替换。
+      const usable = (element: HTMLElement | null | undefined) =>
+        element?.isConnected && element.getClientRects().length > 0 && !element.matches(":disabled");
+      const fallback = [...(shell.current?.querySelectorAll<HTMLElement>(".chat-workbench-switcher") ?? [])].find(usable);
+      (usable(trigger) ? trigger : fallback)?.focus();
+    };
+  }, [close, drawer]);
 
-  const go = (nextRoute: AppRoute) => {
-    setMediaNavigationOpen(false);
-    onNavigate(nextRoute);
-    setMainNavigationOpen(false);
-    setAigcNavigationOpen(false);
-  };
-
-  const shellMode = configurationRoute ? "is-configuration" : aigcRoute ? "is-aigc" : (agentNavigationRoute || mediaLibraryRoute) ? "is-workspace-resources" : "is-chat";
+  const shellMode = configurationRoute ? "is-configuration" : aigcRoute ? "is-aigc" : (agentNavigationRoute || mediaLibraryRoute || knowledgeBaseRoute) ? "is-workspace-resources" : "is-chat";
 
   return (
-    <main className={`workbench-shell ${shellMode}`} style={{ height: "var(--app-viewport-height, 100dvh)" }}>
+    <NavigationContext.Provider value={context}>
+    <main ref={shell} className={`workbench-shell ${shellMode}`} style={{ height: "var(--app-viewport-height, 100dvh)" }}>
       <header className="workbench-mobile-header">
-        <button
-          type="button"
+        <IconButton
           className="icon-button workbench-secondary-menu"
-          aria-label={configurationRoute ? (configurationOpen ? "关闭配置导航" : "打开配置导航") : aigcRoute ? (aigcNavigationOpen ? (workflowRoute ? "关闭工作流导航" : "关闭 AIGC 导航") : (workflowRoute ? "打开工作流导航" : "打开 AIGC 导航")) : mediaLibraryRoute ? (mediaNavigationOpen ? "关闭媒体库列表" : "打开媒体库列表") : knowledgeBaseRoute ? "打开知识库列表" : agentNavigationRoute ? "打开 Agent 列表" : "当前工作台没有二级导航"}
-          aria-expanded={configurationRoute ? configurationOpen : aigcRoute ? aigcNavigationOpen : mediaLibraryRoute ? mediaNavigationOpen : undefined}
-          disabled={!configurationRoute && !aigcRoute && !agentNavigationRoute && !mediaLibraryRoute}
-          onClick={() => {
-            if (mediaLibraryRoute) {
-              setMainNavigationOpen(false);
-              setMediaNavigationOpen((current) => !current);
-              return;
-            }
-            if (aigcRoute) {
-              setMainNavigationOpen(false);
-              window.dispatchEvent(new Event(AIGC_NAVIGATION_TOGGLE_EVENT));
-              return;
-            }
-            if (agentNavigationRoute) {
-              setMainNavigationOpen(false);
-              window.dispatchEvent(new Event(knowledgeBaseRoute ? KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT : WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT));
-              return;
-            }
-            if (!configurationRoute) return;
-            setMainNavigationOpen(false);
-            setConfigurationOpen((current) => !current);
-          }}
+          label={hasSecondary ? `${secondaryOpen ? "关闭" : "打开"}${secondaryLabel}` : "当前工作台没有二级导航"}
+          aria-expanded={hasSecondary ? secondaryOpen : undefined}
+          disabled={!hasSecondary}
+          onClick={toggleSecondary}
         >
-          <Menu size={19} aria-hidden="true" />
-        </button>
+          <Menu size={19} />
+        </IconButton>
         <button
           type="button"
           className="chat-workbench-switcher"
           aria-label={mainNavigationOpen ? "关闭工作台导航" : "打开工作台导航"}
           aria-expanded={mainNavigationOpen}
-          onClick={() => {
-            setConfigurationOpen(false);
-            setAigcNavigationOpen(false);
-            setMediaNavigationOpen(false);
-            setMainNavigationOpen((current) => !current);
-          }}
+          onClick={togglePrimary}
         >
           <span>工作台</span><ChevronDown size={14} aria-hidden="true" />
         </button>
         <ProductMark />
       </header>
 
-      {(mainNavigationOpen || configurationOpen || aigcNavigationOpen) && (
-        <button
-          type="button"
-          className="workbench-scrim"
-          aria-label="关闭导航"
-          onClick={() => {
-            setMainNavigationOpen(false);
-            setConfigurationOpen(false);
-            setAigcNavigationOpen(false);
-          }}
-        />
+      {(mainNavigationOpen || (secondaryOpen && (configurationRoute || aigcRoute))) && (
+        <button type="button" className="workbench-scrim" aria-label="关闭导航" tabIndex={-1} onClick={close} />
       )}
 
       <aside className={mainNavigationOpen ? "workbench-rail is-open" : "workbench-rail"}>
-        <div className="workbench-rail__brand"><ProductMark compact /></div>
+        <div className="workbench-rail__brand">
+          <ProductMark compact />
+          <IconButton className="workbench-rail__close" label="关闭工作台导航" onClick={close}><X /></IconButton>
+        </div>
         <nav className="workbench-main-nav" aria-label="工作台主导航">
           {primaryNavigation.map(({ label, route: nextRoute, icon: Icon, active }) => (
             <button
@@ -156,7 +172,7 @@ export function WorkbenchShell({
               aria-current={active ? "page" : undefined}
               aria-label={label}
               title={label}
-              onClick={() => go(nextRoute)}
+              onClick={() => onNavigate(nextRoute)}
             >
               <Icon size={20} aria-hidden="true" />
               <span>{label}</span>
@@ -179,8 +195,8 @@ export function WorkbenchShell({
           <div className="configuration-shell">
             <ConfigurationSidebar
               route={route}
-              open={configurationOpen}
-              onClose={() => setConfigurationOpen(false)}
+              open={secondaryOpen}
+              onClose={close}
               onNavigate={onNavigate}
             />
             <section className="configuration-content">
@@ -189,23 +205,20 @@ export function WorkbenchShell({
           </div>
         ) : aigcRoute ? (
           <div className="aigc-workbench-shell">
-            {workflowRoute ? <WorkflowSidebar route={route} open={aigcNavigationOpen} onClose={() => setAigcNavigationOpen(false)} onNavigate={onNavigate} /> : <AigcWorkbenchSidebar
+            {workflowRoute ? <WorkflowSidebar route={route} open={secondaryOpen} onClose={close} onNavigate={onNavigate} /> : <AigcWorkbenchSidebar
               route={route}
-              open={aigcNavigationOpen}
-              onClose={() => setAigcNavigationOpen(false)}
+              open={secondaryOpen}
+              onClose={close}
               onNavigate={onNavigate}
             />}
             <section className="aigc-workbench-content">
               {children}
             </section>
           </div>
-        ) : mediaLibraryRoute ? (
-          <MediaNavigationContext.Provider value={{ open: mediaNavigationOpen, close: closeMediaNavigation }}>
-            {children}
-          </MediaNavigationContext.Provider>
         ) : children}
       </div>
     </main>
+    </NavigationContext.Provider>
   );
 }
 

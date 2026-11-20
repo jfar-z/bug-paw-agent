@@ -1,3 +1,5 @@
+import { Button } from "../ui/controls";
+import { Radio } from "../ui/choice";
 import { Eye } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { MediaCategory, MediaFile } from "../../shared/media-library-contracts";
@@ -73,8 +75,8 @@ export function PickMediaDialog({ label, category, onClose, onSelect }: {
   }, [preview]);
   return <>
     <MediaActionDialog title="从媒体库选择" description={label} suspended={Boolean(preview)} onClose={onClose} footer={<>
-      <button type="button" className="configuration-secondary-action" onClick={onClose}>取消</button>
-      <button type="button" className="configuration-primary-action" disabled={!selected} onClick={() => selected && onSelect(selected)}>使用此文件</button>
+      <Button type="button" className="configuration-secondary-action" onClick={onClose}>取消</Button>
+      <Button variant="primary" type="button" className="configuration-primary-action" disabled={!selected} onClick={() => selected && onSelect(selected)}>使用此文件</Button>
     </>}>
       <LibraryChoice {...libraries} libraryId={libraryId} onChange={(id) => {
         setLibraryId(id);
@@ -82,16 +84,16 @@ export function PickMediaDialog({ label, category, onClose, onSelect }: {
         setFiles({ status: "loading" });
       }} />
       {libraryId && (files.status === "loading" ? <p role="status">正在读取库内文件…</p>
-        : files.status === "error" ? <button type="button" className="configuration-secondary-action" onClick={() => {
+        : files.status === "error" ? <Button type="button" className="configuration-secondary-action" onClick={() => {
           setFiles({ status: "loading" });
           setAttempt((count) => count + 1);
-        }}>重新读取库内文件</button>
+        }}>重新读取库内文件</Button>
         : files.items.length === 0 ? <p>当前库没有匹配的文件。</p>
         : <fieldset className="media-picker-files">
           <legend>库内文件</legend>
           {files.items.map((file) => <div className="media-picker-file" key={file.id}>
             <label>
-              <input type="radio" name={fileGroup} checked={fileId === file.id} onChange={() => setFileId(file.id)} />
+              <Radio name={fileGroup} checked={fileId === file.id} onChange={() => setFileId(file.id)} />
               <MediaThumbnail file={file} iconSize={20} />
               <span>{file.name}</span>
             </label>
@@ -135,11 +137,11 @@ export function SaveMediaDialog({ target, onClose }: { target: SaveTarget; onClo
   return <MediaActionDialog title={saved ? "已保存到媒体库" : "保存到媒体库"}
     description={saved ? `${library?.name} · ${saved.name}` : target.name}
     busy={busy} onClose={onClose} footer={<>
-      <button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>{saved ? "关闭" : "取消"}</button>
+      <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>{saved ? "关闭" : "取消"}</Button>
       {saved ? <a className="configuration-primary-action"
         href={`/media-library/${encodeURIComponent(saved.libraryId)}?file=${encodeURIComponent(saved.id)}`}>查看已保存文件</a>
-        : <button type="submit" form={formId} className="configuration-primary-action"
-          disabled={busy || !online || !library || !name.trim()}>{busy ? "正在保存…" : "保存"}</button>}
+        : <Button variant="primary" type="submit" form={formId} className="configuration-primary-action"
+          disabled={busy || !online || !library || !name.trim()}>{busy ? "正在保存…" : "保存"}</Button>}
     </>}>
     {!saved && <form id={formId} className="media-action-dialog__body" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <LibraryChoice {...libraries} libraryId={libraryId} disabled={busy} onChange={(id) => { setLibraryId(id); setConflict(""); }} />
@@ -159,8 +161,8 @@ export function MediaPublicTransferDialog({ message, onClose, onConfirm, disable
   return <MediaActionDialog title="确认将媒体副本用于公网传输"
     description="Grok 将通过公网地址读取本次执行的媒体副本。取得该地址的人可访问副本，媒体库原件仍受登录保护。"
     onClose={onClose} footer={<>
-      <button type="button" className="configuration-secondary-action" onClick={onClose}>取消</button>
-      <button type="button" className="configuration-primary-action" disabled={disabled} onClick={onConfirm}>确认并运行</button>
+      <Button type="button" className="configuration-secondary-action" onClick={onClose}>取消</Button>
+      <Button variant="primary" type="button" className="configuration-primary-action" disabled={disabled} onClick={onConfirm}>确认并运行</Button>
     </>}>
     <p>{message}</p>
   </MediaActionDialog>;

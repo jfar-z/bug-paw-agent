@@ -1,3 +1,6 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
+import { SearchSelect } from "../ui/search-select";
 import { ArrowLeft, Check, GitBranch, GripVertical, Layers3, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
@@ -278,8 +281,8 @@ function InputMappingBuilder(props: {
       <div className="configuration-section__heading">
         <div><span>02</span><h2>入参映射</h2></div>
         <div className="aigc-section-actions">
-          <button type="button" className="configuration-secondary-action" onClick={beginGroup}><Layers3 size={15} />创建参考组</button>
-          <button type="button" className="configuration-primary-action" onClick={beginAdd}><Plus size={15} />新增入参</button>
+          <Button type="button" className="configuration-secondary-action" onClick={beginGroup}><Layers3 size={15} />创建参考组</Button>
+          <Button variant="primary" type="button" className="configuration-primary-action" onClick={beginAdd}><Plus size={15} />新增入参</Button>
         </div>
       </div>
       <p className="configuration-help">浏览节点关系后明确选择映射目标；可选参数还可以按是否有值启用一组条件节点。</p>
@@ -362,16 +365,19 @@ function InputMappingBuilder(props: {
                 <div className="aigc-fieldset__heading"><strong>参数配置</strong><small>定义工作流入参对外暴露的名称和数据类型</small></div>
                 <div className="aigc-form-grid">
                   <label><span>参数名</span><input aria-label="入参名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
-                  <label><span>类型</span><select aria-label="入参类型" value={draft.type} onChange={(event) => changeInputType(event.target.value as AigcWorkflowInputType)}>
-                    {inputTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select></label>
+                  <label><span>类型</span><SearchSelect
+                    ariaLabel="入参类型"
+                    value={draft.type}
+                    onChange={(next) => changeInputType(next as AigcWorkflowInputType)}
+                    options={inputTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
+                  /></label>
                   <DefaultValueField mapping={draft} metadata={selectedNode ? fieldMetadata(workflow, selectedNode, draft.field) : undefined} value={defaultValueDraft} error={defaultValueError} onChange={(value) => { setDefaultValueDraft(value); setDefaultValueError(""); }} />
-                  <label className="configuration-check-line aigc-check-cell"><input type="checkbox" checked={draft.required} disabled={Boolean(draft.activation)} onChange={(event) => updateDraft("required", event.target.checked)} /><span>必填</span></label>
+                  <label className="configuration-check-line aigc-check-cell"><Checkbox checked={draft.required} disabled={Boolean(draft.activation)} onChange={(event) => updateDraft("required", event.target.checked)} /><span>必填</span></label>
                   <label className="aigc-span-2"><span>说明</span><input aria-label="入参说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
                   {draft.type === "enum" && !fieldMetadata(workflow, selectedNode, draft.field)?.enumOptions ? <label className="aigc-span-2"><span>枚举选项</span><textarea aria-label="枚举选项" rows={3} value={(draft.enumOptions ?? []).join("\n")} onChange={(event) => updateDraft("enumOptions", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} /></label> : null}
                 </div>
                 <label className="configuration-check-line aigc-activation-toggle">
-                  <input type="checkbox" aria-label="有值时启用分支" checked={Boolean(draft.activation)} disabled={!draft.nodeId} onChange={(event) => toggleActivation(event.target.checked)} />
+                  <Checkbox aria-label="有值时启用分支" checked={Boolean(draft.activation)} disabled={!draft.nodeId} onChange={(event) => toggleActivation(event.target.checked)} />
                   <span><strong>有值时启用分支</strong><small>没有填写该参数时，提交前删除左侧勾选的节点组</small></span>
                 </label>
               </div>
@@ -379,8 +385,8 @@ function InputMappingBuilder(props: {
           </div>
 
           <div className="configuration-save-bar">
-            <button type="button" className="configuration-secondary-action" onClick={closeEditor}>取消</button>
-            <button type="button" className="configuration-primary-action" disabled={!draft.name.trim() || !draft.nodeId || !draft.field || Boolean(draft.activation && draft.activation.nodeIds.length === 0)} onClick={commit}><Check size={15} />{editingId ? "保存修改" : "添加映射"}</button>
+            <Button type="button" className="configuration-secondary-action" onClick={closeEditor}>取消</Button>
+            <Button variant="primary" type="button" className="configuration-primary-action" disabled={!draft.name.trim() || !draft.nodeId || !draft.field || Boolean(draft.activation && draft.activation.nodeIds.length === 0)} onClick={commit}><Check size={15} />{editingId ? "保存修改" : "添加映射"}</Button>
           </div>
         </div>
       ) : null}
@@ -432,29 +438,51 @@ function ReferenceGroupEditor({ workflow, draft, error, onChange, onCancel, onCo
             <input type="search" aria-label="搜索参考组汇总节点" placeholder="搜索节点标题、类型或 ID" value={boundaryQuery} onChange={(event) => setBoundaryQuery(event.target.value)} />
             <small>{filteredBoundaries.length}/{boundaries.length}</small>
           </div>
-          <select aria-label="参考组汇总节点" value={draft.boundaryNodeId} onChange={(event) => { const boundaryNodeId = event.target.value; setBoundaryQuery(""); onChange({ boundaryNodeId, targetFieldPrefix: referenceInputFamilies(workflow, boundaryNodeId)[0]?.prefix ?? "", field: "" }); }}>
-            <option value="">{normalizedBoundaryQuery && !filteredBoundaries.length ? "没有匹配的节点" : "请选择节点"}</option>
-            {boundaryOptions.map((node) => <option key={node.id} value={node.id}>{referenceBoundaryLabel(node)}</option>)}
-          </select>
+          <SearchSelect
+            ariaLabel="参考组汇总节点"
+            value={draft.boundaryNodeId}
+            onChange={(next) => { const boundaryNodeId = next; setBoundaryQuery(""); onChange({ boundaryNodeId, targetFieldPrefix: referenceInputFamilies(workflow, boundaryNodeId)[0]?.prefix ?? "", field: "" }); }}
+            options={[
+              { value: "", label: normalizedBoundaryQuery && !filteredBoundaries.length ? "没有匹配的节点" : "请选择节点" },
+              ...boundaryOptions.map((node) => ({ value: node.id, label: referenceBoundaryLabel(node) })),
+            ]}
+          />
         </div>
-        <label><span>汇总接口</span><select aria-label="参考组汇总接口" value={draft.targetFieldPrefix} onChange={(event) => onChange({ targetFieldPrefix: event.target.value, field: "" })}>
-          <option value="">请选择接口</option>
-          {families.map((family) => <option key={family.prefix} value={family.prefix}>{family.prefix} ({family.targetFields.length})</option>)}
-        </select></label>
+        <label><span>汇总接口</span><SearchSelect
+          ariaLabel="参考组汇总接口"
+          value={draft.targetFieldPrefix}
+          onChange={(next) => onChange({ targetFieldPrefix: next, field: "" })}
+          options={[
+            { value: "", label: "请选择接口" },
+            ...families.map((family) => ({ value: family.prefix, label: `${family.prefix} (${family.targetFields.length})` })),
+          ]}
+        /></label>
         <label><span>组名称</span><input aria-label="参考组名称" value={draft.label} onChange={(event) => onChange({ label: event.target.value })} /></label>
         <label><span>参数前缀</span><input aria-label="参考组参数前缀" value={draft.namePrefix} onChange={(event) => onChange({ namePrefix: event.target.value })} /></label>
-        <label><span>用户输入类型</span><select aria-label="参考组输入类型" value={draft.type} onChange={(event) => onChange({ type: event.target.value as ReferenceGroupDraft["type"] })}>
-          <option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option>
-        </select></label>
-        <label><span>根节点输入字段</span><select aria-label="参考组输入字段" value={field} onChange={(event) => onChange({ field: event.target.value })}>
-          <option value="">请选择字段</option>
-          {result.fields.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}
-        </select></label>
+        <label><span>用户输入类型</span><SearchSelect
+          ariaLabel="参考组输入类型"
+          value={draft.type}
+          onChange={(next) => onChange({ type: next as ReferenceGroupDraft["type"] })}
+          options={[
+            { value: "image", label: "图片" },
+            { value: "video", label: "视频" },
+            { value: "audio", label: "音频" },
+          ]}
+        /></label>
+        <label><span>根节点输入字段</span><SearchSelect
+          ariaLabel="参考组输入字段"
+          value={field}
+          onChange={(next) => onChange({ field: next })}
+          options={[
+            { value: "", label: "请选择字段" },
+            ...result.fields.map((candidate) => ({ value: candidate, label: candidate })),
+          ]}
+        /></label>
       </div>
       {result.error ? <p className="aigc-field-error" role="alert">{result.error}</p> : null}
       {!result.error && result.branches.length ? <div className="aigc-reference-preview"><strong>{result.branches.length} 个参考槽位</strong><span>按汇总接口顺序固定</span><small>{result.branches.map((branch) => `#${branch.rootNodeId}（${branch.activationNodeIds.length} 节点）`).join(" · ")}</small></div> : null}
       {error ? <p className="aigc-field-error" role="alert">{error}</p> : null}
-      <div className="configuration-save-bar"><button type="button" className="configuration-secondary-action" onClick={onCancel}>取消</button><button type="button" className="configuration-primary-action" disabled={!draft.boundaryNodeId || !draft.targetFieldPrefix || !draft.label.trim() || !draft.namePrefix.trim() || !field || Boolean(result.error)} onClick={() => { if (!draft.field && field) onChange({ field }); onCommit(); }}><Check size={15} />创建参考组</button></div>
+      <div className="configuration-save-bar"><Button type="button" className="configuration-secondary-action" onClick={onCancel}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!draft.boundaryNodeId || !draft.targetFieldPrefix || !draft.label.trim() || !draft.namePrefix.trim() || !field || Boolean(result.error)} onClick={() => { if (!draft.field && field) onChange({ field }); onCommit(); }}><Check size={15} />创建参考组</Button></div>
     </div>
   );
 }
@@ -542,7 +570,7 @@ function OutputMappingBuilder(props: {
     <section className="configuration-form-card aigc-config-section">
       <div className="configuration-section__heading">
         <div><span>03</span><h2>输出映射</h2></div>
-        <button type="button" className="configuration-primary-action" onClick={beginAdd}><Plus size={15} />新增输出</button>
+        <Button variant="primary" type="button" className="configuration-primary-action" onClick={beginAdd}><Plus size={15} />新增输出</Button>
       </div>
       <p className="configuration-help">沿工作流关系找到产物节点，选择节点和媒体类型即可；媒体产物会自动识别输出槽位。</p>
 
@@ -608,17 +636,20 @@ function OutputMappingBuilder(props: {
                 <div className="aigc-fieldset__heading"><strong>输出配置</strong><small>定义产物名称和媒体类型</small></div>
                 <div className="aigc-form-grid">
                   <label><span>显示名称</span><input aria-label="输出名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
-                  <label><span>媒体类型</span><select aria-label="输出媒体类型" value={draft.mediaType} onChange={(event) => updateDraft("mediaType", event.target.value as AigcWorkflowOutputMapping["mediaType"])}>
-                    {outputMediaTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select></label>
+                  <label><span>媒体类型</span><SearchSelect
+                    ariaLabel="输出媒体类型"
+                    value={draft.mediaType}
+                    onChange={(next) => updateDraft("mediaType", next as AigcWorkflowOutputMapping["mediaType"])}
+                    options={outputMediaTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
+                  /></label>
                   <label className="aigc-span-2"><span>说明</span><input aria-label="输出说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
                 </div>
               </div>
             </div>
           </div>
           <div className="configuration-save-bar">
-            <button type="button" className="configuration-secondary-action" onClick={closeEditor}>取消</button>
-            <button type="button" className="configuration-primary-action" disabled={!draft.name.trim() || !draft.nodeId || (outputMediaTypeRequiresField(draft.mediaType) && !draft.field)} onClick={commit}><Check size={15} />{editingId ? "保存修改" : "添加输出"}</button>
+            <Button type="button" className="configuration-secondary-action" onClick={closeEditor}>取消</Button>
+            <Button variant="primary" type="button" className="configuration-primary-action" disabled={!draft.name.trim() || !draft.nodeId || (outputMediaTypeRequiresField(draft.mediaType) && !draft.field)} onClick={commit}><Check size={15} />{editingId ? "保存修改" : "添加输出"}</Button>
           </div>
         </div>
       ) : null}
@@ -811,7 +842,7 @@ function NavigatorNodeCard(props: {
       </button>
       {activationNodeIds ? (
         <label title={activationBlocked ? "该节点已属于其他条件参数" : undefined}>
-          <input type="checkbox" aria-label={`条件节点 ${nodeLabel(node, node.id)}`} checked={inActivation} disabled={isMappingNode || activationBlocked} onChange={(event) => onToggleActivation(event.target.checked)} />
+          <Checkbox aria-label={`条件节点 ${nodeLabel(node, node.id)}`} checked={inActivation} disabled={isMappingNode || activationBlocked} onChange={(event) => onToggleActivation(event.target.checked)} />
           <span>{activationBlocked ? "已被占用" : "条件节点"}</span>
         </label>
       ) : null}
@@ -991,14 +1022,26 @@ function DefaultValueField(props: {
     <label>
       <span>默认值</span>
       {mapping.type === "bool" ? (
-        <select aria-label="入参默认值" value={value} onChange={(event) => onChange(event.target.value)}>
-          <option value="">未设置</option><option value="true">true</option><option value="false">false</option>
-        </select>
+        <SearchSelect
+          ariaLabel="入参默认值"
+          value={value}
+          onChange={(next) => onChange(next)}
+          options={[
+            { value: "", label: "未设置" },
+            { value: "true", label: "true" },
+            { value: "false", label: "false" },
+          ]}
+        />
       ) : mapping.type === "enum" ? (
-        <select aria-label="入参默认值" value={value} onChange={(event) => onChange(event.target.value)}>
-          <option value="">未设置</option>
-          {options.map((option) => <option key={scalarKey(option)} value={scalarKey(option)}>{String(option)}</option>)}
-        </select>
+        <SearchSelect
+          ariaLabel="入参默认值"
+          value={value}
+          onChange={(next) => onChange(next)}
+          options={[
+            { value: "", label: "未设置" },
+            ...options.map((option) => ({ value: scalarKey(option), label: String(option) })),
+          ]}
+        />
       ) : (
         <input type="text" inputMode={mapping.type === "int" || mapping.type === "double" ? "decimal" : undefined} aria-label="入参默认值" aria-invalid={error ? "true" : undefined} placeholder={metadata?.placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
       )}

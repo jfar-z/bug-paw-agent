@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
-import { Button, IconButton, TextField } from "./controls";
+import { Button } from "./controls";
 import "./collection.css";
+export { SearchField } from "./controls";
 
 type Option = { id: string; label: string };
 
@@ -64,61 +64,6 @@ export function SegmentedControl({
     </div>
   );
 }
-export function SearchField({
-  label,
-  value,
-  onChange,
-  shortcut = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  shortcut?: boolean;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!shortcut) return;
-    const focus = (event: KeyboardEvent) => {
-      if (
-        event.key === "/" &&
-        !event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !(event.target as Element)?.closest(
-          "input,textarea,[contenteditable=true]",
-        )
-      ) {
-        event.preventDefault();
-        ref.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", focus);
-    return () => document.removeEventListener("keydown", focus);
-  }, [shortcut]);
-  return (
-    <div className="bp-search">
-      <TextField
-        ref={ref}
-        aria-label={label}
-        placeholder={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {value && (
-        <IconButton
-          label={"清除" + label}
-          onClick={() => {
-            onChange("");
-            ref.current?.focus();
-          }}
-        >
-          <X />
-        </IconButton>
-      )}
-    </div>
-  );
-}
-
 /** 调用方提供可排序的列与行，不在组件内部改变业务排序规则。 */
 export function Table<T>({
   label,

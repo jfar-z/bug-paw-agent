@@ -1,3 +1,5 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
 import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -145,14 +147,14 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
           {libraries.status === "loading" ? <p role="status">正在读取媒体库…</p> :
             libraries.status === "error" ? <>
               <p role="alert">无法读取媒体库列表。</p>
-              <button type="button" className="configuration-secondary-action" onClick={reload}>重新读取媒体库</button>
+              <Button type="button" className="configuration-secondary-action" onClick={reload}>重新读取媒体库</Button>
             </> : libraryId ? <>
               <p role="status">此媒体库已不存在。</p>
-              <button type="button" className="configuration-secondary-action" onClick={() => select(undefined, true)}>返回媒体库</button>
+              <Button type="button" className="configuration-secondary-action" onClick={() => select(undefined, true)}>返回媒体库</Button>
             </> : bases.length ? <>
               <p>选择一个媒体库，查看其中的视频、图片和音频。</p>
               <div className="media-library-landing__choices">{bases.map((base) => (
-                <button type="button" key={base.id} className="configuration-secondary-action" onClick={() => select(base.id)}>{base.name}</button>
+                <Button type="button" key={base.id} className="configuration-secondary-action" onClick={() => select(base.id)}>{base.name}</Button>
               ))}</div>
             </> : <>
               <p>创建媒体库，集中保存视频、图片和音频。</p>
@@ -403,8 +405,8 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
     <header className="knowledge-base-workspace__heading">
       <div><h1>{library.name}</h1><p>{library.fileCount} 个文件</p></div>
       <div className="knowledge-base-workspace__actions">
-        <button type="button" data-media-upload className="configuration-primary-action" disabled={!online || files.status === "loading"}
-          onClick={() => setDialog({ kind: "upload" })}><Upload size={16} aria-hidden="true" />上传文件</button>
+        <Button variant="primary" type="button" data-media-upload className="configuration-primary-action" disabled={!online || files.status === "loading"}
+          onClick={() => setDialog({ kind: "upload" })}><Upload size={16} aria-hidden="true" />上传文件</Button>
       </div>
     </header>
     {library.note && <section aria-label="媒体库备注">
@@ -425,19 +427,19 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
         {categoryOrder.map((key) => {
           const { icon: Icon, label } = categories[key];
           const count = items.filter((file) => file.category === key).length;
-          return <button type="button" key={key} className="configuration-secondary-action" aria-pressed={category === key}
+          return <Button type="button" key={key} className="configuration-secondary-action" aria-pressed={category === key}
             disabled={deleting} onClick={() => chooseCategory(key)}>
             <Icon size={16} aria-hidden="true" />{label}{files.status === "ready" && <small>{count}</small>}
-          </button>;
+          </Button>;
         })}
-        {visibleFiles.length > 0 && <button type="button" className="configuration-secondary-action configuration-secondary-action--danger"
+        {visibleFiles.length > 0 && <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger"
           disabled={!online || deleting || !selectedFiles.length || selectedFiles.length > 5000} onClick={() => setDeleteFiles(selectedFiles)}>
           批量删除（已选 {selectedFiles.length} 项）
-        </button>}
+        </Button>}
       </div>
       {files.status === "loading" ? <p className="media-library-file-state" role="status">正在读取文件…</p> :
         files.status === "error" ? <div className="media-library-file-state"><p role="alert">无法读取库内文件。</p>
-          <button type="button" className="configuration-secondary-action" onClick={reload}>重新读取文件</button></div> :
+          <Button type="button" className="configuration-secondary-action" onClick={reload}>重新读取文件</Button></div> :
         visibleFiles.length ? <ul className="media-library-grid">
           {visibleFiles.map((file) => <li key={file.id}>
             <button type="button" className="media-library-file" aria-label={"预览 " + file.name}
@@ -446,7 +448,7 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
               <strong title={file.name}>{file.name}</strong>
             </button>
             <div className="media-library-file-actions">
-              <label title="选择文件"><input type="checkbox" aria-label={"选择 " + file.name} checked={selected.has(file.id)}
+              <label title="选择文件"><Checkbox aria-label={"选择 " + file.name} checked={selected.has(file.id)}
                 disabled={deleting || (!selected.has(file.id) && selectedFiles.length >= 5000)}
                 onChange={(event) => toggleFile(file.id, event.target.checked)} /></label>
               <button type="button" className="icon-button" disabled={!online || deleting} aria-label={"重命名 " + file.name}
@@ -457,8 +459,8 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
           </li>)}
         </ul> : <div className="media-library-file-state">
           <p>{items.length ? "此类别暂无" + categories[category].label + "。" : "此媒体库尚无文件。"}</p>
-          {!items.length && <button type="button" className="configuration-secondary-action" disabled={!online}
-            onClick={() => setDialog({ kind: "upload" })}>上传文件</button>}
+          {!items.length && <Button type="button" className="configuration-secondary-action" disabled={!online}
+            onClick={() => setDialog({ kind: "upload" })}>上传文件</Button>}
         </div>}
     </section>
     {dialog?.kind === "upload" && <MediaNameDialog library={library} online={online} onClose={close}

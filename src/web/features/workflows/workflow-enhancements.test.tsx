@@ -1,3 +1,4 @@
+import { chooseOption, openOptions } from "../../test-select";
 import { WorkflowsPage } from "../../pages/workflows-page";
 import { useState } from "react";
 import {
@@ -326,9 +327,7 @@ describe("工作流编辑增强", () => {
       },
     };
     const { rerender } = render(<WorkflowBindingEditor {...props} />);
-    fireEvent.change(screen.getByLabelText("质量 值来源"), {
-      target: { value: "literal" },
-    });
+    chooseOption("质量 值来源", "literal");
     expect(change).toHaveBeenLastCalledWith({ kind: "literal", value: 20 });
     rerender(
       <WorkflowBindingEditor
@@ -337,9 +336,7 @@ describe("工作流编辑增强", () => {
       />,
     );
     expect(screen.queryByLabelText("质量 常量类型")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("quality"), {
-      target: { value: "2" },
-    });
+    chooseOption("quality", "2");
     expect(change).toHaveBeenLastCalledWith({ kind: "literal", value: false });
     rerender(
       <WorkflowBindingEditor
@@ -401,9 +398,7 @@ describe("工作流编辑增强", () => {
         <Editor />
       </Wrapper>,
     );
-    fireEvent.change(screen.getByLabelText("steps 值来源"), {
-      target: { value: "literal" },
-    });
+    chooseOption("steps 值来源", "literal");
     const step = within(screen.getByRole("region", { name: "steps 参数配置" }));
     expect(step.getByLabelText("steps")).toHaveAttribute("step", "1");
     expect(step.getByLabelText("steps")).toHaveAttribute("min", "1");
@@ -443,9 +438,7 @@ describe("工作流编辑增强", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByRole("button", { name: "AI 辅助" }));
-    fireEvent.change(screen.getByLabelText("脚本辅助模型"), {
-      target: { value: "test\tscript" },
-    });
+    chooseOption("脚本辅助模型", "test\tscript");
     fireEvent.change(screen.getByLabelText("脚本生成需求"), {
       target: { value: "生成脚本" },
     });
@@ -492,9 +485,7 @@ describe("工作流编辑增强", () => {
       </Wrapper>,
     );
     fireEvent.click(screen.getByRole("button", { name: "AI 辅助" }));
-    fireEvent.change(screen.getByLabelText("脚本辅助模型"), {
-      target: { value: "test\tscript" },
-    });
+    chooseOption("脚本辅助模型", "test\tscript");
     fireEvent.change(screen.getByLabelText("脚本生成需求"), {
       target: { value: "需求" },
     });
@@ -530,7 +521,7 @@ describe("工作流编辑增强", () => {
     ] };
     render(<Wrapper><WorkflowScriptAssist node={newWorkflowNode("javascript", "js")} nodes={[]} catalog={reasoningCatalog} onApply={() => {}} /></Wrapper>);
     fireEvent.click(screen.getByRole("button", { name: "AI 辅助" }));
-    fireEvent.change(screen.getByLabelText("脚本辅助模型"), { target: { value: "test\tscript" } });
+    chooseOption("脚本辅助模型", "test\tscript");
     fireEvent.click(screen.getByRole("button", { name: "思考强度：模型默认" }));
     expect(screen.queryByRole("menuitemradio", { name: "最大" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitemradio", { name: "关闭" })).not.toBeInTheDocument();
@@ -551,7 +542,7 @@ describe("工作流编辑增强", () => {
     act(() => oldProgress?.({ type: "text_delta", delta: "旧流残留" }));
     expect(screen.getByLabelText("正文输出")).toHaveValue("return {");
     expect(screen.getByRole("status")).toHaveTextContent("已取消");
-    fireEvent.change(screen.getByLabelText("脚本辅助模型"), { target: { value: "test\tplain" } });
+    chooseOption("脚本辅助模型", "test\tplain");
     expect(screen.getByRole("button", { name: /思考强度：模型默认/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "生成脚本" }));
     expect(assist.mock.calls[1][0]).not.toHaveProperty("thinkingLevel");
@@ -567,7 +558,7 @@ describe("工作流编辑增强", () => {
     });
     render(<Wrapper><WorkflowScriptAssist node={newWorkflowNode("javascript", "js")} nodes={[]} catalog={catalog} onApply={() => {}} /></Wrapper>);
     fireEvent.click(screen.getByRole("button", { name: "AI 辅助" }));
-    fireEvent.change(screen.getByLabelText("脚本辅助模型"), { target: { value: "test\tscript" } });
+    chooseOption("脚本辅助模型", "test\tscript");
     fireEvent.change(screen.getByLabelText("脚本生成需求"), { target: { value: "需求" } });
     fireEvent.click(screen.getByRole("button", { name: "生成脚本" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("生成未完成"));
@@ -700,13 +691,8 @@ describe("工作流参数组合", () => {
         <Editor />
       </Wrapper>,
     );
-    fireEvent.change(screen.getByLabelText("prompt 类型"), {
-      target: { value: "enum" },
-    });
-    const select = screen.getByLabelText(
-      "prompt 枚举来源",
-    ) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: select.options[1].value } });
+    chooseOption("prompt 类型", "enum");
+    fireEvent.click(openOptions("prompt 枚举来源").getByRole("option", { name: /\/ quality$/ }));
     const field = change.mock.calls.at(-1)![0].outputs[0];
     expect(field).toMatchObject({
       type: "string",
@@ -716,9 +702,7 @@ describe("工作流参数组合", () => {
     rendered.unmount();
     const value = vi.fn();
     render(<WorkflowValue field={field} value="0" onChange={value} />);
-    fireEvent.change(screen.getByLabelText("prompt"), {
-      target: { value: "1" },
-    });
+    chooseOption("prompt", "1");
     expect(value).toHaveBeenCalledWith("20");
   });
   it("循环输入可从已连接工作流的枚举入参复制选项，隔离未连接和不可用目标", () => {
@@ -745,12 +729,11 @@ describe("工作流参数组合", () => {
       />;
     }
     render(<Wrapper><Editor /></Wrapper>);
-    fireEvent.change(screen.getByLabelText("ratio 类型"), { target: { value: "enum" } });
-    const select = screen.getByLabelText("ratio 枚举来源") as HTMLSelectElement;
-    const option = screen.getByRole("option", { name: "MiniMax-H3-Ref2VA / ratio" }) as HTMLOptionElement;
-    expect(select.options).toHaveLength(2);
-    expect(screen.queryByRole("option", { name: /未连接节点|bad/ })).not.toBeInTheDocument();
-    fireEvent.change(select, { target: { value: option.value } });
+    chooseOption("ratio 类型", "enum");
+    const choices = openOptions("ratio 枚举来源");
+    expect(choices.getAllByRole("option")).toHaveLength(2);
+    expect(choices.queryByRole("option", { name: /未连接节点|bad/ })).not.toBeInTheDocument();
+    fireEvent.click(choices.getByRole("option", { name: "MiniMax-H3-Ref2VA / ratio" }));
     expect(changed.mock.lastCall?.[0].outputs[1]).toEqual({
       name: "ratio", type: "string", enumValues: ["16:9", "9:16"],
       enumSource: { nodeId: "call", field: "ratio", workflowId: "target" }, defaultValue: undefined,
@@ -843,18 +826,11 @@ describe("工作流参数组合", () => {
       </Wrapper>,
     );
     expect(screen.getByLabelText("first 值来源")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("参考图片 输入方式"), {
-      target: { value: "array" },
-    });
+    chooseOption("参考图片 输入方式", "array");
     expect(screen.queryByLabelText("first 值来源")).not.toBeInTheDocument();
-    const values = screen.getByLabelText(
-      "参考图片 数组 值来源",
-    ) as HTMLSelectElement;
-    expect(Array.from(values.options).map((o) => o.value)).toEqual([
-      "unset",
-      "input:pictures",
-    ]);
-    fireEvent.change(values, { target: { value: "input:pictures" } });
+    const values = openOptions("参考图片 数组 值来源");
+    expect(values.getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(["unset", "input:pictures"]);
+    fireEvent.click(values.getByRole("option", { name: /pictures/ }));
     expect(changed.mock.calls.at(-1)![0]).toMatchObject({
       inputs: {},
       config: {
@@ -866,9 +842,7 @@ describe("工作流参数组合", () => {
         },
       },
     });
-    fireEvent.change(screen.getByLabelText("参考图片 输入方式"), {
-      target: { value: "split" },
-    });
+    chooseOption("参考图片 输入方式", "split");
     expect(changed.mock.calls.at(-1)![0].config.referenceGroups).toEqual({});
   });
 });
@@ -883,9 +857,8 @@ it("外层输入可以选择已连接循环节点的枚举入参，修改循环�
     return <WorkflowNodeEditor node={node} nodes={[node,loop]} edges={[{id:"a",source:"input",target:"loop"}]} catalog={catalog} onChange={(next) => {setNode(next);changed(next);}} onValidity={() => {}} onClose={() => {}} onCopy={() => {}} onDelete={() => {}}/>;
   }
   const view = render(<Wrapper><Editor/></Wrapper>);
-  fireEvent.change(screen.getByLabelText("ratio 类型"),{target:{value:"enum"}});
-  const option = screen.getByRole("option",{name:"画幅循环 / ratio"}) as HTMLOptionElement;
-  fireEvent.change(screen.getByLabelText("ratio 枚举来源"),{target:{value:option.value}});
+  chooseOption("ratio 类型", "enum");
+  fireEvent.click(openOptions("ratio 枚举来源").getByRole("option", { name: "画幅循环 / ratio" }));
   expect(changed.mock.lastCall?.[0].outputs[0].enumSource).toEqual({nodeId:"loop",field:"ratio",loop:true});
   loop.config.loop!.body.nodes[0].outputs[1].enumValues = ["1:1"];
   view.rerender(<Wrapper><Editor/></Wrapper>);

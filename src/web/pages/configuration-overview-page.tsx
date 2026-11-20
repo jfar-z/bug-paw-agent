@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ConfigurationOverviewDocument } from "../../shared/configuration-operations-contracts";
@@ -50,7 +51,7 @@ export function ConfigurationOverviewPage({ onNavigate }: { onNavigate: (route: 
     <header className="configuration-page__heading"><div><span className="configuration-eyebrow">CONFIGURATION OVERVIEW</span><h1>配置中心</h1><p>查看已保存配置，按业务任务进入设置。</p></div><img className="configuration-overview-mascot" src="/brand/bugpaw/bugpaw-mascot.png" alt="BUG 猫咪像素吉祥物" /></header>
     <ConfigurationEffectNotice />
     <p className="maintenance-muted">生效提示仅记录本次页面会话，不代表服务器全局状态。</p>
-    <div className="maintenance-row"><p className="maintenance-muted">{document ? `${cached || !online ? "缓存摘要（非实时）" : "摘要读取时间"}：${new Date(document.readAt).toLocaleString()}` : "正在读取配置摘要…"}</p><button type="button" className="configuration-secondary-action" disabled={!online || state === "loading"} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} />刷新摘要</button></div>
+    <div className="maintenance-row"><p className="maintenance-muted">{document ? `${cached || !online ? "缓存摘要（非实时）" : "摘要读取时间"}：${new Date(document.readAt).toLocaleString()}` : "正在读取配置摘要…"}</p><Button type="button" className="configuration-secondary-action" disabled={!online || state === "loading"} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} />刷新摘要</Button></div>
     {state === "error" ? <p className="configuration-inline-error" role="alert">配置摘要读取未完成，请查看错误通知并重新加载；保留的旧摘要不代表当前状态。</p> : null}
     {entries.some((entry) => entry.needsConfiguration) ? <section className="configuration-form-card"><h2>待配置项</h2><p>{entries.filter((entry) => entry.needsConfiguration).map((entry) => configurationGroups.flatMap((group) => group.entries).find((item) => item.key === entry.key)?.title).filter(Boolean).join("、")}尚未配置。</p></section> : null}
     {configurationGroups.map((group) => <section key={group.title} className="configuration-overview-group" aria-label={group.title}><h2>{group.title}</h2><div className="configuration-entry-list">{group.entries.map((entry) => {

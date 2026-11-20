@@ -1,3 +1,4 @@
+import { Checkbox } from "../../../ui/choice";
 import { Archive, Clock3, MessageSquare, MessageSquarePlus, Pin, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from "react";
@@ -121,8 +122,8 @@ export function ChatSidebar(props: ChatSidebarProps) {
           return (
           <div className={`session-row${item.id === props.activeSessionId ? " is-active" : ""}${item.id === props.openingSessionId ? " is-opening" : ""}`} key={item.id}>
             {props.selectionMode ? <label className={`session-row__open session-row__select${selectionDisabled ? " is-disabled" : ""}`} style={{ display: "flex", alignItems: "center", color: "var(--text-secondary)", cursor: selectionDisabled ? "not-allowed" : "pointer", opacity: selectionDisabled ? 0.62 : 1 }}>
-              <input
-                type="checkbox"
+              <Checkbox
+
                 style={{ width: 15, height: 15, margin: 0, flex: "0 0 auto", accentColor: "var(--accent)" }}
                 aria-label={`选择 ${title}`}
                 checked={props.selectedSessionIds.includes(item.id)}

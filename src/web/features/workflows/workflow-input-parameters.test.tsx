@@ -191,9 +191,12 @@ describe("输入参数复用交互", () => {
     fireEvent.click(trigger);
     fireEvent.click(screen.getByLabelText("选择参数 images"));
     fireEvent.click(screen.getByRole("button", { name: /导入并映射 ·/ }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    // 焦点还原在弹层卸载阶段完成，等待提交与关闭都完成。
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
     expect(imported).toHaveBeenCalledExactlyOnceWith(["enabled", "text", "options", "quality"]);
-    expect(trigger).toHaveFocus();
   });
 
   it("导入失败保留选择并通过全局弹窗展示明确原因，重试成功后才关闭", async () => {

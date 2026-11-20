@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -51,7 +52,7 @@ describe("AigcOutputsPage", () => {
     expect(image).toBeVisible();
     expect(screen.queryByText("正在加载")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("产物创建时间排序"), { target: { value: "asc" } });
+    chooseOption("产物创建时间排序", "asc");
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes("sort=asc"))).toBe(true));
   });
 });

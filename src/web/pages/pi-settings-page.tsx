@@ -1,3 +1,6 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
+import { SearchSelect } from "../ui/search-select";
 import { Check, Save, ShieldAlert } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
@@ -353,12 +356,21 @@ export function PiSettingsPage() {
   }
 
   function control(field: SettingField, value: unknown, disabled = false) {
-    if (field.kind === "boolean" || field.kind === "select") return <select aria-label={field.label} disabled={disabled} value={value === undefined ? "" : String(value)} onChange={(event) => {
-      if (!event.target.value) {
+    if (field.kind === "boolean" || field.kind === "select") return <SearchSelect
+      ariaLabel={field.label}
+      disabled={disabled}
+      value={value === undefined ? "" : String(value)}
+      onChange={(next) => {
+      if (!next) {
         if (scope === "global") reset(field.path);
         else update(field.path, "");
-      } else update(field.path, field.kind === "boolean" ? event.target.value === "true" : event.target.value);
-    }}><option value="">{scope === "agent" && !disabled ? "请选择覆盖值" : "核心默认值"}</option>{field.kind === "boolean" ? <><option value="true">开启</option><option value="false">关闭</option></> : field.options?.map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+      } else update(field.path, field.kind === "boolean" ? next === "true" : next);
+    }}
+      options={[
+        { value: "", label: scope === "agent" && !disabled ? "请选择覆盖值" : "核心默认值" },
+        ...(field.kind === "boolean" ? [ { value: "true", label: "开启" }, { value: "false", label: "关闭" } ] : (field.options?.map((option) => ({ value: option, label: option })) ?? [])),
+      ]}
+    />;
     if (field.kind === "json") return <textarea aria-label={`${field.label} JSON`} disabled={disabled} spellCheck={false} rows={6} value={rawInputs[field.path] ?? (value === undefined ? "" : JSON.stringify(value, null, 2))} onChange={(event) => { const raw = event.target.value; setRawInputs((current) => ({ ...current, [field.path]: raw })); setNotice(""); }} />;
     return <input aria-label={field.label} disabled={disabled} type={field.kind === "number" ? "number" : "text"} value={rawInputs[field.path] ?? displayValue(value, field.kind)} onChange={(event) => {
       if (field.kind === "number") { const raw = event.target.value; setRawInputs((current) => ({ ...current, [field.path]: raw })); setNotice(""); }
@@ -368,7 +380,7 @@ export function PiSettingsPage() {
 
   /** 继承值来自全局声明，草稿恢复继承后立即显示正确来源。 */
   function inheritedField(label: string, path: string, own: boolean, child: ReactNode, help?: string) {
-    return <fieldset className="pi-setting-inheritance"><legend>{label}</legend><label className="pi-setting-inheritance__switch"><input type="checkbox" aria-label={`${label}继承全局设置`} checked={!own} onChange={(event) => path === "defaultModel" ? toggleDefaultModelInherited(event.target.checked) : toggleInherited(path, event.target.checked)} />继承全局设置</label>
+    return <fieldset className="pi-setting-inheritance"><legend>{label}</legend><label className="pi-setting-inheritance__switch"><Checkbox aria-label={`${label}继承全局设置`} checked={!own} onChange={(event) => path === "defaultModel" ? toggleDefaultModelInherited(event.target.checked) : toggleInherited(path, event.target.checked)} />继承全局设置</label>
       <p>全局声明：{path === "defaultModel" ? (() => { const choice = readDefaultModelChoice(document?.inherited); return choice ? `${choice.provider} / ${choice.model}` : "核心默认值（未声明具体值）"; })() : inheritedLabel(getPath(document?.inherited, path))} · {own ? "Agent 覆盖" : "当前继承"}</p>{child}{help ? <small>{help}</small> : null}</fieldset>;
   }
 
@@ -437,10 +449,19 @@ export function PiSettingsPage() {
     const hasOverride = getPath(draft, "defaultModel") !== undefined || getPath(draft, "defaultProvider") !== undefined;
     const currentChoice = scope === "agent" && !hasOverride ? inheritedChoice : ownChoice;
     const options = defaultModelOptions(models, currentChoice);
-    const selector = <select aria-label="默认模型" disabled={scope === "agent" && !hasOverride} value={currentChoice ? defaultModelChoiceKey(currentChoice) : ""} onChange={(event) => {
-      if (scope === "agent" && !event.target.value) update("defaultModel", "");
-      else updateDefaultModel(parseDefaultModelChoice(event.target.value));
-    }}><option value="">{scope === "agent" && hasOverride ? "请选择覆盖模型" : "核心默认值"}</option>{options.map((model) => <option key={defaultModelChoiceKey({ provider: model.provider, model: model.id })} value={defaultModelChoiceKey({ provider: model.provider, model: model.id })}>{model.provider} / {model.name || model.id}</option>)}</select>;
+    const selector = <SearchSelect
+      ariaLabel="默认模型"
+      disabled={scope === "agent" && !hasOverride}
+      value={currentChoice ? defaultModelChoiceKey(currentChoice) : ""}
+      onChange={(next) => {
+      if (scope === "agent" && !next) update("defaultModel", "");
+      else updateDefaultModel(parseDefaultModelChoice(next));
+    }}
+      options={[
+        { value: "", label: scope === "agent" && hasOverride ? "请选择覆盖模型" : "核心默认值" },
+        ...options.map((model) => ({ value: defaultModelChoiceKey({ provider: model.provider, model: model.id }), label: `${model.provider} / ${model.name || model.id}` })),
+      ]}
+    />;
     if (scope === "agent") return inheritedField("默认模型", "defaultModel", hasOverride, selector, "同时覆盖 Provider 与模型。");
     return <label><span>默认模型<small>选择已配置的 Provider 与模型</small></span>{selector}</label>;
   }
@@ -449,14 +470,20 @@ export function PiSettingsPage() {
     <div className="configuration-page pi-settings-page configuration-quick-wins-page">
       {guard.dialog}
       {conflict && !guard.pending ? <ConfigurationEditorDialog variant="confirmation" title="配置已在磁盘上发生变化" description="请重新加载，或把本地字段应用到最新 revision 后再次校验。" busy={saving} returnFocusSelector=".pi-settings-save-bar button" onClose={() => setConflict(undefined)} footer={<>
-        <button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => setConflict(undefined)}>继续编辑</button>
-        <button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => { setDocument(conflict.latest); setDraft(structuredClone(conflict.latest.own) as SettingsRecord); setInherit([]); setRawInputs({}); setConflict(undefined); }}>放弃修改并重新加载</button>
-        <button type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void reapplyConflict()}>在新版本上重新应用</button>
+        <Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => setConflict(undefined)}>继续编辑</Button>
+        <Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => { setDocument(conflict.latest); setDraft(structuredClone(conflict.latest.own) as SettingsRecord); setInherit([]); setRawInputs({}); setConflict(undefined); }}>放弃修改并重新加载</Button>
+        <Button variant="primary" type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void reapplyConflict()}>在新版本上重新应用</Button>
       </>}><div className="conflict-differences"><div className="conflict-difference conflict-difference--heading"><strong>字段</strong><strong>本地修改</strong><strong>磁盘值</strong></div>{conflict.differences.map((difference) => <div className="conflict-difference" key={difference.field}><code>{difference.field}</code><span>{inheritedLabel(difference.local)}</span><span>{inheritedLabel(difference.disk)}</span></div>)}</div>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}</ConfigurationEditorDialog> : null}
       <header className="configuration-page__heading"><span className="configuration-eyebrow">RUNTIME SETTINGS</span><h1>运行设置</h1><p>管理默认模型和运行策略，按需为 Agent 设置独立覆盖。</p></header>
       <section className="settings-scope-bar" aria-label="设置作用域">
         <div className="settings-scope-actions"><button type="button" aria-pressed={scope === "global"} disabled={saving} onClick={() => { if (scope !== "global") guard.request(() => setScope("global")); }}>全局设置</button><button type="button" aria-pressed={scope === "agent"} disabled={saving} onClick={() => { if (scope !== "agent") guard.request(() => setScope("agent")); }}>Agent 覆盖</button></div>
-        {scope === "agent" && agents.length > 0 ? <label>当前 Agent<select aria-label="选择 Agent" value={agentId} disabled={saving || directoryState !== "ready"} onChange={(event) => { const next = event.target.value; guard.request(() => setAgentId(next)); }}>{agents.map(({ profile }) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label> : null}
+        {scope === "agent" && agents.length > 0 ? <label>当前 Agent<SearchSelect
+          ariaLabel="选择 Agent"
+          value={agentId}
+          disabled={saving || directoryState !== "ready"}
+          onChange={(next) => guard.request(() => setAgentId(next))}
+          options={agents.map(({ profile }) => ({ value: profile.id, label: profile.name }))}
+        /></label> : null}
         <p>{scope === "global" ? "全局声明提供基础配置；Agent 可以覆盖部分字段。" : `当前对象：${agents.find((item) => item.profile.id === agentId)?.profile.name ?? "尚未选择"}。仅覆盖明确声明的字段；恢复继承需保存后才会移除覆盖。`}</p>
         {directoryState === "error" ? <div className="pi-settings-load-error" role="alert">Agent 目录未能加载，错误详情已通过通知展示。<button type="button" disabled={saving} onClick={() => guard.request(() => setDirectoryReload((value) => value + 1))}>重新加载 Agent 目录</button></div> : null}
       </section>
@@ -501,7 +528,7 @@ export function PiSettingsPage() {
           })}</dl>
           <details><summary>查看已保存合并 JSON</summary><pre>{JSON.stringify(document.effective, null, 2)}</pre></details>
         </details>
-        <div className="configuration-save-bar pi-settings-save-bar"><div><strong>{dirty ? "有未保存的修改" : "当前没有未保存修改"}</strong><small>保存当前作用域所有页签的修改</small></div><button type="button" className="configuration-primary-action" onClick={() => void save()} disabled={saving || !online || !dirty || Boolean(conflict) || (scope === "agent" && directoryState !== "ready")} title={!online ? "离线时不能保存配置" : undefined}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : scope === "global" ? "保存全局设置" : "保存 Agent 覆盖"}</button></div>
+        <div className="configuration-save-bar pi-settings-save-bar"><div><strong>{dirty ? "有未保存的修改" : "当前没有未保存修改"}</strong><small>保存当前作用域所有页签的修改</small></div><Button variant="primary" type="button" className="configuration-primary-action" onClick={() => void save()} disabled={saving || !online || !dirty || Boolean(conflict) || (scope === "agent" && directoryState !== "ready")} title={!online ? "离线时不能保存配置" : undefined}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : scope === "global" ? "保存全局设置" : "保存 Agent 覆盖"}</Button></div>
       </>}
     </div>
   );

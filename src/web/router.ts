@@ -230,14 +230,15 @@ export function routePath(route: AppRoute): string {
 /**
  * 使用 History API 导航，并通知当前页面内的路由订阅者。
  */
-export function navigateTo(route: AppRoute, replace = false): void {
+export function navigateTo(route: AppRoute, replace = false): boolean {
   const beforeEvent: NavigationBeforeEvent = new CustomEvent<AppRoute>(NAVIGATION_BEFORE_EVENT, { cancelable: true, detail: route });
   beforeEvent.resume = () => navigateTo(route, replace);
-  if (!window.dispatchEvent(beforeEvent)) return;
+  if (!window.dispatchEvent(beforeEvent)) return false;
   const method = replace ? "replaceState" : "pushState";
   const index = typeof window.history.state?.[HISTORY_INDEX] === "number" ? window.history.state[HISTORY_INDEX] : 0;
   window.history[method](historyState(index + (replace ? 0 : 1)), "", routePath(route));
   window.dispatchEvent(new Event(NAVIGATION_EVENT));
+  return true;
 }
 
 /**

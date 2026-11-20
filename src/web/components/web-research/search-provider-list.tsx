@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { ArrowDown, ArrowUp, Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 
@@ -54,7 +55,7 @@ export function SearchProviderList(props: SearchProviderListProps) {
 
   const saving = orderStatus.state === "saving";
   return <section className="configuration-form-card">
-    <div className="configuration-section__heading"><div><span>02</span><h2>已配置渠道</h2></div><button type="button" className="configuration-secondary-action" disabled={!props.online || saving} onClick={props.onAdd}><Plus size={15} aria-hidden="true" />添加渠道</button></div>
+    <div className="configuration-section__heading"><div><span>02</span><h2>已配置渠道</h2></div><Button type="button" className="configuration-secondary-action" disabled={!props.online || saving} onClick={props.onAdd}><Plus size={15} aria-hidden="true" />添加渠道</Button></div>
     {props.document.config.searchProviders.length > 0 ? <ol className="configuration-entry-list">
       {props.document.config.searchProviders.map((provider, index) => {
         const configured = props.document.credentials.some((status) => status.providerId === provider.id && status.configured);
@@ -64,7 +65,7 @@ export function SearchProviderList(props: SearchProviderListProps) {
           <div className="configuration-button-row">
             <button type="button" className="icon-button" aria-label={`上移${provider.name}`} disabled={!props.online || saving || index === 0} onClick={() => void move(provider.id, -1)}><ArrowUp size={15} aria-hidden="true" /></button>
             <button type="button" className="icon-button" aria-label={`下移${provider.name}`} disabled={!props.online || saving || index === props.document.config.searchProviders.length - 1} onClick={() => void move(provider.id, 1)}><ArrowDown size={15} aria-hidden="true" /></button>
-            <button type="button" className="configuration-secondary-action" aria-label={`配置${provider.name}`} disabled={!props.online || saving} onClick={() => props.onConfigure(provider)}><Settings2 size={14} aria-hidden="true" />配置</button>
+            <Button type="button" className="configuration-secondary-action" aria-label={`配置${provider.name}`} disabled={!props.online || saving} onClick={() => props.onConfigure(provider)}><Settings2 size={14} aria-hidden="true" />配置</Button>
           </div>
         </li>;
       })}

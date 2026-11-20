@@ -1,3 +1,4 @@
+import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { ChevronDown, CircleStop, FolderOpen, Menu, MessageSquarePlus, PencilLine, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { flushSync } from "react-dom";
@@ -195,7 +196,15 @@ function modelRunNotice(messages: readonly unknown[]): string {
 export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
   useViewportScrollLock();
   const { runApiTask, runOptionalApiTask } = useApiTask();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigation = useWorkbenchNavigation();
+  const [standaloneSidebarOpen, setStandaloneSidebarOpen] = useState(false);
+  const sidebarOpen = navigation ? navigation.drawer === "secondary" : standaloneSidebarOpen;
+  const setSidebarOpen = (open: boolean) => {
+    if (navigation) {
+      if (open) navigation.openSecondary();
+      else if (navigation.drawer === "secondary") navigation.close();
+    } else setStandaloneSidebarOpen(open);
+  };
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [workspaceLocationRequest, setWorkspaceLocationRequest] = useState<{ id: number; path: string }>();
   const [workspaceMessage, setWorkspaceMessage] = useState("");
@@ -1811,8 +1820,8 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
       <section className="chat-workspace">
         <header className="chat-header live-chat-header">
           <div className="chat-header__left">
-            <button type="button" className="icon-button mobile-menu" aria-label="打开会话历史" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button>
-            <button type="button" className="chat-workbench-switcher" aria-label="打开工作台导航" onClick={() => {
+            <button type="button" className="icon-button mobile-menu" aria-label="打开会话历史" aria-expanded={sidebarOpen} onClick={() => openDrawer("sessions")}><Menu size={19} /></button>
+            <button type="button" className="chat-workbench-switcher" aria-label="打开工作台导航" aria-expanded={navigation?.drawer === "primary"} onClick={() => {
               closeSidebar();
               window.dispatchEvent(new Event(WORKBENCH_NAVIGATION_TOGGLE_EVENT));
             }}><span>工作台</span><ChevronDown size={14} aria-hidden="true" /></button>

@@ -1,3 +1,5 @@
+import { Button } from "../../ui/controls";
+import { Checkbox } from "../../ui/choice";
 import { useRef, useState } from "react";
 import type {
   WorkflowField,
@@ -73,7 +75,7 @@ export function WorkflowInputTools({
   return (
     <>
       <div className="wf-parameter-heading" aria-label="输入参数复用">
-        <button
+        <Button
           type="button"
           className="wf-button"
           disabled={!available.length}
@@ -85,24 +87,24 @@ export function WorkflowInputTools({
           }}
         >
           复制参数
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className="wf-button"
           disabled={!clipboard?.length}
           onClick={() => open("paste")}
         >
           粘贴参数
-        </button>
+        </Button>
         {outerInput && onImport && (
-          <button
+          <Button
             type="button"
             className="wf-button"
             disabled={!outerInput.outputs.length}
             onClick={() => open("outer")}
           >
             从外层输入导入
-          </button>
+          </Button>
         )}
       </div>
       {notice && (
@@ -121,22 +123,22 @@ export function WorkflowInputTools({
           onClose={() => setMode(undefined)}
           footer={
             <>
-              <button
+              <Button
                 type="button"
                 className="configuration-secondary-action"
                 disabled={busy}
                 onClick={() => setMode(undefined)}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button variant="primary"
                 type="button"
                 className="configuration-primary-action"
                 disabled={busy || !selected.length}
                 onClick={() => void submit()}
               >
                 {mode === "outer" ? "导入并映射" : "追加参数"} · {selected.length} 项
-              </button>
+              </Button>
             </>
           }
         >
@@ -149,8 +151,8 @@ export function WorkflowInputTools({
               return (
                 <section className="wf-field-item" key={index}>
                   <label className="wf-check wf-boolean-value">
-                    <input
-                      type="checkbox"
+                    <Checkbox
+
                       aria-label={`选择参数 ${field.name}`}
                       disabled={busy || !!reason}
                       checked={!reason && selected.includes(field.name)}

@@ -1,5 +1,8 @@
+import { Checkbox } from "../ui/choice";
+import { SearchField, Button } from "../ui/controls";
+import { SearchSelect } from "../ui/search-select";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Eye, File, FolderOpen, RefreshCw, Search, Trash2, Upload } from "lucide-react";
+import { Eye, File, FolderOpen, RefreshCw, Trash2, Upload } from "lucide-react";
 import type { WorkflowFilePage, WorkflowManagedFile } from "../../shared/workflow-contracts";
 import type { WorkspaceEntry } from "../../shared/contracts";
 import { api } from "../api";
@@ -76,32 +79,60 @@ export function WorkflowFilesPage() {
         {([['runtime','运行文件'],['constants','文件常量']] as const).map(([value,label]) => <button type="button" key={value} aria-current={directory === value ? "page" : undefined} onClick={() => changeFilter(() => { setDirectory(value); setRole(""); })}><FolderOpen size={18} aria-hidden="true" />{label}</button>)}
       </nav>
       <div className="workspace-resources-page__toolbar">
-        <label className="workspace-search"><Search size={16} aria-hidden="true"/><input aria-label="搜索工作流文件" placeholder="搜索文件名" value={query} onChange={(event) => changeFilter(() => setQuery(event.target.value))}/></label>
-        <button className="configuration-secondary-action" disabled={loading || busy || !online} onClick={() => void reload()}><RefreshCw size={15} aria-hidden="true"/>刷新</button>
+        <SearchField className="workspace-search" label="搜索工作流文件" placeholder="搜索文件名" value={query} onChange={(next) => changeFilter(() => setQuery(next))} />
+        <Button className="configuration-secondary-action" disabled={loading || busy || !online} onClick={() => void reload()}><RefreshCw size={15} aria-hidden="true"/>刷新</Button>
         {directory === "constants" && <label className="configuration-secondary-action workspace-upload" aria-disabled={busy || !online}><Upload size={15} aria-hidden="true"/>上传常量<input aria-label="上传文件常量" type="file" multiple disabled={busy || !online} onChange={(event) => { const files = [...event.target.files ?? []]; event.target.value = ""; void upload(files); }}/></label>}
         <button className="workspace-danger-button" disabled={!online || busy || !selected.length} onClick={() => setConfirming(true)}><Trash2 size={15} aria-hidden="true"/>删除所选 {selected.length} 项</button>
         <button className="workspace-danger-button" disabled={!online || busy || loading} onClick={() => setClearingDirectory(directory)}><Trash2 size={15} aria-hidden="true"/>清理目录</button>
       </div>
       {cleanupResult && <p role="status">{cleanupResult}</p>}
       <div className="workflow-file-filters">
-        <select aria-label="筛选工作流" value={workflowId} onChange={(event) => changeFilter(() => setWorkflowId(event.target.value))}><option value="">全部工作流</option>{data?.workflows.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <SearchSelect
+          ariaLabel="筛选工作流"
+          value={workflowId}
+          onChange={(next) => changeFilter(() => setWorkflowId(next))}
+          options={[
+            { value: "", label: "全部工作流" },
+            ...(data?.workflows.map((item) => ({ value: item.id, label: item.name })) ?? []),
+          ]}
+        />
         <input aria-label="筛选运行批次" placeholder="运行批次 ID" value={runId} onChange={(event) => changeFilter(() => setRunId(event.target.value))}/>
-        <select aria-label="筛选文件类型" value={type} onChange={(event) => changeFilter(() => setType(event.target.value))}><option value="">全部文件类型</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option><option value="file">其他文件</option></select>
-        {directory === "runtime" && <select aria-label="筛选文件用途" value={role} onChange={(event) => changeFilter(() => setRole(event.target.value))}><option value="">全部用途</option><option value="input">运行输入</option><option value="output">运行输出</option></select>}
+        <SearchSelect
+          ariaLabel="筛选文件类型"
+          value={type}
+          onChange={(next) => changeFilter(() => setType(next))}
+          options={[
+            { value: "", label: "全部文件类型" },
+            { value: "image", label: "图片" },
+            { value: "video", label: "视频" },
+            { value: "audio", label: "音频" },
+            { value: "file", label: "其他文件" },
+          ]}
+        />
+        {directory === "runtime" && <SearchSelect
+          ariaLabel="筛选文件用途"
+          value={role}
+          onChange={(next) => changeFilter(() => setRole(next))}
+          options={[
+            { value: "", label: "全部用途" },
+            { value: "input", label: "运行输入" },
+            { value: "output", label: "运行输出" },
+          ]}
+        />}
       </div>
       <p className="workflow-file-note">{directory === "constants" ? "被工作流或运行快照引用的常量不可删除；未引用的常量可选择后清理。" : "运行中的文件不可删除。删除后保留运行记录，并显示文件已删除。"}</p>
       <div className="workspace-table-wrap" aria-busy={loading}><table><thead><tr>
-        <th><input type="checkbox" aria-label="选择本页可删除文件" disabled={!available.length || busy || !online} checked={!!available.length && available.every((file) => selected.includes(file.assetId))} onChange={(event) => setSelected(event.target.checked ? available.map((file) => file.assetId) : [])}/></th><th>名称</th><th>关联工作流 / 运行</th><th>大小</th><th>创建时间</th><th>状态</th><th>操作</th>
-      </tr></thead><tbody>{entries.map((file) => <tr key={file.assetId}><td><input type="checkbox" aria-label={`选择 ${file.name}`} disabled={!!file.blockedReason || busy || !online} checked={selected.includes(file.assetId)} onChange={(event) => setSelected(event.target.checked ? [...selected,file.assetId] : selected.filter((id) => id !== file.assetId))}/></td>
+        <th><Checkbox aria-label="选择本页可删除文件" disabled={!available.length || busy || !online} checked={!!available.length && available.every((file) => selected.includes(file.assetId))} onChange={(event) => setSelected(event.target.checked ? available.map((file) => file.assetId) : [])}/></th><th>名称</th><th>关联工作流 / 运行</th><th>大小</th><th>创建时间</th><th>状态</th><th>操作</th>
+      </tr></thead><tbody>{entries.map((file) => <tr key={file.assetId}><td><Checkbox aria-label={`选择 ${file.name}`} disabled={!!file.blockedReason || busy || !online} checked={selected.includes(file.assetId)} onChange={(event) => setSelected(event.target.checked ? [...selected,file.assetId] : selected.filter((id) => id !== file.assetId))}/></td>
         <td><span className="workspace-entry-name"><File size={16} aria-hidden="true"/><span title={file.name}>{file.name}</span></span></td>
         <td><div className="workflow-file-usages">{file.usages.length ? file.usages.map((usage,index) => <span key={index}>{usage.workflowName} · {usage.role === "constant" ? "常量" : usage.role === "input" ? "输入" : "输出"}{usage.runId ? ` · ${usage.runId}` : ""}</span>) : "尚未引用"}</div></td>
         <td>{formatSize(file.size)}</td><td>{new Date(file.createdAt).toLocaleString("zh-CN")}</td><td>{file.blockedReason ?? "可删除"}</td><td><div className="workspace-entry-actions"><button aria-label={`预览 ${file.name}`} onClick={() => setPreview(file)}><Eye size={16}/></button><a href={fileUrl({path:file.assetId},true)} download={file.name}>下载</a></div></td></tr>)}</tbody></table></div>
       {!entries.length && <p role="status">{loading ? "正在读取文件…" : "当前目录没有符合条件的文件。"}</p>}
-      <footer className="workflow-file-pagination"><span>{data ? `共 ${data.total} 个文件 · 第 ${page} 页` : ""}</span><button className="configuration-secondary-action" disabled={page === 1 || loading} onClick={() => setPage(page - 1)}>上一页</button><button className="configuration-secondary-action" disabled={!data || page * 50 >= data.total || loading} onClick={() => setPage(page + 1)}>下一页</button></footer>
+      <footer className="workflow-file-pagination"><span>{data ? `共 ${data.total} 个文件 · 第 ${page} 页` : ""}</span><Button className="configuration-secondary-action" disabled={page === 1 || loading} onClick={() => setPage(page - 1)}>上一页</Button><Button className="configuration-secondary-action" disabled={!data || page * 50 >= data.total || loading} onClick={() => setPage(page + 1)}>下一页</Button></footer>
     </section>
     {previewEntry && <WorkspaceFilePreview agentId="" entry={previewEntry} mode="side" allowHtmlPreview={false} onClose={() => setPreview(undefined)} fileUrl={fileUrl} getText={api.getWorkflowFileText}/>}
-    {clearingDirectory && <ConfigurationEditorDialog variant="confirmation" title="清理目录" description={`将永久删除“${clearingDirectory === "runtime" ? "运行文件" : "文件常量"}”目录内所有可删除文件，覆盖全部分页，不受搜索和筛选条件限制。文件内容无法恢复。`} busy={busy} onClose={() => setClearingDirectory(undefined)} footer={<><button className="configuration-secondary-action" disabled={busy} onClick={() => setClearingDirectory(undefined)}>取消</button><button className="workspace-danger-button" disabled={busy || !online} onClick={() => void clearDirectory()}>{busy ? "正在清理…" : "确认清理"}</button></>}><p>提交时重新检查引用和运行状态，自动跳过受保护文件，运行记录继续保留。</p></ConfigurationEditorDialog>}
-    {confirming && <ConfigurationEditorDialog variant="confirmation" title="删除工作流文件" description={`将永久删除所选 ${selected.length} 个文件。运行记录继续保留，文件内容无法恢复。`} busy={busy} onClose={() => setConfirming(false)} footer={<><button className="configuration-secondary-action" disabled={busy} onClick={() => setConfirming(false)}>取消</button><button className="workspace-danger-button" disabled={busy || !online || !selected.length} onClick={() => void remove()}>确认删除</button></>}><p>提交时将重新检查引用和运行状态，受保护文件不会被删除。</p></ConfigurationEditorDialog>}
+    {clearingDirectory && <ConfigurationEditorDialog variant="confirmation" title="清理目录" description={`将永久删除“${clearingDirectory === "runtime" ? "运行文件" : "文件常量"}”目录内所有可删除文件，覆盖全部分页，不受搜索和筛选条件限制。文件内容无法恢复。`} busy={busy} onClose={() => setClearingDirectory(undefined)} footer={<><Button className="configuration-secondary-action" disabled={busy} onClick={() => setClearingDirectory(undefined)}>取消</Button><button className="workspace-danger-button" disabled={busy || !online} onClick={() => void clearDirectory()}>{busy ? "正在清理…" : "确认清理"}</button></>}><p>提交时重新检查引用和运行状态，自动跳过受保护文件，运行记录继续保留。</p></ConfigurationEditorDialog>}
+    {confirming && <ConfigurationEditorDialog variant="confirmation" title="删除工作流文件" description={`将永久删除所选 ${selected.length} 个文件。运行记录继续保留，文件内容无法恢复。`} busy={busy} onClose={() => setConfirming(false)} footer={<><Button className="configuration-secondary-action" disabled={busy} onClick={() => setConfirming(false)}>取消</Button><button className="workspace-danger-button" disabled={busy || !online || !selected.length} onClick={() => void remove()}>确认删除</button></>}><p>提交时将重新检查引用和运行状态，受保护文件不会被删除。</p></ConfigurationEditorDialog>}
   </div>;
 }
 /** 文件预览始终走认证路由，不暴露磁盘路径。 */

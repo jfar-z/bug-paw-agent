@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { ConfigurationEditorDialog } from "./configuration-editor-dialog";
 import { useId, useState } from "react";
 
@@ -23,7 +24,7 @@ export function ProviderRenameDialog({ currentId, busy, error, onCancel, onConfi
   const normalizedId = targetId.trim();
   const isValid = validProviderId(normalizedId);
 
-  return <ConfigurationEditorDialog variant="confirmation" classPrefix="provider" returnFocusSelector="[data-provider-create]" title="重命名 Provider" description="将同步迁移 API Key、Agent 默认模型和会话中的 Provider 引用。" busy={busy} onClose={onCancel} footer={<><button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</button><button type="submit" form={formId} className="configuration-primary-action" disabled={busy || !isValid || normalizedId === currentId}>{busy ? "改名中…" : "确认改名"}</button></>}>
+  return <ConfigurationEditorDialog variant="confirmation" classPrefix="provider" returnFocusSelector="[data-provider-create]" title="重命名 Provider" description="将同步迁移 API Key、Agent 默认模型和会话中的 Provider 引用。" busy={busy} onClose={onCancel} footer={<><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</Button><Button variant="primary" type="submit" form={formId} className="configuration-primary-action" disabled={busy || !isValid || normalizedId === currentId}>{busy ? "改名中…" : "确认改名"}</Button></>}>
     <form id={formId} onSubmit={(event) => { event.preventDefault(); if (!busy && isValid && normalizedId !== currentId) onConfirm(normalizedId); }}>
         <label className="provider-rename-dialog__field" htmlFor="provider-rename-id">
           新的 Provider ID

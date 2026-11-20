@@ -4,6 +4,7 @@ import { Button, IconButton } from "./controls";
 import { readFileSync } from "node:fs";
 import { Menu, Tooltip } from "./menu";
 import { Tabs } from "./tabs";
+import { SearchSelect } from "./search-select";
 
 // 覆盖图谱视觉评审涉及的键盘交互与无障碍状态。
 describe("公共控件交互", () => {
@@ -54,4 +55,25 @@ describe("公共控件交互", () => {
     expect(change).toHaveBeenCalledWith("b");
     expect(screen.getByRole("tab",{name:"明细"})).toHaveFocus();
   });
+  it("选择器按方向键跳过禁用项并恢复触发焦点", () => {
+    const change = vi.fn();
+    render(<SearchSelect ariaLabel="执行目标" options={[
+      { value: "a", label: "第一个目标" },
+      { value: "b", label: "不可用目标", disabled: true },
+      { value: "c", label: "第三个目标" },
+    ]} onChange={change} />);
+    const trigger = screen.getByRole("button", { name: "执行目标" });
+    fireEvent.click(trigger);
+    const search = screen.getByRole("combobox", { name: "筛选执行目标" });
+    expect(search).toHaveFocus();
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(change).toHaveBeenCalledWith("c");
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
 });

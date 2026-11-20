@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { useEffect, useRef, useState } from "react";
 import type { WorkflowFile, WorkflowFilePage } from "../../../shared/workflow-contracts";
 import { api } from "../../api";
@@ -15,9 +16,9 @@ export function WorkflowFilePicker({type, onSelect, onClose}: {type: string; onS
     void runApiTask(() => api.listWorkflowFiles({directory:"constants", q:query, type: type === "file" ? "" : type, page:String(page), pageSize:"20"}), {operation:"读取文件常量目录"}).then((result) => { if (ticket === sequence.current && result.status === "success") setData(result.data); });
     return () => {sequence.current++;};
   },[query,page,type,runApiTask]);
-  return <ConfigurationEditorDialog variant="confirmation" title="选择文件常量" description="文件保存在独立常量目录，被工作流引用后禁止删除。" busy={false} onClose={onClose} footer={<><button type="button" className="configuration-secondary-action" onClick={onClose}>取消</button><button type="button" className="configuration-secondary-action" disabled={page === 1} onClick={() => setPage(page - 1)}>上一页</button><button type="button" className="configuration-secondary-action" disabled={!data || page * 20 >= data.total} onClick={() => setPage(page + 1)}>下一页</button></>}>
+  return <ConfigurationEditorDialog variant="confirmation" title="选择文件常量" description="文件保存在独立常量目录，被工作流引用后禁止删除。" busy={false} onClose={onClose} footer={<><Button type="button" className="configuration-secondary-action" onClick={onClose}>取消</Button><Button type="button" className="configuration-secondary-action" disabled={page === 1} onClick={() => setPage(page - 1)}>上一页</Button><Button type="button" className="configuration-secondary-action" disabled={!data || page * 20 >= data.total} onClick={() => setPage(page + 1)}>下一页</Button></>}>
     <div className="wf-fields wf-import-fields"><label className="wf-copy-name">搜索文件名<input aria-label="搜索文件常量" value={query} onChange={(event) => {setQuery(event.target.value);setPage(1);}}/></label>
-      {!data ? <p>正在读取文件常量…</p> : !data.files.length ? <p>没有符合条件的常量，可关闭后上传文件。</p> : data.files.map((file) => <button type="button" className="wf-button" key={file.assetId} onClick={() => onSelect({assetId:file.assetId,name:file.name,mediaType:file.mediaType,size:file.size})}>{file.name}</button>)}
+      {!data ? <p>正在读取文件常量…</p> : !data.files.length ? <p>没有符合条件的常量，可关闭后上传文件。</p> : data.files.map((file) => <Button type="button" className="wf-button" key={file.assetId} onClick={() => onSelect({assetId:file.assetId,name:file.name,mediaType:file.mediaType,size:file.size})}>{file.name}</Button>)}
     </div>
   </ConfigurationEditorDialog>;
 }

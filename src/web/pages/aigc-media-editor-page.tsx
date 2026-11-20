@@ -1,3 +1,5 @@
+import { Checkbox } from "../ui/choice";
+import { SearchSelect } from "../ui/search-select";
 import {
   AudioLines, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Download, Film, FolderOpen,
   GripVertical, Image as ImageIcon, ImagePlus, LoaderCircle, Pause, Play, Plus, Scissors,
@@ -309,7 +311,27 @@ function EditorPreview({ project, activeClip, activeOffsetMs, totalDurationMs, p
 function EditorInspector({ project, clip, saving, onProjectChange, onProjectSave, onClipChange, onClipSave, onClipCommit }: { project: AigcMediaProject; clip?: AigcMediaClip; saving: boolean; onProjectChange: (patch: Partial<AigcMediaProject>) => void; onProjectSave: () => void; onClipChange: (patch: Partial<AigcMediaClip>) => void; onClipSave: () => void; onClipCommit: (patch: Partial<AigcMediaClip>) => void }) {
   return <aside className="aigc-media-editor-inspector" aria-label="工程参数">
     <header><Settings2 size={16} aria-hidden="true" /><h2>{clip ? "片段参数" : "工程参数"}</h2><span>{saving ? "保存中" : "已保存"}</span></header>
-    {clip ? <><div className="aigc-media-editor-selected-name"><strong title={clip.name}>{clip.name}</strong><small>{clip.kind === "image" ? "图片" : clip.kind === "video" ? "视频" : "音频"}</small></div>{clip.kind === "image" ? <label>展示时长<span><input type="number" min="0.5" max="30" step="0.5" value={(clip.imageDurationMs ?? 3000) / 1000} onChange={(event) => onClipChange({ imageDurationMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label> : <><label>起点<span><input type="number" min="0" max={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000 - .001} step="0.1" value={clip.trimStartMs / 1000} onChange={(event) => onClipChange({ trimStartMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label><label>终点<span><input type="number" min={clip.trimStartMs / 1000 + .001} max={clip.sourceDurationMs / 1000} step="0.1" value={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000} onChange={(event) => onClipChange({ trimEndMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label></>}{clip.kind === "video" && clip.hasAudio ? <label className="aigc-media-editor-mute"><input type="checkbox" checked={Boolean(clip.muted)} onChange={(event) => onClipCommit({ muted: event.target.checked })} />{clip.muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}片段原音</label> : null}<div className="aigc-media-editor-codec"><span>片段时长</span><strong>{formatTime(clipDuration(clip), true)}</strong><span>原始时长</span><strong>{formatTime(clip.sourceDurationMs, true)}</strong></div></> : <><label>工程名称<input type="text" maxLength={80} value={project.name} onChange={(event) => onProjectChange({ name: event.target.value })} onBlur={onProjectSave} /></label>{project.kind === "video" ? <><label>画面尺寸<select value="1920x1080" disabled><option value="1920x1080">1920 × 1080</option></select></label><label>帧率<select value="30" disabled><option value="30">30 fps</option></select></label><div className="aigc-media-editor-codec"><span>视频</span><strong>H.264</strong><span>音频</span><strong>AAC</strong></div></> : <><label>导出格式<select value="mp3" disabled><option value="mp3">MP3</option></select></label><label>采样率<select value="48000" disabled><option value="48000">48 kHz</option></select></label><div className="aigc-media-editor-codec"><span>声道</span><strong>立体声</strong><span>码率</span><strong>192 kbps</strong></div></>}</>}
+    {clip ? <><div className="aigc-media-editor-selected-name"><strong title={clip.name}>{clip.name}</strong><small>{clip.kind === "image" ? "图片" : clip.kind === "video" ? "视频" : "音频"}</small></div>{clip.kind === "image" ? <label>展示时长<span><input type="number" min="0.5" max="30" step="0.5" value={(clip.imageDurationMs ?? 3000) / 1000} onChange={(event) => onClipChange({ imageDurationMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label> : <><label>起点<span><input type="number" min="0" max={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000 - .001} step="0.1" value={clip.trimStartMs / 1000} onChange={(event) => onClipChange({ trimStartMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label><label>终点<span><input type="number" min={clip.trimStartMs / 1000 + .001} max={clip.sourceDurationMs / 1000} step="0.1" value={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000} onChange={(event) => onClipChange({ trimEndMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label></>}{clip.kind === "video" && clip.hasAudio ? <label className="aigc-media-editor-mute"><Checkbox checked={Boolean(clip.muted)} onChange={(event) => onClipCommit({ muted: event.target.checked })} />{clip.muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}片段原音</label> : null}<div className="aigc-media-editor-codec"><span>片段时长</span><strong>{formatTime(clipDuration(clip), true)}</strong><span>原始时长</span><strong>{formatTime(clip.sourceDurationMs, true)}</strong></div></> : <><label>工程名称<input type="text" maxLength={80} value={project.name} onChange={(event) => onProjectChange({ name: event.target.value })} onBlur={onProjectSave} /></label>{project.kind === "video" ? <><label>画面尺寸<SearchSelect
+      ariaLabel="画面尺寸"
+      value="1920x1080"
+      disabled
+      options={[{ value: "1920x1080", label: "1920 × 1080" }]}
+    /></label><label>帧率<SearchSelect
+      ariaLabel="帧率"
+      value="30"
+      disabled
+      options={[{ value: "30", label: "30 fps" }]}
+    /></label><div className="aigc-media-editor-codec"><span>视频</span><strong>H.264</strong><span>音频</span><strong>AAC</strong></div></> : <><label>导出格式<SearchSelect
+      ariaLabel="导出格式"
+      value="mp3"
+      disabled
+      options={[{ value: "mp3", label: "MP3" }]}
+    /></label><label>采样率<SearchSelect
+      ariaLabel="采样率"
+      value="48000"
+      disabled
+      options={[{ value: "48000", label: "48 kHz" }]}
+    /></label><div className="aigc-media-editor-codec"><span>声道</span><strong>立体声</strong><span>码率</span><strong>192 kbps</strong></div></>}</>}
     <footer><span>片段</span><strong>{project.clips.length}</strong><span>总时长</span><strong>{formatTime(project.clips.reduce((total, item) => total + clipDuration(item), 0), true)}</strong></footer>
   </aside>;
 }

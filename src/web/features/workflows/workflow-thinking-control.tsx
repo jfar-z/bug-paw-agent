@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { BrainCircuit, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ThinkingLevel } from "../../../shared/configuration-contracts";
@@ -30,9 +31,9 @@ export function WorkflowThinkingControl({ levels, value, disabled, onChange }: {
   return <div className="wf-thinking-control" ref={root} onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
-    <button ref={trigger} type="button" className="wf-button" title={label} aria-label={label}
+    <Button ref={trigger} type="button" className="wf-button" title={label} aria-label={label}
       disabled={disabled} aria-haspopup="menu" aria-expanded={open && !disabled}
-      onClick={() => setOpen(!open)}><BrainCircuit size={18} aria-hidden="true" /></button>
+      onClick={() => setOpen(!open)}><BrainCircuit size={18} aria-hidden="true" /></Button>
     {open && !disabled && <div ref={menu} className="wf-thinking-menu" role="menu" aria-label="思考强度" onKeyDown={(event) => {
       if (event.key === "Escape") {
         event.stopPropagation();

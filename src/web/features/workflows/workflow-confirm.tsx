@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import {
   createContext,
   useContext,
@@ -41,18 +42,18 @@ export function WorkflowConfirmProvider({ children }: { children: ReactNode }) {
           onClose={() => finish(false)}
           footer={
             <>
-              <button
+              <Button
                 className="configuration-secondary-action"
                 onClick={() => finish(false)}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button variant="primary"
                 className="configuration-primary-action"
                 onClick={() => finish(true)}
               >
                 确定
-              </button>
+              </Button>
             </>
           }
         >

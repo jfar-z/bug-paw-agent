@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { useEffect, useRef, useState } from "react";
 import type {
   WorkflowDefinition,
@@ -53,20 +54,20 @@ export function WorkflowCopyDialog({
       onClose={onClose}
       footer={
         <>
-          <button
+          <Button
             className="configuration-secondary-action"
             disabled={busy}
             onClick={onClose}
           >
             取消
-          </button>
-          <button
+          </Button>
+          <Button variant="primary"
             className="configuration-primary-action"
             disabled={busy || !online || !name.trim()}
             onClick={() => void submit()}
           >
             {busy ? "正在复制…" : "创建副本"}
-          </button>
+          </Button>
         </>
       }
     >

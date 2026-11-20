@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { navigateTo } from "../../router";
@@ -39,6 +40,6 @@ export function ConfigurationEffectNotice({ configKey, dirty = false }: { config
   return <section className={applied ? "configuration-effect-notice is-applied" : "configuration-effect-notice"} role="status">
     {applied ? <CheckCircle2 size={20} aria-hidden="true" /> : <RefreshCw size={20} aria-hidden="true" />}
     <div><strong>{title}</strong><p>{description}</p></div>
-    {configKey ? <button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "diagnostics" })}>前往系统诊断 →</button> : null}
+    {configKey ? <Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "diagnostics" })}>前往系统诊断 →</Button> : null}
   </section>;
 }

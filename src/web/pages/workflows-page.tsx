@@ -1,3 +1,6 @@
+import { Checkbox } from "../ui/choice";
+import { SearchField, Button } from "../ui/controls";
+import { SearchSelect } from "../ui/search-select";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
 import { workflowDraftFieldError } from "../features/workflows/workflow-field-guards";
@@ -118,7 +121,7 @@ function WorkflowList() {
           <h1>工作流</h1>
           <p>将模型、Agent 与创作工具连接成可复用的流程。</p>
         </div>
-        <button
+        <Button variant="primary"
           className="wf-button wf-primary"
           disabled={!online}
           onClick={() =>
@@ -127,18 +130,10 @@ function WorkflowList() {
         >
           <Plus size={17} />
           新建工作流
-        </button>
+        </Button>
       </header>
       <div className="wf-list-toolbar">
-        <label className="wf-search">
-          <Search size={17} />
-          <input
-            aria-label="搜索工作流"
-            placeholder="搜索名称或说明"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
+        <SearchField className="wf-search" label="搜索工作流" placeholder="搜索名称或说明" value={query} onChange={setQuery} />
         <span>{items.length} 个工作流</span>
         <button
           className="icon-button"
@@ -158,7 +153,7 @@ function WorkflowList() {
           <Workflow size={34} />
           <h2>从一个输入开始</h2>
           <p>定义参数，连接节点，然后运行并查看每一步的结果。</p>
-          <button
+          <Button
             className="wf-button"
             disabled={!online}
             onClick={() =>
@@ -166,7 +161,7 @@ function WorkflowList() {
             }
           >
             创建第一个工作流
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="wf-workflow-list">
@@ -203,7 +198,7 @@ function WorkflowList() {
                   </small>
                 </div>
                 <div className="wf-actions">
-                  <button
+                  <Button
                     className="wf-button"
                     onClick={() =>
                       navigateTo({ page: "workflow-run", workflowId: w.id })
@@ -211,7 +206,7 @@ function WorkflowList() {
                   >
                     <Play size={15} />
                     运行
-                  </button>
+                  </Button>
                   <button
                     className="icon-button"
                     aria-label={`编辑 ${w.name}`}
@@ -408,7 +403,7 @@ function Editor({ id }: { id: string }) {
           </span>
         </div>
         <div className="wf-actions">
-          <button
+          <Button
             className="wf-button"
             disabled={cannotSave}
             onClick={() => {
@@ -423,23 +418,23 @@ function Editor({ id }: { id: string }) {
           >
             <Check size={16} />
             校验
-          </button>
-          <button
+          </Button>
+          <Button
             className="wf-button"
             disabled={cannotSave}
             onClick={() => void save()}
           >
             <Save size={16} />
             保存
-          </button>
-          <button
+          </Button>
+          <Button variant="primary"
             className="wf-button wf-primary"
             disabled={cannotSave}
             onClick={() => void save(true)}
           >
             <Play size={16} />
             保存并运行
-          </button>
+          </Button>
         </div>
       </header>
       {fieldError && (
@@ -462,8 +457,8 @@ function Editor({ id }: { id: string }) {
           />
         </label>
         <label className="wf-check">
-          <input
-            type="checkbox"
+          <Checkbox
+
             checked={draft.published}
             onChange={(e) =>
               setDraft({ ...draft, published: e.target.checked })
@@ -639,7 +634,7 @@ function Runner({
           <p>填写本次输入，实时查看各节点状态与执行结果。</p>
         </div>
         {definition && (
-          <button
+          <Button
             className="wf-button"
             onClick={() =>
               navigateTo({ page: "workflow-editor", workflowId: definition.id })
@@ -647,7 +642,7 @@ function Runner({
           >
             <Pencil size={16} />
             编辑工作流
-          </button>
+          </Button>
         )}
       </header>
       <div className="wf-run-layout">
@@ -655,23 +650,19 @@ function Runner({
           <h2>运行参数</h2>
           <label className="wf-field">
             工作流
-            <select
+            <SearchSelect
+              ariaLabel="工作流"
               value={workflowId ?? ""}
               disabled={busy}
-              onChange={(e) =>
-                navigateTo({
+              onChange={(next) => navigateTo({
                   page: "workflow-run",
-                  workflowId: e.target.value || undefined,
-                })
-              }
-            >
-              <option value="">选择工作流</option>
-              {items.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} · v{w.revision}
-                </option>
-              ))}
-            </select>
+                  workflowId: next || undefined,
+                })}
+              options={[
+                { value: "", label: "选择工作流" },
+                ...items.map((w) => ({ value: w.id, label: `${w.name} · v${w.revision}` })),
+              ]}
+            />
           </label>
           {definition && (
             <>
@@ -768,7 +759,7 @@ function Runner({
                     )}
                   </div>
                 ))}
-              <button
+              <Button variant="primary"
                 className="wf-button wf-primary"
                 disabled={
                   busy ||
@@ -780,7 +771,7 @@ function Runner({
               >
                 <Play size={16} />
                 {busy ? "正在提交…" : "运行工作流"}
-              </button>
+              </Button>
             </>
           )}
           {!online && <p className="wf-hint">工作流执行与进度同步需要联网。</p>}
@@ -792,10 +783,10 @@ function Runner({
             {run?.queueReason && <p role="status">{run.queueReason}</p>}
           </div>
           {!polling && (
-            <button className="wf-button" onClick={() => setPolling(true)}>
+            <Button className="wf-button" onClick={() => setPolling(true)}>
               <RefreshCw size={16} />
               恢复进度同步
-            </button>
+            </Button>
           )}
           {run ? (
             <>
@@ -806,7 +797,7 @@ function Runner({
                   {new Date(run.createdAt).toLocaleString()}
                 </span>
                 {(run.status === "prepared" || active(run)) && (
-                  <button
+                  <Button
                     className="wf-button"
                     disabled={busy || !online}
                     onClick={() => {
@@ -821,7 +812,7 @@ function Runner({
                   >
                     <Square size={14} />
                     取消运行
-                  </button>
+                  </Button>
                 )}
               </div>
               <RunDetail run={run} />
@@ -984,14 +975,14 @@ function History() {
           <h1>运行记录</h1>
           <p>最近 200 次运行，保留当时的定义快照与节点详情。</p>
         </div>
-        <button
+        <Button
           className="wf-button"
           disabled={loading}
           onClick={() => void reload()}
         >
           <RefreshCw size={16} />
           刷新
-        </button>
+        </Button>
       </header>
       {loading ? (
         <p className="wf-empty" role="status">

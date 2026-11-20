@@ -107,13 +107,13 @@
 @media (max-width: 760px) {
   .settings-scope-bar, .effective-settings { padding: 20px 16px; }
   .settings-scope-bar label { align-items: flex-start; flex-direction: column; gap: 8px; }
-  .settings-scope-bar select { max-width: none; }
+  .settings-scope-bar .bp-select { width: 100%; }
   .pi-settings-tabs { gap: 4px; }
   .pi-settings-tabs button { padding: 8px 4px; font-size: 12px; }
   .pi-settings-tabs small { font-size: 10px; }
   .bp-section > div:last-child, .bp-section .bp-section__heading { padding-inline: 16px; }
   .pi-settings-sources > div { grid-template-columns: 1fr; gap: 8px; }
-  .pi-settings-save-bar { flex-wrap: wrap; padding: 16px; }
+  .configuration-save-bar.pi-settings-save-bar { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; padding: 12px; }
   .pi-settings-save-bar button { width: 100%; justify-content: center; min-height: 44px; }
   .pi-settings-load-error button { margin-left: 0; }
 }

@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { Archive } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { MediaCategory, MediaFile, MediaLibrary, SaveMediaResult } from "../../shared/media-library-contracts";
@@ -35,7 +36,7 @@ export function useMediaLibraries() {
 
 export function MediaLibraryCatalogStatus({ catalog, retry }: ReturnType<typeof useMediaLibraries>) {
   if (catalog.status === "loading") return <p role="status">正在读取媒体库…</p>;
-  if (catalog.status === "error") return <button type="button" className="configuration-secondary-action" onClick={retry}>重新读取媒体库</button>;
+  if (catalog.status === "error") return <Button type="button" className="configuration-secondary-action" onClick={retry}>重新读取媒体库</Button>;
   if (!catalog.items.length) return <p>暂无可选媒体库。<a href="/media-library">前往创建</a></p>;
   return null;
 }
@@ -50,8 +51,8 @@ export function MediaLibraryPicker({ label, category, disabled, onSelect }: {
   const online = useOnlineStatus();
   const [open, setOpen] = useState(false);
   return <>
-    <button type="button" className="configuration-secondary-action" aria-label={`从媒体库选择 ${label}`}
-      disabled={disabled || !online} onClick={() => setOpen(true)}>从媒体库选择</button>
+    <Button type="button" className="configuration-secondary-action" aria-label={`从媒体库选择 ${label}`}
+      disabled={disabled || !online} onClick={() => setOpen(true)}>从媒体库选择</Button>
     {open && <Suspense fallback={<MediaDialogFallback />}><PickMediaDialog label={label} category={category} onClose={() => setOpen(false)}
       onSelect={(file) => { onSelect(file); setOpen(false); }} /></Suspense>}
   </>;

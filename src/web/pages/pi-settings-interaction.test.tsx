@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import type { ScopedConfigDocument, WebPiSettings } from "../../shared/configuration-contracts";
@@ -34,10 +35,10 @@ afterEach(() => vi.restoreAllMocks());
 describe("运行设置分区与继承", () => {
   it("应用任务回调变化不重读设置或丢失草稿", async () => {
     const view = show(); await screen.findByLabelText("默认思考等级");
-    fireEvent.change(screen.getByLabelText("默认思考等级"), { target: { value: "high" } });
+    chooseOption("默认思考等级", "high");
     view.rerender(<ErrorToastProvider><ApiTaskProvider onAuthenticationRequired={() => Promise.resolve()}><PiSettingsPage /></ApiTaskProvider></ErrorToastProvider>);
     await act(async () => undefined);
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("high");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "high");
     expect(api.getGlobalSettings).toHaveBeenCalledTimes(1);
     expect(api.listAgents).toHaveBeenCalledTimes(1);
   });
@@ -46,19 +47,19 @@ describe("运行设置分区与继承", () => {
     let resolveDirectory!: (value: Awaited<ReturnType<typeof api.listAgents>>) => void;
     vi.mocked(api.listAgents).mockReturnValue(new Promise((resolve) => { resolveDirectory = resolve; }));
     show(); await screen.findByLabelText("默认思考等级");
-    fireEvent.change(screen.getByLabelText("默认思考等级"), { target: { value: "high" } });
+    chooseOption("默认思考等级", "high");
     await act(async () => resolveDirectory({ agents: [{ profile: { id: "a", name: "示例助手" } } as AgentProfileDocument] }));
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("high");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "high");
     expect(api.getGlobalSettings).toHaveBeenCalledTimes(1);
   });
 
   it("跨分区保存同一草稿并保留未展示字段与结构化资源", async () => {
     const save = vi.spyOn(api, "updateGlobalSettings").mockResolvedValue({ ...global, revision: "g2", runtimeRefreshRequired: true });
     show(); await screen.findByLabelText("默认思考等级");
-    fireEvent.change(screen.getByLabelText("默认思考等级"), { target: { value: "low" } });
+    chooseOption("默认思考等级", "low");
     tab("执行策略"); fireEvent.change(screen.getByLabelText("最大重试次数"), { target: { value: "4" } });
     tab("高级设置"); expect(screen.getByLabelText("Packages JSON")).toHaveValue(JSON.stringify(global.own.packages, null, 2));
-    tab("常用设置"); expect(screen.getByLabelText("默认思考等级")).toHaveValue("low");
+    tab("常用设置"); expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "low");
     fireEvent.click(screen.getByRole("button", { name: "保存全局设置" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith("g1", expect.objectContaining({ defaultThinkingLevel: "low", retry: { maxRetries: 4 }, packages: global.own.packages, thinkingBudgets: { high: 2048 } }), []));
     expect(screen.getByText("配置已保存，等待应用")).toBeInTheDocument();
@@ -68,12 +69,12 @@ describe("运行设置分区与继承", () => {
     const save = vi.spyOn(api, "updateAgentSettings").mockResolvedValue({ ...agent, own: {}, runtimeRefreshRequired: false });
     show(); await screen.findByLabelText("默认思考等级");
     fireEvent.click(screen.getByRole("button", { name: "Agent 覆盖" }));
-    await waitFor(() => expect(screen.getByLabelText("默认思考等级")).toHaveValue("high"));
+    await waitFor(() => expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "high"));
     fireEvent.click(screen.getByLabelText("默认思考等级继承全局设置"));
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("medium");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "medium");
     expect(screen.getByLabelText("默认思考等级")).toBeDisabled();
     fireEvent.click(screen.getByLabelText("默认思考等级继承全局设置"));
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("medium");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "medium");
     fireEvent.click(screen.getByLabelText("默认思考等级继承全局设置"));
     fireEvent.click(screen.getByRole("button", { name: "保存 Agent 覆盖" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith("a", "a1", { retry: { maxRetries: 7 } }, ["defaultThinkingLevel"]));
@@ -83,11 +84,11 @@ describe("运行设置分区与继承", () => {
   it("缺省布尔值不冒充关闭，Agent 新覆盖必须选择明确值", async () => {
     const save = vi.spyOn(api, "updateAgentSettings");
     show(); await screen.findByLabelText("隐藏思考块");
-    expect(screen.getByLabelText("隐藏思考块")).toHaveValue("");
+    expect(screen.getByLabelText("隐藏思考块")).toHaveAttribute("value", "");
     fireEvent.click(screen.getByRole("button", { name: "Agent 覆盖" }));
     await screen.findByLabelText("隐藏思考块继承全局设置");
     fireEvent.click(screen.getByLabelText("隐藏思考块继承全局设置"));
-    expect(screen.getByLabelText("隐藏思考块")).toHaveValue("");
+    expect(screen.getByLabelText("隐藏思考块")).toHaveAttribute("value", "");
     fireEvent.click(screen.getByRole("button", { name: "保存 Agent 覆盖" }));
     expect(save).not.toHaveBeenCalled();
     expect(screen.getAllByText(/隐藏思考块尚未选择覆盖值/).length).toBeGreaterThan(0);
@@ -123,7 +124,7 @@ describe("运行设置分区与继承", () => {
   it("全局默认模型恢复核心缺省时成对删除 Provider 与模型", async () => {
     const save = vi.spyOn(api, "updateGlobalSettings").mockResolvedValue(global);
     show(); await screen.findByLabelText("默认模型");
-    fireEvent.change(screen.getByLabelText("默认模型"), { target: { value: "" } });
+    chooseOption("默认模型", "");
     fireEvent.click(screen.getByRole("button", { name: "保存全局设置" }));
     await waitFor(() => expect(save).toHaveBeenCalledWith("g1", expect.not.objectContaining({ defaultProvider: expect.anything(), defaultModel: expect.anything() }), ["defaultProvider", "defaultModel"]));
   });
@@ -131,11 +132,11 @@ describe("运行设置分区与继承", () => {
   it("保存失败保留当前作用域与草稿，通知显示具体服务错误", async () => {
     vi.spyOn(api, "updateGlobalSettings").mockRejectedValue(new ApiClientError("INTERNAL_ERROR", "运行设置持久化时存储不可用", 500));
     show(); await screen.findByLabelText("默认思考等级");
-    fireEvent.change(screen.getByLabelText("默认思考等级"), { target: { value: "high" } });
+    chooseOption("默认思考等级", "high");
     fireEvent.click(screen.getByRole("button", { name: "Agent 覆盖" }));
     fireEvent.click(screen.getByRole("button", { name: "保存并切换" }));
     await screen.findByText(/尚未完成保存/);
-    expect(screen.getByLabelText("默认思考等级")).toHaveValue("high");
+    expect(screen.getByLabelText("默认思考等级")).toHaveAttribute("value", "high");
     expect(screen.getByRole("button", { name: "全局设置" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByText("运行设置持久化时存储不可用").length).toBeGreaterThan(0);
   });
@@ -171,6 +172,6 @@ describe("运行设置分区与继承", () => {
     show(); await screen.findByRole("button", { name: "重新加载 Agent 目录" });
     expect(screen.queryByText("还没有 Agent")).not.toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "重新加载模型目录" })).toBeInTheDocument();
-    expect(screen.getByLabelText("默认模型")).toHaveValue(JSON.stringify(["demo", "model"]));
+    expect(screen.getByLabelText("默认模型")).toHaveAttribute("value", JSON.stringify(["demo", "model"]));
   });
 });

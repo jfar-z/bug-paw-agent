@@ -8,7 +8,7 @@ interface AigcWorkbenchSidebarProps {
   route: AppRoute;
   open: boolean;
   onClose: () => void;
-  onNavigate: (route: AppRoute) => void;
+  onNavigate: (route: AppRoute) => boolean | void;
 }
 
 /**
@@ -16,8 +16,7 @@ interface AigcWorkbenchSidebarProps {
  */
 export function AigcWorkbenchSidebar({ route, open, onClose, onNavigate }: AigcWorkbenchSidebarProps) {
   const go = (nextRoute: AppRoute) => {
-    onNavigate(nextRoute);
-    onClose();
+    if (onNavigate(nextRoute) !== false) onClose();
   };
 
   const runActive = route.page === "aigc-run";

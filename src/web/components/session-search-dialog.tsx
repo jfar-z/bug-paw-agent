@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { Archive, LoaderCircle, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -142,8 +143,8 @@ export function SessionSearchDialog(props: SessionSearchDialogProps) {
         <div className="session-search-dialog__results">
           {search.state === "idle" ? <p className="session-search-dialog__empty">输入内容以搜索当前 Agent 的聊天记录。</p> : null}
           {search.state === "empty" ? <p className="session-search-dialog__empty">没有找到匹配的聊天记录</p> : null}
-          {search.state === "error" ? <div className="session-search-dialog__error"><p>{search.error}</p><button type="button" className="configuration-secondary-action" onClick={() => void search.searchNow()}>重试</button></div> : null}
-          {selectionError ? <div className="session-search-dialog__error" role="alert"><p>{selectionError}</p><button type="button" className="configuration-secondary-action" onClick={() => void search.searchNow()}>重新搜索</button></div> : null}
+          {search.state === "error" ? <div className="session-search-dialog__error"><p>{search.error}</p><Button type="button" className="configuration-secondary-action" onClick={() => void search.searchNow()}>重试</Button></div> : null}
+          {selectionError ? <div className="session-search-dialog__error" role="alert"><p>{selectionError}</p><Button type="button" className="configuration-secondary-action" onClick={() => void search.searchNow()}>重新搜索</Button></div> : null}
           {search.hits.length > 0 ? <div id="session-search-results" className="knowledge-base-search-results" role="listbox" aria-label="聊天记录搜索结果">
             {search.hits.map((hit, index) => <button
               type="button"

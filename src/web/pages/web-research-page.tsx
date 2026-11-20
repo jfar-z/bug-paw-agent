@@ -1,3 +1,5 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
 import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -104,7 +106,7 @@ export function WebResearchPage() {
 
     <section className="configuration-form-card">
       <div className="configuration-section__heading"><div><span>01</span><h2>服务状态</h2></div><small>{enabledProviders.length} 个已启用渠道</small></div>
-      <label className="configuration-capability-toggle"><span>启用联网搜索<small>启用后，已授权 Agent 才能使用联网工具。</small></span><input aria-label="启用联网搜索" type="checkbox" checked={globalDraft.enabled} onChange={(event) => { setGlobalDraft({ ...globalDraft, enabled: event.target.checked }); setGlobalError(""); setNotice(""); }} /></label>
+      <label className="configuration-capability-toggle"><span>启用联网搜索<small>启用后，已授权 Agent 才能使用联网工具。</small></span><Checkbox aria-label="启用联网搜索" checked={globalDraft.enabled} onChange={(event) => { setGlobalDraft({ ...globalDraft, enabled: event.target.checked }); setGlobalError(""); setNotice(""); }} /></label>
       {globalDraft.enabled && noEnabledProvider ? <p className="configuration-inline-error" role="alert">至少启用一个搜索渠道后才能保存。</p> : null}
       {globalDraft.enabled && missingCredential ? <p className="configuration-inline-error" role="alert">“{missingCredential.name}”缺少 API Key，请配置凭证或停用该渠道。</p> : null}
     </section>
@@ -113,7 +115,7 @@ export function WebResearchPage() {
     <GlobalSearchPolicyPanel value={globalDraft} egressProfiles={document.egressProfiles} error={globalError} onChange={(next) => { setGlobalDraft(next); setGlobalError(""); setNotice(""); }} />
 
     {notice ? <p className="configuration-help" role="status">{notice}</p> : null}
-    <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" disabled={!online || savingGlobal || !dirty || blocked} onClick={() => void saveGlobal()}><Save size={16} aria-hidden="true" />{savingGlobal ? "保存中…" : "保存全局设置"}</button></div>
+    <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || savingGlobal || !dirty || blocked} onClick={() => void saveGlobal()}><Save size={16} aria-hidden="true" />{savingGlobal ? "保存中…" : "保存全局设置"}</Button></div>
 
     {dialog ? <SearchProviderDialog
       mode={dialog.mode}

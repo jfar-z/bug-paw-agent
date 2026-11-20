@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Cropper, { type Area } from "react-easy-crop";
@@ -159,7 +160,7 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
             </div>
             <strong style={styles.previewTitle}>圆角方形头像</strong>
             <small style={styles.previewHelp}>透明 PNG 会保留透明通道，最终统一保存为 WebP。</small>
-            <button
+            <Button
               type="button"
               className="configuration-secondary-action"
               disabled={busy}
@@ -168,7 +169,7 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
             >
               <ImagePlus size={16} aria-hidden="true" />
               重新选择
-            </button>
+            </Button>
             <input
               ref={replaceInputRef}
               className="visually-hidden"
@@ -185,8 +186,8 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
         {error ? <div className="configuration-inline-error" role="alert">{error}</div> : null}
 
         <footer style={styles.footer}>
-          <button type="button" className="configuration-secondary-action" disabled={busy} style={styles.footerButton} onClick={onCancel}>取消</button>
-          <button
+          <Button type="button" className="configuration-secondary-action" disabled={busy} style={styles.footerButton} onClick={onCancel}>取消</Button>
+          <Button variant="primary"
             type="button"
             className="configuration-primary-action"
             disabled={busy || !cropArea}
@@ -194,7 +195,7 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
             onClick={() => cropArea && onConfirm(cropArea)}
           >
             {busy ? "上传中…" : "裁剪并上传"}
-          </button>
+          </Button>
         </footer>
       </section>
     </div>

@@ -1,3 +1,6 @@
+import { Checkbox } from "../ui/choice";
+import { SearchField, Button } from "../ui/controls";
+import { SearchSelect } from "../ui/search-select";
 import { Eye, PackagePlus, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
@@ -212,51 +215,97 @@ export function ResourcesPage() {
 
   return <>
     <main className="configuration-page resources-page" inert={editorOpen || packageToRemove || guard.pending ? true : undefined} aria-hidden={editorOpen || packageToRemove || guard.pending ? true : undefined}>
-      <header className="configuration-page__heading configuration-page__heading--actions"><div><span className="configuration-eyebrow">SKILLS &amp; EXTENSIONS</span><h1>Skills 与扩展</h1><p>查找资源、管理扩展包，并了解扩展注册的工具。</p></div><button type="button" data-resource-install className="configuration-primary-action" disabled={!writable} onClick={openInstall}><PackagePlus size={16} />安装扩展包</button></header>
+      <header className="configuration-page__heading configuration-page__heading--actions"><div><span className="configuration-eyebrow">SKILLS &amp; EXTENSIONS</span><h1>Skills 与扩展</h1><p>查找资源、管理扩展包，并了解扩展注册的工具。</p></div><Button variant="primary" type="button" data-resource-install className="configuration-primary-action" disabled={!writable} onClick={openInstall}><PackagePlus size={16} />安装扩展包</Button></header>
       <section className="resource-scope" aria-label="资源作用域"><div className="resource-segments"><button type="button" aria-pressed={scope === "global"} disabled={busy} onClick={() => switchTarget("global")}>全局资源</button><button type="button" aria-pressed={scope === "agent"} disabled={busy} onClick={() => switchTarget("agent")}>Agent 资源</button></div>
-        {scope === "agent" && agents.length ? <label>当前 Agent<select aria-label="资源 Agent" disabled={busy || agentLoading || agentError} value={agentId} onChange={(event) => switchTarget("agent", event.target.value)}>{agents.map(({ profile }) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label> : null}
+        {scope === "agent" && agents.length ? <label>当前 Agent<SearchSelect
+          ariaLabel="资源 Agent"
+          disabled={busy || agentLoading || agentError}
+          value={agentId}
+          onChange={(next) => switchTarget("agent", next)}
+          options={agents.map(({ profile }) => ({ value: profile.id, label: profile.name }))}
+        /></label> : null}
         <p>{scope === "global" ? "管理全局配置；安装和资源模式修改面向全局。" : "目录包含全局与 Agent 来源；资源覆盖和安装面向当前 Agent。卸载全局包仍影响全局配置。"}</p>
       </section>
-      {agentError ? <p className="configuration-inline-error" role="alert">Agent 目录读取失败。<button type="button" className="configuration-secondary-action" onClick={() => void loadAgents()}>重新加载 Agent 目录</button></p> : null}
+      {agentError ? <p className="configuration-inline-error" role="alert">Agent 目录读取失败。<Button type="button" className="configuration-secondary-action" onClick={() => void loadAgents()}>重新加载 Agent 目录</Button></p> : null}
       <ConfigurationEffectNotice configKey={configKey} />
       {!online ? <p className="configuration-help" role="status">离线只读：禁止修改资源模式或提交包操作。</p> : null}
       {error && !editorOpen && !packageToRemove ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
       {task ? <section className="resource-task" aria-label="资源包任务"><h2>{task.action} {task.source}</h2><p>提交目标：{task.targetName} · <strong>{({ running: "进行中", completed: "已完成", failed: "执行失败", unknown: "结果未确认" })[task.status]}</strong></p>
         <p className="configuration-help">{task.status === "unknown" ? taskMessage || "尚未收到终态；后台任务可能继续执行。重新订阅原任务确认结果，不要重复提交。" : task.status === "failed" ? "任务执行器已返回失败；检查日志及实际目录，不推断失败前的配置变更。" : taskMessage || "包管理器在后台执行；离开页面不会取消任务。刷新页面不会自动恢复任务历史。"}</p>
         <details><summary>查看任务日志</summary><TaskLog key={task.id} taskId={task.id} attempt={task.attempt} onStatus={(status) => setTask((current) => current?.id === task.id ? { ...current, status } : current)} onCompleted={() => void completed(task)} /></details>
-        <div className="resource-task-actions">{task.status === "unknown" ? <button type="button" className="configuration-secondary-action" disabled={!online || busy} onClick={() => void reconnectTask()}>重新订阅原任务</button> : null}
-          {taskReloadError ? <button type="button" className="configuration-secondary-action" disabled={loading || !online} onClick={() => void completed(task)}>重新加载目录</button> : null}
-          {!unresolvedTask ? <button type="button" className="configuration-secondary-action" disabled={loading} onClick={() => { setTask(undefined); setTaskMessage(""); setTaskReloadError(false); }}>收起任务</button> : null}</div>
+        <div className="resource-task-actions">{task.status === "unknown" ? <Button type="button" className="configuration-secondary-action" disabled={!online || busy} onClick={() => void reconnectTask()}>重新订阅原任务</Button> : null}
+          {taskReloadError ? <Button type="button" className="configuration-secondary-action" disabled={loading || !online} onClick={() => void completed(task)}>重新加载目录</Button> : null}
+          {!unresolvedTask ? <Button type="button" className="configuration-secondary-action" disabled={loading} onClick={() => { setTask(undefined); setTaskMessage(""); setTaskReloadError(false); }}>收起任务</Button> : null}</div>
       </section> : null}
       <div className="resource-tabs" role="tablist" aria-label="资源管理分区">{tabs.map((item, index) => <button key={item.id} id={`${tabId}-${item.id}`} type="button" role="tab" aria-selected={tab === item.id} aria-controls={`${tabId}-panel`} tabIndex={tab === item.id ? 0 : -1} onClick={() => setTab(item.id)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length; setTab(tabs[next].id); document.getElementById(`${tabId}-${tabs[next].id}`)?.focus(); }}>{item.label}</button>)}</div>
       <section id={`${tabId}-panel`} role="tabpanel" aria-labelledby={`${tabId}-${tab}`} aria-busy={loading}>
-        <div className="resource-catalog-filters"><input type="search" aria-label={`搜索${tabLabel}`} placeholder={tab === "packages" ? "搜索包来源" : "搜索名称或描述"} value={queries[tab]} onChange={(event) => setQueries((current) => ({ ...current, [tab]: event.target.value }))} />
-          {tab === "resources" ? <><select aria-label="资源类型" value={type} onChange={(event) => setType(event.target.value)}><option value="all">全部类型</option><option value="skill">Skills</option><option value="prompt">Prompts</option><option value="extension">Extensions</option><option value="theme">Themes</option></select><select aria-label="资源来源" value={source} onChange={(event) => setSource(event.target.value)}><option value="all">全部来源</option><option value="global">全局来源</option><option value="agent">Agent 来源</option></select><select aria-label="资源状态" value={state} onChange={(event) => setState(event.target.value)}><option value="all">全部状态</option><option value="enabled">配置启用</option><option value="disabled">配置屏蔽</option></select></> : null}
+        <div className="resource-catalog-filters"><SearchField label={`搜索${tabLabel}`} placeholder={tab === "packages" ? "搜索包来源" : "搜索名称或描述"} value={queries[tab]} onChange={(next) => setQueries((current) => ({ ...current, [tab]: next }))} />
+          {tab === "resources" ? <><SearchSelect
+            ariaLabel="资源类型"
+            value={type}
+            onChange={(next) => setType(next)}
+            options={[
+              { value: "all", label: "全部类型" },
+              { value: "skill", label: "Skills" },
+              { value: "prompt", label: "Prompts" },
+              { value: "extension", label: "Extensions" },
+              { value: "theme", label: "Themes" },
+            ]}
+          /><SearchSelect
+            ariaLabel="资源来源"
+            value={source}
+            onChange={(next) => setSource(next)}
+            options={[
+              { value: "all", label: "全部来源" },
+              { value: "global", label: "全局来源" },
+              { value: "agent", label: "Agent 来源" },
+            ]}
+          /><SearchSelect
+            ariaLabel="资源状态"
+            value={state}
+            onChange={(next) => setState(next)}
+            options={[
+              { value: "all", label: "全部状态" },
+              { value: "enabled", label: "配置启用" },
+              { value: "disabled", label: "配置屏蔽" },
+            ]}
+          /></> : null}
         </div>
         {agentUnavailable ? <div className="resource-catalog-empty"><h2>{agentLoading ? "正在加载 Agent 目录…" : agentError ? "无法读取 Agent 目录" : "还没有 Agent"}</h2><p>{!agentLoading && !agentError ? "请先到 Agents 创建对象，再管理 Agent 资源。" : "目录尚未可用，不展示空资源作为加载结果。"}</p></div>
-          : loading ? <p className="configuration-help">正在加载资源目录…</p> : loadError ? <div className="resource-catalog-empty"><h2>资源目录读取失败</h2><p>具体故障见错误弹窗；未展示旧目录或空列表作为成功结果。</p><button type="button" className="configuration-secondary-action" disabled={!online || busy} onClick={() => void loadCatalog(selectedAgent)}>重新加载资源目录</button></div>
+          : loading ? <p className="configuration-help">正在加载资源目录…</p> : loadError ? <div className="resource-catalog-empty"><h2>资源目录读取失败</h2><p>具体故障见错误弹窗；未展示旧目录或空列表作为成功结果。</p><Button type="button" className="configuration-secondary-action" disabled={!online || busy} onClick={() => void loadCatalog(selectedAgent)}>重新加载资源目录</Button></div>
           : catalog ? <div className="resource-catalog-list"><header><h2>{tabLabel} <small>{(tab === "resources" ? visible : tab === "packages" ? packages : tools).length} 项</small></h2><span>本次目录加载结果</span></header>
-            {tab === "resources" ? visible.map((item) => <article key={item.id} className="resource-catalog-row"><div><h3>{item.name}</h3><p>{item.description}</p><div className="resource-catalog-badges"><span>{item.type}</span><span>{item.scope === "global" ? "全局来源" : "Agent 来源"}</span><span>配置{item.enabled ? "启用" : "屏蔽"}{item.mode === "inherit" ? " · 继承全局" : item.mode === "enabled" || item.mode === "disabled" ? " · 显式声明" : " · 发现/过滤规则"}</span></div></div><button type="button" className="configuration-secondary-action" disabled={busy} aria-label={`查看资源 ${item.name}`} onClick={() => openResource(item)}><Eye size={14} />查看详情</button></article>) : null}
+            {tab === "resources" ? visible.map((item) => <article key={item.id} className="resource-catalog-row"><div><h3>{item.name}</h3><p>{item.description}</p><div className="resource-catalog-badges"><span>{item.type}</span><span>{item.scope === "global" ? "全局来源" : "Agent 来源"}</span><span>配置{item.enabled ? "启用" : "屏蔽"}{item.mode === "inherit" ? " · 继承全局" : item.mode === "enabled" || item.mode === "disabled" ? " · 显式声明" : " · 发现/过滤规则"}</span></div></div><Button type="button" className="configuration-secondary-action" disabled={busy} aria-label={`查看资源 ${item.name}`} onClick={() => openResource(item)}><Eye size={14} />查看详情</Button></article>) : null}
             {tab === "packages" ? packages.map((item) => <article key={`${item.scope}:${item.source}`} className="resource-catalog-row"><div><h3>{item.source}</h3><p>{item.scope === "user" ? "全局包" : `Agent 包 · ${targetName}`} · {item.filtered ? "设置了资源过滤，不代表安装失败" : "未设置资源过滤"}</p></div><button type="button" className="danger-button" disabled={!writable} aria-label={`卸载 ${item.source}`} onClick={() => { setError(""); setPackageToRemove(item); }}>卸载</button></article>) : null}
-            {tab === "tools" ? tools.map((item) => <article key={`${item.extensionPath}:${item.name}`} className="resource-catalog-row"><div><h3>{item.name}</h3><p>{item.description}</p><div className="resource-catalog-badges"><span>来源 {pathName(item.extensionPath)}</span>{item.highRisk ? <span><ShieldAlert size={13} />第三方代码 · 高风险</span> : null}</div></div><button type="button" className="configuration-secondary-action" aria-label={`查看工具 ${item.name}`} onClick={() => { closeDetails(); setTool(item); }}>查看详情</button></article>) : null}
-            {empty ? <div className="resource-catalog-empty"><h3>{emptyFiltered ? "没有匹配的条目" : `当前没有${tabLabel === "资源目录" ? "资源" : tabLabel}`}</h3><p>{emptyFiltered ? "调整关键词或清除筛选。" : tab === "tools" ? "没有注册工具不代表没有扩展包；此区仅展示本次加载得到的工具。" : "安装或配置资源后重新读取目录。"}</p>{emptyFiltered ? <button type="button" className="configuration-secondary-action" onClick={resetFilters}>清除筛选</button> : tab !== "tools" ? <button type="button" className="configuration-secondary-action" disabled={!writable} onClick={openInstall}>安装扩展包</button> : null}</div> : null}
+            {tab === "tools" ? tools.map((item) => <article key={`${item.extensionPath}:${item.name}`} className="resource-catalog-row"><div><h3>{item.name}</h3><p>{item.description}</p><div className="resource-catalog-badges"><span>来源 {pathName(item.extensionPath)}</span>{item.highRisk ? <span><ShieldAlert size={13} />第三方代码 · 高风险</span> : null}</div></div><Button type="button" className="configuration-secondary-action" aria-label={`查看工具 ${item.name}`} onClick={() => { closeDetails(); setTool(item); }}>查看详情</Button></article>) : null}
+            {empty ? <div className="resource-catalog-empty"><h3>{emptyFiltered ? "没有匹配的条目" : `当前没有${tabLabel === "资源目录" ? "资源" : tabLabel}`}</h3><p>{emptyFiltered ? "调整关键词或清除筛选。" : tab === "tools" ? "没有注册工具不代表没有扩展包；此区仅展示本次加载得到的工具。" : "安装或配置资源后重新读取目录。"}</p>{emptyFiltered ? <Button type="button" className="configuration-secondary-action" onClick={resetFilters}>清除筛选</Button> : tab !== "tools" ? <Button type="button" className="configuration-secondary-action" disabled={!writable} onClick={openInstall}>安装扩展包</Button> : null}</div> : null}
           </div> : null}
       </section>
       {catalog?.diagnostics.length ? <details className="resource-diagnostics"><summary>目录诊断 · {catalog.diagnostics.length} 项</summary>{catalog.diagnostics.map((item, index) => <article key={index}><strong>{item.type}{item.path ? ` · ${pathName(item.path)}` : ""}</strong><p>{item.message}</p></article>)}</details> : null}
       <p className="configuration-help">目录解析状态与注册工具均不代表运行中 Agent 已应用或已获授权。第三方扩展可能以容器最大权限运行。</p>
     </main>
-    {selected ? <ResourceDialog variant="drawer" classPrefix="resource" title={`资源详情 · ${selected.name}`} description="只读查看资源，按当前目标即时保存模式。" closeLabel="关闭资源详情" returnFocusSelector="[data-resource-install]" busy={busy} onClose={closeDetails} footer={<><span className="configuration-editing-state">目标：{targetName} · 配置{selected.enabled ? "启用" : "屏蔽"}</span><button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeDetails}>关闭</button></>}>
+    {selected ? <ResourceDialog variant="drawer" classPrefix="resource" title={`资源详情 · ${selected.name}`} description="只读查看资源，按当前目标即时保存模式。" closeLabel="关闭资源详情" returnFocusSelector="[data-resource-install]" busy={busy} onClose={closeDetails} footer={<><span className="configuration-editing-state">目标：{targetName} · 配置{selected.enabled ? "启用" : "屏蔽"}</span><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeDetails}>关闭</Button></>}>
       <p className="configuration-help">{selected.description}</p><div className="resource-catalog-badges"><span>{selected.type}</span><span>{selected.scope === "global" ? "全局来源" : "Agent 来源"}</span></div>
-      <label className="resource-detail-field">当前目标模式<select aria-label="当前资源模式" value={modeValue} disabled={!writable} onChange={(event) => { if (event.target.value !== "default") void changeMode(event.target.value as "enabled" | "disabled" | "inherit"); }}><option value="default" disabled>原生发现或过滤规则</option>{selected.scope === "global" && scope === "agent" ? <option value="inherit">继承全局</option> : modeValue === "inherit" ? <option value="inherit" disabled>继承全局</option> : null}<option value="enabled">显式启用</option><option value="disabled">显式屏蔽</option></select></label>
+      <label className="resource-detail-field">当前目标模式<SearchSelect
+        ariaLabel="当前资源模式"
+        value={modeValue}
+        disabled={!writable}
+        onChange={(next) => { if (next !== "default") void changeMode(next as "enabled" | "disabled" | "inherit"); }}
+        options={[
+          { value: "default", label: "原生发现或过滤规则", disabled: true },
+          ...(selected.scope === "global" && scope === "agent" ? [{ value: "inherit", label: "继承全局" }] : (modeValue === "inherit" ? [{ value: "inherit", label: "继承全局", disabled: true }] : [])),
+          { value: "enabled", label: "显式启用" },
+          { value: "disabled", label: "显式屏蔽" },
+        ]}
+      /></label>
       <p className="configuration-help">选择后立即保存；恢复继承移除当前资源的精确覆盖，不删除其他过滤规则。保存后仍需刷新核心配置。</p><ConfigurationEffectNotice configKey={configKey} />
       {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}<details><summary>来源与完整路径</summary><p>{selected.source}</p><code>{selected.path}</code></details>
-      <section className="resource-content-view"><h3>只读内容</h3><p className="configuration-help">最多读取前 256 KiB，不保证为全文；不提供在线编辑。</p><button type="button" className="configuration-secondary-action" disabled={contentLoading} onClick={() => void readContent()}>{contentLoading ? "正在读取…" : contentError ? "重新读取资源内容" : content === undefined ? "查看资源内容" : "重新读取内容"}</button>{contentError ? <p className="configuration-inline-error" role="alert">内容读取失败，具体故障见错误弹窗。</p> : null}{content !== undefined && !contentError ? <pre>{content}</pre> : null}</section>
+      <section className="resource-content-view"><h3>只读内容</h3><p className="configuration-help">最多读取前 256 KiB，不保证为全文；不提供在线编辑。</p><Button type="button" className="configuration-secondary-action" disabled={contentLoading} onClick={() => void readContent()}>{contentLoading ? "正在读取…" : contentError ? "重新读取资源内容" : content === undefined ? "查看资源内容" : "重新读取内容"}</Button>{contentError ? <p className="configuration-inline-error" role="alert">内容读取失败，具体故障见错误弹窗。</p> : null}{content !== undefined && !contentError ? <pre>{content}</pre> : null}</section>
     </ResourceDialog> : null}
-    {tool ? <ResourceDialog variant="drawer" classPrefix="resource" title={`工具详情 · ${tool.name}`} description="来自本次扩展加载的注册工具，不代表运行中授权。" closeLabel="关闭工具详情" returnFocusSelector="[data-resource-install]" busy={false} onClose={closeDetails} footer={<button type="button" className="configuration-secondary-action" onClick={closeDetails}>关闭</button>}><p>{tool.description}</p>{tool.highRisk ? <p className="resource-risk">第三方扩展可能执行任意代码。</p> : null}<h3>扩展来源</h3><code>{tool.extensionPath}</code>{catalog?.resources.some((item) => item.path === tool.extensionPath && item.type === "extension") ? <p><button type="button" className="configuration-secondary-action" onClick={() => openResource(catalog.resources.find((item) => item.path === tool.extensionPath && item.type === "extension")!)}>查看来源扩展</button></p> : null}<p className="configuration-help">此区只读；不提供调用测试，不推断当前 Agent 已授权。</p></ResourceDialog> : null}
-    {installOpen ? <ResourceDialog variant="confirmation" title="安装扩展包" description={`提交目标：${targetName}。安装成功后保存来源，仍需刷新核心配置。`} returnFocusSelector="[data-resource-install]" busy={busy} suspended={guard.pending} onClose={closeInstall} footer={<><button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeInstall}>取消</button><button type="button" className="configuration-primary-action" disabled={!writable || !confirmed || !packageSource.trim()} onClick={() => void submitPackage("安装")}>{busy ? "正在提交…" : "开始安装"}</button></>}>
-      <label className="resource-detail-field">来源<input aria-label="扩展包来源" disabled={busy} value={packageSource} onChange={(event) => { setPackageSource(event.target.value); setConfirmed(false); }} placeholder="npm:example-skills" /></label><p className="configuration-help">支持 npm:、git:、HTTPS 或容器内本地路径。</p><p className="resource-risk">第三方扩展可能以容器最大权限执行任意代码，请先审阅来源。</p><label className="resource-confirm-line"><input type="checkbox" disabled={busy} checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>我已审阅来源，并理解扩展会执行任意代码。</span></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
+    {tool ? <ResourceDialog variant="drawer" classPrefix="resource" title={`工具详情 · ${tool.name}`} description="来自本次扩展加载的注册工具，不代表运行中授权。" closeLabel="关闭工具详情" returnFocusSelector="[data-resource-install]" busy={false} onClose={closeDetails} footer={<Button type="button" className="configuration-secondary-action" onClick={closeDetails}>关闭</Button>}><p>{tool.description}</p>{tool.highRisk ? <p className="resource-risk">第三方扩展可能执行任意代码。</p> : null}<h3>扩展来源</h3><code>{tool.extensionPath}</code>{catalog?.resources.some((item) => item.path === tool.extensionPath && item.type === "extension") ? <p><Button type="button" className="configuration-secondary-action" onClick={() => openResource(catalog.resources.find((item) => item.path === tool.extensionPath && item.type === "extension")!)}>查看来源扩展</Button></p> : null}<p className="configuration-help">此区只读；不提供调用测试，不推断当前 Agent 已授权。</p></ResourceDialog> : null}
+    {installOpen ? <ResourceDialog variant="confirmation" title="安装扩展包" description={`提交目标：${targetName}。安装成功后保存来源，仍需刷新核心配置。`} returnFocusSelector="[data-resource-install]" busy={busy} suspended={guard.pending} onClose={closeInstall} footer={<><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeInstall}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!writable || !confirmed || !packageSource.trim()} onClick={() => void submitPackage("安装")}>{busy ? "正在提交…" : "开始安装"}</Button></>}>
+      <label className="resource-detail-field">来源<input aria-label="扩展包来源" disabled={busy} value={packageSource} onChange={(event) => { setPackageSource(event.target.value); setConfirmed(false); }} placeholder="npm:example-skills" /></label><p className="configuration-help">支持 npm:、git:、HTTPS 或容器内本地路径。</p><p className="resource-risk">第三方扩展可能以容器最大权限执行任意代码，请先审阅来源。</p><label className="resource-confirm-line"><Checkbox disabled={busy} checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>我已审阅来源，并理解扩展会执行任意代码。</span></label>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
     </ResourceDialog> : null}
-    {packageToRemove ? <ResourceDialog variant="confirmation" title="确认卸载扩展包" description={`将卸载 ${packageToRemove.source}。实际范围：${packageToRemove.scope === "user" ? "全局配置；即使从 Agent 视图操作也影响全局。" : `Agent · ${targetName}。`}可能影响依赖该资源的 Agent；全局包被 Agent 项目包引用时服务端会拒绝。`} returnFocusSelector="[data-resource-install]" busy={busy} onClose={() => setPackageToRemove(undefined)} footer={<><button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setPackageToRemove(undefined)}>取消</button><button type="button" className="danger-button" disabled={!writable} onClick={() => void submitPackage("卸载")}>{busy ? "正在提交…" : "确认卸载"}</button></>}>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}</ResourceDialog> : null}
+    {packageToRemove ? <ResourceDialog variant="confirmation" title="确认卸载扩展包" description={`将卸载 ${packageToRemove.source}。实际范围：${packageToRemove.scope === "user" ? "全局配置；即使从 Agent 视图操作也影响全局。" : `Agent · ${targetName}。`}可能影响依赖该资源的 Agent；全局包被 Agent 项目包引用时服务端会拒绝。`} returnFocusSelector="[data-resource-install]" busy={busy} onClose={() => setPackageToRemove(undefined)} footer={<><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setPackageToRemove(undefined)}>取消</Button><button type="button" className="danger-button" disabled={!writable} onClick={() => void submitPackage("卸载")}>{busy ? "正在提交…" : "确认卸载"}</button></>}>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}</ResourceDialog> : null}
     {guard.dialog}
   </>;
 }

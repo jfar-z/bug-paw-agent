@@ -1,3 +1,5 @@
+import { Button } from "../ui/controls";
+import { SearchSelect } from "../ui/search-select";
 import { Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TtsProfileInput, TtsProfileSummary } from "../../shared/tts-contracts";
@@ -169,20 +171,20 @@ export function TtsPage() {
   const parameterSummary = summarizeParameters(customParametersText);
   return <>
     <main className="configuration-page configuration-quick-wins-page tts-page" inert={editorOpen || undefined} aria-hidden={editorOpen || undefined}>
-      <header className="configuration-page__heading configuration-page__heading--actions"><div><span className="configuration-eyebrow">TEXT TO SPEECH</span><h1>语音合成</h1><p>管理 OpenAI Speech 兼容接口，供 Agent 选择使用。</p></div><button type="button" data-tts-create className="configuration-primary-action" onClick={create} disabled={!writable}><Plus size={15} />新增语音配置</button></header>
+      <header className="configuration-page__heading configuration-page__heading--actions"><div><span className="configuration-eyebrow">TEXT TO SPEECH</span><h1>语音合成</h1><p>管理 OpenAI Speech 兼容接口，供 Agent 选择使用。</p></div><Button variant="primary" type="button" data-tts-create className="configuration-primary-action" onClick={create} disabled={!writable}><Plus size={15} />新增语音配置</Button></header>
       {!editorOpen && message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="tts-profile-list" aria-labelledby="tts-list-title" aria-busy={loading}>
         <div className="tts-list-heading"><h2 id="tts-list-title">语音配置 <small>{revision ? `${profiles.length} 项` : "尚未加载"}</small></h2><span>{loading ? "正在加载配置…" : "选择配置进行编辑"}</span></div>
-        {profiles.map((profile) => <article key={profile.id} className="tts-profile"><div><h3>{profile.name}</h3><dl><div><dt>模型</dt><dd>{profile.model}</dd></div><div><dt>音色</dt><dd>{profile.voice}</dd></div><div><dt>格式</dt><dd>{profile.responseFormat.toUpperCase()}</dd></div></dl><small>{profile.baseUrl}</small><span className="tts-key-state">{profile.hasApiKey ? "密钥已配置" : "未配置密钥"}</span></div><button type="button" className="configuration-secondary-action" aria-label={`编辑${profile.name}`} disabled={loading || saving || !revision} onClick={() => select(profile)}><Pencil size={15} />编辑</button></article>)}
+        {profiles.map((profile) => <article key={profile.id} className="tts-profile"><div><h3>{profile.name}</h3><dl><div><dt>模型</dt><dd>{profile.model}</dd></div><div><dt>音色</dt><dd>{profile.voice}</dd></div><div><dt>格式</dt><dd>{profile.responseFormat.toUpperCase()}</dd></div></dl><small>{profile.baseUrl}</small><span className="tts-key-state">{profile.hasApiKey ? "密钥已配置" : "未配置密钥"}</span></div><Button type="button" className="configuration-secondary-action" aria-label={`编辑${profile.name}`} disabled={loading || saving || !revision} onClick={() => select(profile)}><Pencil size={15} />编辑</Button></article>)}
         {!profiles.length && !loading && revision ? <div className="tts-empty"><h3>尚未配置语音模型</h3><p className="configuration-help">点击“新增语音配置”创建配置，再到 Agent 中选择使用。</p></div> : null}
       </section>
       <p className="configuration-help">密钥状态仅表示是否已配置，不代表接口连接或语音合成测试通过。密钥默认隐藏，可在编辑时按需查看。</p>
-      {!revision && !loading ? <button type="button" className="configuration-secondary-action" disabled={!online || saving} onClick={() => void (async () => { if (await reload()) setMessage("语音配置列表已更新"); })()}>重新加载语音配置</button> : null}
+      {!revision && !loading ? <Button type="button" className="configuration-secondary-action" disabled={!online || saving} onClick={() => void (async () => { if (await reload()) setMessage("语音配置列表已更新"); })()}>重新加载语音配置</Button> : null}
     </main>
     {editorOpen ? <TtsDialog variant="drawer" title={selected ? `编辑语音配置 · ${selected.name}` : "新增语音配置"}
       description={selected ? "修改接口与默认语音参数，保存后返回配置列表。" : "创建接口连接与默认语音参数，供 Agent 选择使用。"}
       busy={saving} suspended={guard.pending || deleteOpen} onClose={() => guard.request(closeEditor)}
-      footer={<><span className="configuration-editing-state">{dirty ? "有未保存的修改" : creating ? "新建草稿" : "当前没有未保存的修改"}</span><div><button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => guard.request(closeEditor)}>取消</button><button type="button" className="configuration-primary-action" disabled={!writable} onClick={() => void (async () => { if (await save()) closeEditor(); })()}><Save size={16} />{task === "save" ? "保存中…" : selected ? "保存更改" : "创建语音配置"}</button></div></>}>
+      footer={<><span className="configuration-editing-state">{dirty ? "有未保存的修改" : creating ? "新建草稿" : "当前没有未保存的修改"}</span><div><Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => guard.request(closeEditor)}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!writable} onClick={() => void (async () => { if (await save()) closeEditor(); })()}><Save size={16} />{task === "save" ? "保存中…" : selected ? "保存更改" : "创建语音配置"}</Button></div></>}>
       <fieldset className="configuration-interaction-fields" disabled={saving}>
         <h3>接口与语音</h3><p className="configuration-help">设置连接地址与默认语音参数。</p>
         <div className="tts-editor-fields">
@@ -190,19 +192,29 @@ export function TtsPage() {
           <label><span>API Base URL</span><input aria-label="API Base URL" placeholder="https://example.com/v1" value={draft.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} /></label>
           <label><span>模型</span><input aria-label="TTS 模型" value={draft.model} onChange={(event) => update("model", event.target.value)} /></label>
           <label><span>音色</span><input aria-label="音色" value={draft.voice} onChange={(event) => update("voice", event.target.value)} /></label>
-          <label><span>音频格式</span><select aria-label="音频格式" value={draft.responseFormat} onChange={(event) => update("responseFormat", event.target.value as TtsProfileInput["responseFormat"])}><option value="mp3">MP3</option><option value="opus">Opus</option><option value="wav">WAV</option><option value="pcm">PCM</option></select></label>
+          <label><span>音频格式</span><SearchSelect
+            ariaLabel="音频格式"
+            value={draft.responseFormat}
+            onChange={(next) => update("responseFormat", next as TtsProfileInput["responseFormat"])}
+            options={[
+              { value: "mp3", label: "MP3" },
+              { value: "opus", label: "Opus" },
+              { value: "wav", label: "WAV" },
+              { value: "pcm", label: "PCM" },
+            ]}
+          /></label>
           <label><span>API Key<small>{selected?.hasApiKey ? "留空则保留已配置密钥" : "仅保存到服务端"}</small></span><SecretInput aria-label="TTS API Key" autoComplete="new-password" value={draft.apiKey} visible={apiKeyVisible} onVisibilityChange={() => void toggleApiKeyVisibility()} onChange={(event) => update("apiKey", event.target.value)} /></label>
         </div>
         <p className="configuration-help">本应用当前仅对 PCM 启用边接收边播放。需要低延时时请选择 PCM，并确认上游接口支持 24 kHz、16 位小端单声道 PCM 的分块流式响应。</p>
         <details open={parametersOpen} onToggle={(event) => setParametersOpen(event.currentTarget.open)}><summary>高级请求参数 <small>{parameterSummary}</small></summary><label className="tts-parameters"><span>自定义请求参数（JSON）<small>模型级参数会覆盖上方默认字段</small></span><textarea aria-label="TTS 自定义请求参数" rows={7} spellCheck={false} value={customParametersText} onChange={(event) => setCustomParametersText(event.target.value)} /></label>
           <p className="configuration-help">仅填写请求体参数，例如 <code>instructions</code> 或 <code>response_format</code>。不能覆盖 <code>input</code>，也不要填写 API Key、账号或身份信息。</p></details>
       </fieldset>
-      {selected ? <section className="tts-danger-zone"><div><h3>删除配置</h3><p className="configuration-help">删除后无法恢复；被 Agent 使用的配置不能删除。</p></div><button type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => { setMessage(""); setDeleteOpen(true); }}><Trash2 size={15} />删除配置</button></section> : null}
+      {selected ? <section className="tts-danger-zone"><div><h3>删除配置</h3><p className="configuration-help">删除后无法恢复；被 Agent 使用的配置不能删除。</p></div><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => { setMessage(""); setDeleteOpen(true); }}><Trash2 size={15} />删除配置</Button></section> : null}
       {message && !deleteOpen ? <p className="configuration-help" role="status">{message}</p> : null}
     </TtsDialog> : null}
     {guard.dialog}
     {deleteOpen && selected ? <TtsDialog variant="confirmation" title="删除语音配置？" description={`将删除“${selected.name}”，此操作无法恢复。${dirty ? "当前未保存的修改也会丢弃。" : ""}如果配置正被 Agent 使用，将阻止删除。`}
-      busy={saving} onClose={() => setDeleteOpen(false)} footer={<><button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => setDeleteOpen(false)}>取消</button><button type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => void remove()}>{task === "delete" ? "删除中…" : "确认删除"}</button></>}>
+      busy={saving} onClose={() => setDeleteOpen(false)} footer={<><Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => setDeleteOpen(false)}>取消</Button><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => void remove()}>{task === "delete" ? "删除中…" : "确认删除"}</Button></>}>
       {message ? <p className="configuration-inline-error" role="alert">{message}</p> : null}
     </TtsDialog> : null}
   </>;

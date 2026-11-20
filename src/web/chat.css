@@ -3033,6 +3033,8 @@ img.message-avatar {
     transition: none;
   }
 
+  .chat-sidebar:not(.is-open, .is-swiping) { visibility: hidden; }
+
   .chat-workspace {
     touch-action: pan-y;
   }

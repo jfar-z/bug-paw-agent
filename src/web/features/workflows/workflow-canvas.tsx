@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { workflowLoopInputBindings } from "./workflow-field-guards";
 import { workflowHasPath, withWorkflowNode } from "./workflow-graph";
 export { workflowHasPath, withWorkflowNode } from "./workflow-graph";
@@ -513,7 +514,7 @@ function WorkflowCanvasScope({
         aria-label="工作流画布操作区"
       >
         <div className="wf-canvas-toolbar">
-          <button
+          <Button
             className="wf-button"
             aria-expanded={!!palette}
             onClick={() =>
@@ -522,8 +523,8 @@ function WorkflowCanvasScope({
           >
             <Plus size={16} />
             添加节点
-          </button>
-          <button
+          </Button>
+          <Button
             className="wf-button"
             disabled={!selectedIds.length}
             onClick={copySelection}
@@ -531,8 +532,8 @@ function WorkflowCanvasScope({
           >
             <Copy size={16} />
             复制所选
-          </button>
-          <button
+          </Button>
+          <Button
             className="wf-button"
             disabled={!clipboard}
             onClick={pasteSelection}
@@ -540,18 +541,18 @@ function WorkflowCanvasScope({
           >
             <ClipboardPaste size={16} />
             粘贴
-          </button>
+          </Button>
           <WorkflowAlignmentControls settings={settings} onChange={onSettingsChange}
             canAlign={alignmentSelection.length >= 2 && alignmentSelection.every((n) => !!n.measured?.width && !!n.measured?.height)}
             onAlign={alignSelection} />
           <span>Shift 拖动框选 · Ctrl/Cmd 点击多选 · Alt 自由拖动 · Delete 删除</span>
           {selectedEdges.length > 0 && (
-            <button
+            <Button
               className="wf-button"
               onClick={() => void remove([], selectedEdges)}
             >
               删除连线
-            </button>
+            </Button>
           )}
         </div>
         {palette && (
@@ -877,7 +878,7 @@ export function WorkflowCanvas(props: {
       {path.length > 0 && (
         <nav className="wf-scope-path" aria-label="循环体路径">
           {names.map((name, index) => (
-            <button
+            <Button
               key={index}
               type="button"
               className="wf-button"
@@ -886,7 +887,7 @@ export function WorkflowCanvas(props: {
             >
               {index > 0 ? "› " : ""}
               {name}
-            </button>
+            </Button>
           ))}
         </nav>
       )}

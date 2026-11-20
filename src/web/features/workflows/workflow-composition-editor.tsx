@@ -1,3 +1,6 @@
+import { Button } from "../../ui/controls";
+import { Checkbox } from "../../ui/choice";
+import { SearchSelect } from "../../ui/search-select";
 import { useEffect, useRef, useState } from "react";
 import type {
   WorkflowBinding,
@@ -85,11 +88,11 @@ export function WorkflowCallEditor({
       <h3>调用工作流</h3>
       <label className="wf-field">
         目标工作流
-        <select
-          aria-label="目标工作流"
+        <SearchSelect
+          ariaLabel="目标工作流"
           value={node.config.workflowId ?? ""}
-          onChange={(event) => {
-            if (event.target.value) void select(event.target.value);
+          onChange={(next) => {
+            if (next) void select(next);
             else {
               sequence.current++;
               onChange({
@@ -100,35 +103,27 @@ export function WorkflowCallEditor({
               });
             }
           }}
-        >
-          <option value="">选择 DAG 工作流</option>
-          {(catalog.workflows ?? []).map((item) => {
+          options={[
+            { value: "", label: "选择 DAG 工作流" },
+            ...(catalog.workflows ?? []).map((item) => {
             const cycle =
               item.id === workflowId ||
               (!!workflowId && item.dependencies.includes(workflowId));
-            return (
-              <option
-                key={item.id}
-                value={item.id}
-                disabled={cycle || !!item.unavailable}
-              >
-                {item.name}
-                {cycle
+            return { value: item.id, label: `${item.name}${cycle
                   ? " · 会形成循环依赖"
                   : item.unavailable
                     ? ` · 不可用：${item.unavailable}`
-                    : ""}
-              </option>
-            );
-          })}
-        </select>
+                    : ""}`, disabled: cycle || !!item.unavailable };
+          }),
+          ]}
+        />
       </label>
       <p className="wf-hint">
         按目标工作流的入参和出参调用；本次运行会固定整棵调用树的定义。
       </p>
       {target && (
         <>
-          <button
+          <Button
             type="button"
             className="wf-button"
             onClick={() =>
@@ -146,7 +141,7 @@ export function WorkflowCallEditor({
             }
           >
             同步最新参数 · v{target.revision}
-          </button>
+          </Button>
           <h3>工作流输入</h3>
           {target.nodes
             .find((n) => n.kind === "input")!
@@ -228,7 +223,7 @@ export function WorkflowLoopEditor({
             无效的循环入参映射或变量：{[...new Set(stale)].join("、")}
             。参数已删除、改名或属于系统参数，请清理旧配置。
           </p>
-          <button
+          <Button
             type="button"
             className="wf-button"
             onClick={() =>
@@ -243,17 +238,17 @@ export function WorkflowLoopEditor({
             }
           >
             清理无效映射
-          </button>
+          </Button>
         </div>
       )}
       <h3>循环方式</h3>
       <label className="wf-field">
         循环模式
-        <select
-          aria-label="循环模式"
+        <SearchSelect
+          ariaLabel="循环模式"
           value={loop.mode}
-          onChange={(event) => {
-            const mode = event.target.value as WorkflowLoop["mode"];
+          onChange={(next) => {
+            const mode = next as WorkflowLoop["mode"];
             const body = structuredClone(loop.body);
             if (
               mode === "array" &&
@@ -270,11 +265,12 @@ export function WorkflowLoopEditor({
             }
             patch({ mode, body });
           }}
-        >
-          <option value="count">按次数循环</option>
-          <option value="array">按数组迭代</option>
-          <option value="while">while 条件循环</option>
-        </select>
+          options={[
+            { value: "count", label: "按次数循环" },
+            { value: "array", label: "按数组迭代" },
+            { value: "while", label: "while 条件循环" },
+          ]}
+        />
       </label>
       <label className="wf-field">
         最大迭代次数
@@ -315,20 +311,16 @@ export function WorkflowLoopEditor({
           )}
           <label className="wf-field">
             运算符
-            <select
-              aria-label="while 运算符"
+            <SearchSelect
+              ariaLabel="while 运算符"
               value={loop.condition.operator}
-              onChange={(event) =>
-                patch({
+              onChange={(next) => patch({
                   condition: {
                     ...loop.condition,
-                    operator: event.target
-                      .value as WorkflowLoop["condition"]["operator"],
+                    operator: next as WorkflowLoop["condition"]["operator"],
                   },
-                })
-              }
-            >
-              {Object.entries({
+                })}
+              options={Object.entries({
                 eq: "等于",
                 ne: "不等于",
                 gt: "大于",
@@ -338,12 +330,8 @@ export function WorkflowLoopEditor({
                 contains: "包含",
                 empty: "为空",
                 not_empty: "非空",
-              }).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              }).map(([value, label]) => ({ value: value, label: label }))}
+            />
           </label>
           {!["empty", "not_empty"].includes(loop.condition.operator) &&
             binding(
@@ -356,9 +344,9 @@ export function WorkflowLoopEditor({
         </>
       )}
       <h3>循环体</h3>
-      <button type="button" className="wf-button" onClick={onEditLoop}>
+      <Button type="button" className="wf-button" onClick={onEditLoop}>
         编辑循环体 · {loop.body.nodes.length} 个节点
-      </button>
+      </Button>
       <p className="wf-hint">
         在内部输入节点声明参数。index 从 0 开始；数组模式提供
         item。内部输出节点声明每轮产出。
@@ -368,8 +356,8 @@ export function WorkflowLoopEditor({
         .map((field) => (
           <section className="wf-field-item" key={field.name}>
             <label className="wf-check">
-              <input
-                type="checkbox"
+              <Checkbox
+
                 checked={!!loop.state[field.name]}
                 onChange={(event) => {
                   const state = { ...loop.state },
@@ -416,29 +404,23 @@ export function WorkflowLoopEditor({
                 )}
                 <label className="wf-field">
                   每轮更新来源
-                  <select
-                    aria-label={`${field.name} 更新来源`}
+                  <SearchSelect
+                    ariaLabel={`${field.name} 更新来源`}
                     value={loop.state[field.name].output}
-                    onChange={(event) =>
-                      patch({
+                    onChange={(next) => patch({
                         state: {
                           ...loop.state,
                           [field.name]: {
                             ...loop.state[field.name],
-                            output: event.target.value,
+                            output: next,
                           },
                         },
-                      })
-                    }
-                  >
-                    <option value="">选择内部出参</option>
-                    {output.outputs.map((f) => (
-                      <option key={f.name} value={f.name}>
-                        {f.name} · {f.type}
-                        {f.multiple ? "[]" : ""}
-                      </option>
-                    ))}
-                  </select>
+                      })}
+                    options={[
+                      { value: "", label: "选择内部出参" },
+                      ...output.outputs.map((f) => ({ value: f.name, label: `${f.name} · ${f.type}${f.multiple ? "[]" : ""}` })),
+                    ]}
+                  />
                 </label>
               </>
             ) : (
@@ -466,33 +448,32 @@ export function WorkflowLoopEditor({
           <section className="wf-field-item" key={field.name}>
             <label className="wf-field">
               {field.name} 汇总方式
-              <select
-                aria-label={`${field.name} 汇总方式`}
+              <SearchSelect
+                ariaLabel={`${field.name} 汇总方式`}
                 value={mapping?.mode ?? "none"}
-                onChange={(event) => {
+                onChange={(next) => {
                   const outputs = { ...loop.outputs };
-                  if (event.target.value === "none") delete outputs[field.name];
+                  if (next === "none") delete outputs[field.name];
                   else
                     outputs[field.name] = {
                       field: field.name,
-                      mode: event.target.value as
+                      mode: next as
                         "collect" | "flatten" | "last",
                     };
                   patch({ outputs });
                 }}
-              >
-                <option value="none">不接出</option>
-                <option value={field.multiple ? "flatten" : "collect"}>
-                  {field.multiple ? "合并每轮数组" : "收集每轮单值"}
-                </option>
-                <option value="last">取最后一轮</option>
-              </select>
+                options={[
+                  { value: "none", label: "不接出" },
+                  { value: field.multiple ? "flatten" : "collect", label: field.multiple ? "合并每轮数组" : "收集每轮单值" },
+                  { value: "last", label: "取最后一轮" },
+                ]}
+              />
             </label>
             {mapping?.mode === "last" && publicField && (
               <>
                 <label className="wf-check">
-                  <input
-                    type="checkbox"
+                  <Checkbox
+
                     checked={publicField.defaultValue !== undefined}
                     onChange={(event) =>
                       onChange({

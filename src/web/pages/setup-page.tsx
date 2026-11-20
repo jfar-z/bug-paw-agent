@@ -1,7 +1,9 @@
+import { SearchSelect } from "../ui/search-select";
 import { ArrowRight, Check, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import type { SetupRequest } from "../api";
 import type { ThemePreference } from "../theme";
+import { Button, TextField } from "../ui/controls";
 import { ProductMark } from "../components/product-mark";
 import { ThemeSwitcher } from "../components/theme-switcher";
 import { SecretInput } from "../ui/secret-input";
@@ -145,10 +147,10 @@ export function SetupPage({ theme, onThemeChange, onComplete }: SetupPageProps) 
               <SecretInput name="passwordConfirm" aria-label="确认密码" visible={confirmPasswordVisible} onVisibilityChange={setConfirmPasswordVisible} autoComplete="new-password" required />
             </label>
 
-            <button className="login-submit" type="submit">
+            <Button className="login-submit" variant="primary" type="submit">
               继续
               <ArrowRight size={18} aria-hidden="true" />
-            </button>
+            </Button>
           </form>
 
           </> : <>
@@ -161,9 +163,12 @@ export function SetupPage({ theme, onThemeChange, onComplete }: SetupPageProps) 
             <form className="login-form" onSubmit={completeSetup}>
               <label className="login-field">
                 <span>模型服务</span>
-                <select name="provider" defaultValue="openai-compatible">
-                  <option value="openai-compatible">OpenAI Compatible</option>
-                </select>
+                <SearchSelect
+                  ariaLabel="模型服务"
+                  name="provider"
+                  value="openai-compatible"
+                  options={[{ value: "openai-compatible", label: "OpenAI Compatible" }]}
+                />
               </label>
               <label className="login-field">
                 <span>API Key</span>
@@ -171,16 +176,16 @@ export function SetupPage({ theme, onThemeChange, onComplete }: SetupPageProps) 
               </label>
               <label className="login-field">
                 <span>服务地址</span>
-                <input name="baseUrl" type="url" defaultValue="https://api.openai.com/v1" required />
+                <TextField name="baseUrl" type="url" defaultValue="https://api.openai.com/v1" required />
               </label>
               <label className="login-field">
                 <span>使用的模型</span>
-                <input name="defaultModel" type="text" placeholder="例如 gpt-5" required />
+                <TextField name="defaultModel" type="text" placeholder="例如 gpt-5" required />
               </label>
-              <button className="login-submit" type="submit" disabled={submitting}>
-                {submitting ? "正在初始化…" : "完成初始化"}
+              <Button className="login-submit" variant="primary" type="submit" loading={submitting}>
+                完成初始化
                 <Check size={18} aria-hidden="true" />
-              </button>
+              </Button>
             </form>
           </>}
 

@@ -1,3 +1,5 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
@@ -152,10 +154,10 @@ function AigcOverview() {
           />
         </div>
         <div className="aigc-readiness-actions">
-          {primaryComfyChannel ? <button type="button" className="configuration-secondary-action" disabled={testing} onClick={() => void testComfyUi()}><TestTube2 size={15} />{testing ? "检测中…" : "测试 ComfyUI 连接"}</button> : <button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-channels" })}>配置 ComfyUI 渠道</button>}
-          {!workflows?.workflows.length ? <button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-workflows" })}>导入工作流</button> : null}
-          {!runnableComfyInterfaces.length ? <button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建运行接口</button> : null}
-          {runnableComfyInterfaces[0] ? <button type="button" className="configuration-primary-action" onClick={() => navigateTo({ page: "aigc-run", interfaceId: runnableComfyInterfaces[0].id })}><Play size={15} />运行 ComfyUI</button> : null}
+          {primaryComfyChannel ? <Button type="button" className="configuration-secondary-action" disabled={testing} onClick={() => void testComfyUi()}><TestTube2 size={15} />{testing ? "检测中…" : "测试 ComfyUI 连接"}</Button> : <Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-channels" })}>配置 ComfyUI 渠道</Button>}
+          {!workflows?.workflows.length ? <Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-workflows" })}>导入工作流</Button> : null}
+          {!runnableComfyInterfaces.length ? <Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建运行接口</Button> : null}
+          {runnableComfyInterfaces[0] ? <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => navigateTo({ page: "aigc-run", interfaceId: runnableComfyInterfaces[0].id })}><Play size={15} />运行 ComfyUI</Button> : null}
         </div>
       </section>
     </div>
@@ -564,10 +566,16 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
         />
         <label className="aigc-run-control">
           <span>接口</span>
-          <select aria-label="AIGC 接口" value={selectedId} disabled={taskActive} onChange={(event) => setSelectedId(event.target.value)}>
-            <option value="">请选择已启用接口</option>
-            {providerInterfaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
+          <SearchSelect
+            ariaLabel="AIGC 接口"
+            value={selectedId}
+            disabled={taskActive}
+            onChange={(next) => setSelectedId(next)}
+            options={[
+              { value: "", label: "请选择已启用接口" },
+              ...providerInterfaces.map((item) => ({ value: item.id, label: item.name })),
+            ]}
+          />
         </label>
       </div>
 
@@ -576,7 +584,7 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
           <AigcRunReadinessItem ok={selectedChannelReady} label="执行渠道" detail={channels.find((channel) => channel.id === selected.channelId)?.name ?? "引用的渠道不存在"} />
           <AigcRunReadinessItem ok={Boolean(workflow)} label="工作流" detail={workflow?.name ?? "引用的工作流不存在或尚未加载"} />
           <AigcRunReadinessItem ok={connectionResult?.ok === true} pending={!connectionResult} label="连接检查" detail={connectionResult?.message ?? "尚未检测"} />
-          <button type="button" className="configuration-secondary-action" disabled={testingConnection} onClick={() => void testSelectedConnection()}><TestTube2 size={14} />{testingConnection ? "检测中…" : "测试连接"}</button>
+          <Button type="button" className="configuration-secondary-action" disabled={testingConnection} onClick={() => void testSelectedConnection()}><TestTube2 size={14} />{testingConnection ? "检测中…" : "测试连接"}</Button>
         </section>
       ) : null}
 
@@ -594,16 +602,16 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
                 </div>
               </section>
             )) : (
-              <div className="aigc-run-empty"><Boxes size={22} aria-hidden="true" /><p>暂无已启用的 {interfaceProtocolName(provider)} 接口。</p><button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建接口</button></div>
+              <div className="aigc-run-empty"><Boxes size={22} aria-hidden="true" /><p>暂无已启用的 {interfaceProtocolName(provider)} 接口。</p><Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建接口</Button></div>
             )}
             {selected && !fields.length ? <p className="configuration-help">该接口无需额外入参，可直接开始生成。</p> : null}
             {selected && !selectedChannelReady ? <p className="configuration-help aigc-warning-copy">引用的渠道不存在或未启用，请先修复接口配置。</p> : null}
           </div>
           <div className="aigc-run-action-bar">
             <span className="aigc-run-action-status" role="status" aria-live="polite" title={actionStatus.full}>{actionStatus.short}</span>
-            <button type="button" className="configuration-primary-action" disabled={!online || !selectedReady || submitting || uploading !== undefined || taskActive} onClick={() => void submit()}>
+            <Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !selectedReady || submitting || uploading !== undefined || taskActive} onClick={() => void submit()}>
               <Play size={15} />{submitting ? "正在创建…" : taskActive ? "生成中" : "开始生成"}
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -814,7 +822,7 @@ function AigcRunField(props: {
   if (field.type === "bool") {
     return (
       <label className="configuration-check-line aigc-run-field aigc-run-field--bool">
-        <input type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} />
+        <Checkbox checked={value === true} onChange={(event) => onChange(event.target.checked)} />
         <span>{field.label}{field.required ? " *" : ""}</span>
       </label>
     );
@@ -850,12 +858,12 @@ function AigcRunField(props: {
         {entries.map((entry, index) => {
           const name = isMediaReference(entry) ? mediaNames[entry] ?? "媒体库文件"
             : typeof entry === "object" && "name" in entry ? entry.name : String(entry);
-          return <li key={index}><span>{name}</span><button type="button" className="configuration-secondary-action"
+          return <li key={index}><span>{name}</span><Button type="button" className="configuration-secondary-action"
             disabled={disabled} aria-label={`移除 ${name}`}
             onClick={() => {
               const remaining = entries.filter((_, current) => current !== index);
               onChange(remaining.length > 1 ? remaining : remaining[0] ?? "");
-            }}>移除</button></li>;
+            }}>移除</Button></li>;
         })}
       </ul>}
     </>;
@@ -1322,13 +1330,18 @@ export function OpenAiParameterEditor({ config, onChange }: {
     <div className="aigc-fieldset">
       <div className="aigc-fieldset__heading"><strong>请求参数</strong><small>参数名会原样发送给上游；默认值可在创作时覆盖，空值不发送。</small></div>
       <div className="configuration-button-row">
-        <button type="button" className="configuration-secondary-action" onClick={add}><Plus size={15} />新增参数</button>
+        <Button type="button" className="configuration-secondary-action" onClick={add}><Plus size={15} />新增参数</Button>
       </div>
       {parameters.map((parameter, index) => (
         <div className="aigc-fieldset" key={index}>
           <div className="configuration-field-row">
             <label><span>参数名</span><input aria-label={`OpenAI 参数 ${index + 1} 名称`} value={parameter.name} onChange={(event) => update(index, { ...parameter, name: event.target.value })} /></label>
-            <label><span>数据类型</span><select aria-label={`OpenAI 参数 ${parameter.name} 类型`} value={parameter.type} onChange={(event) => update(index, { name: parameter.name, type: event.target.value as AigcOpenAiParameterType, description: parameter.description })}>{openAiParameterTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label><span>数据类型</span><SearchSelect
+              ariaLabel={`OpenAI 参数 ${parameter.name} 类型`}
+              value={parameter.type}
+              onChange={(next) => update(index, { name: parameter.name, type: next as AigcOpenAiParameterType, description: parameter.description })}
+              options={openAiParameterTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
+            /></label>
           </div>
           <div className="configuration-field-row">
             <label><span>枚举值<small>每行一个；留空表示允许任意同类型值</small></span><textarea aria-label={`OpenAI 参数 ${parameter.name} 枚举值`} rows={3} value={formatOpenAiEnumValues(parameter.enumValues)} onChange={(event) => update(index, { ...parameter, enumValues: parseOpenAiEnumValues(event.target.value, parameter.type), defaultValue: undefined })} /></label>
@@ -1336,7 +1349,7 @@ export function OpenAiParameterEditor({ config, onChange }: {
           </div>
           <label><span>参数说明</span><textarea aria-label={`OpenAI 参数 ${parameter.name} 说明`} rows={2} value={parameter.description} onChange={(event) => update(index, { ...parameter, description: event.target.value })} /></label>
           <div className="configuration-button-row">
-            <button type="button" className="configuration-secondary-action configuration-secondary-action--danger" aria-label={`删除 OpenAI 参数 ${parameter.name}`} onClick={() => replace(parameters.filter((_, parameterIndex) => parameterIndex !== index))}><Trash2 size={15} />删除参数</button>
+            <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" aria-label={`删除 OpenAI 参数 ${parameter.name}`} onClick={() => replace(parameters.filter((_, parameterIndex) => parameterIndex !== index))}><Trash2 size={15} />删除参数</Button>
           </div>
         </div>
       ))}
@@ -1352,10 +1365,27 @@ function OpenAiParameterDefaultEditor({ parameter, onChange }: {
 }) {
   if (parameter.enumValues?.length) {
     const selectedIndex = parameter.enumValues.findIndex((value) => Object.is(value, parameter.defaultValue));
-    return <label><span>默认值</span><select aria-label={`OpenAI 参数 ${parameter.name} 默认值`} value={selectedIndex < 0 ? "" : String(selectedIndex)} onChange={(event) => onChange(event.target.value === "" ? undefined : parameter.enumValues?.[Number(event.target.value)])}><option value="">不设置</option>{parameter.enumValues.map((value, index) => <option key={`${typeof value}:${String(value)}`} value={index}>{String(value)}</option>)}</select></label>;
+    return <label><span>默认值</span><SearchSelect
+      ariaLabel={`OpenAI 参数 ${parameter.name} 默认值`}
+      value={selectedIndex < 0 ? "" : String(selectedIndex)}
+      onChange={(next) => onChange(next === "" ? undefined : parameter.enumValues?.[Number(next)])}
+      options={[
+        { value: "", label: "不设置" },
+        ...parameter.enumValues.map((value, index) => ({ value: String(index), label: String(value) })),
+      ]}
+    /></label>;
   }
   if (parameter.type === "boolean") {
-    return <label><span>默认值</span><select aria-label={`OpenAI 参数 ${parameter.name} 默认值`} value={parameter.defaultValue === undefined ? "" : String(parameter.defaultValue)} onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value === "true")}><option value="">不设置</option><option value="true">true</option><option value="false">false</option></select></label>;
+    return <label><span>默认值</span><SearchSelect
+      ariaLabel={`OpenAI 参数 ${parameter.name} 默认值`}
+      value={parameter.defaultValue === undefined ? "" : String(parameter.defaultValue)}
+      onChange={(next) => onChange(next === "" ? undefined : next === "true")}
+      options={[
+        { value: "", label: "不设置" },
+        { value: "true", label: "true" },
+        { value: "false", label: "false" },
+      ]}
+    /></label>;
   }
   const numberType = parameter.type === "integer" || parameter.type === "number";
   return <label><span>默认值</span><input type={numberType ? "number" : "text"} step={parameter.type === "number" ? "any" : undefined} aria-label={`OpenAI 参数 ${parameter.name} 默认值`} value={parameter.defaultValue === undefined ? "" : String(parameter.defaultValue)} onChange={(event) => onChange(event.target.value === "" ? undefined : numberType ? Number(event.target.value) : event.target.value)} /></label>;
@@ -1449,9 +1479,9 @@ function AigcInterfaceDetail({ interfaceId }: { interfaceId: string }) {
         <label><span>接口说明（Agent）</span><textarea aria-label="AIGC Agent 接口说明" rows={4} value={draft.toolDescription ?? ""} onChange={(event) => setDraft({ ...draft, toolDescription: event.target.value })} /><small>Agent 查询接口明细时使用，建议写清适用场景、约束和出参含义。</small></label>
         <p className="configuration-help">协议、渠道与能力已在接口列表中创建；如需变更协议，请删除后重新创建。</p>
         {draft.protocol === "comfyui" ? <p className="configuration-help">工作流：{workflows.find((item) => item.id === (draft.config as { workflowId?: string }).workflowId)?.name ?? "未找到"}</p> : null}
-        <label className="configuration-check-line"><input type="checkbox" checked={draft.toolPublishEnabled} onChange={(event) => setDraft({ ...draft, toolPublishEnabled: event.target.checked })} /><span>发布为 Agent 工具</span></label>
-        <label className="configuration-check-line"><input type="checkbox" checked={draft.mcpPublishEnabled} onChange={(event) => setDraft({ ...draft, mcpPublishEnabled: event.target.checked })} /><span>开放给外部 MCP</span></label>
-        <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" onClick={() => void save()}><Save size={16} />保存接口</button></div>
+        <label className="configuration-check-line"><Checkbox checked={draft.toolPublishEnabled} onChange={(event) => setDraft({ ...draft, toolPublishEnabled: event.target.checked })} /><span>发布为 Agent 工具</span></label>
+        <label className="configuration-check-line"><Checkbox checked={draft.mcpPublishEnabled} onChange={(event) => setDraft({ ...draft, mcpPublishEnabled: event.target.checked })} /><span>开放给外部 MCP</span></label>
+        <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" onClick={() => void save()}><Save size={16} />保存接口</Button></div>
       </section>
       {navigationGuard.pendingRoute ? <ConfirmDialog title="离开并放弃修改？" description="接口详情仍有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
     </div>
@@ -1569,7 +1599,16 @@ function AigcTasksPage() {
           {([{ value: "all", label: "全部" }, { value: "active", label: "进行中" }, { value: "succeeded", label: "已完成" }, { value: "failed", label: "需处理" }] as const).map((item) => <button key={item.value} type="button" className={filter === item.value ? "is-active" : undefined} onClick={() => setFilter(item.value)}>{item.label}</button>)}
         </div>
         <div className="aigc-task-actions" style={{ alignItems: "flex-end" }}>
-          <label style={{ display: "grid", gap: 4, color: "var(--text-tertiary)", fontSize: 10 }}>创建时间<select style={{ minHeight: 40, padding: "0 10px", border: "1px solid var(--border)", borderRadius: 7, color: "var(--text-secondary)", background: "var(--surface)", fontSize: 11 }} aria-label="任务创建时间排序" value={sort} onChange={(event) => setSort(event.target.value as "asc" | "desc")}><option value="desc">最新在前</option><option value="asc">最早在前</option></select></label>
+          <label style={{ display: "grid", gap: 4, color: "var(--text-tertiary)", fontSize: 10 }}>创建时间<SearchSelect
+            style={{ minHeight: 40, padding: "0 10px", border: "1px solid var(--border)", borderRadius: 7, color: "var(--text-secondary)", background: "var(--surface)", fontSize: 11 }}
+            ariaLabel="任务创建时间排序"
+            value={sort}
+            onChange={(next) => setSort(next as "asc" | "desc")}
+            options={[
+              { value: "desc", label: "最新在前" },
+              { value: "asc", label: "最早在前" },
+            ]}
+          /></label>
           <button type="button" disabled={!visibleTasks.length} onClick={() => setSelectedIds(visibleTasks.map((task) => task.id))}>全选</button>
           <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>取消全选</button>
           <button type="button" className="danger-button" style={{ borderColor: "color-mix(in srgb, var(--danger) 55%, var(--border))", color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--surface))" }} disabled={!selectedIds.length} onClick={() => setBulkDeleteOpen(true)}>删除选中{selectedIds.length ? `（${selectedIds.length}）` : ""}</button>
@@ -1578,7 +1617,7 @@ function AigcTasksPage() {
       <div className="aigc-task-list">
         {visibleTasks.map((task) => (
           <section key={task.id} className="aigc-task-row">
-            <div><input type="checkbox" aria-label={`选择任务 ${task.id}`} checked={selectedSet.has(task.id)} onChange={(event) => toggleSelection(task.id, event.target.checked)} /><strong>{task.interfaceName}</strong><span className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</span><small>{formatAigcTime(task.createdAt)}</small></div>
+            <div><Checkbox aria-label={`选择任务 ${task.id}`} checked={selectedSet.has(task.id)} onChange={(event) => toggleSelection(task.id, event.target.checked)} /><strong>{task.interfaceName}</strong><span className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</span><small>{formatAigcTime(task.createdAt)}</small></div>
             <p>{task.queueReason ?? (task.error ? task.error.message : task.status === "succeeded" ? `${task.assetCount} 个产物可预览` : task.status === "running" ? "正在生成，请保持页面打开或稍后回来查看" : task.status === "prepared" ? "参数已校验，等待 Agent 显式运行" : "等待执行")}</p>
             <div className="aigc-task-actions">
               {(task.status === "prepared" || task.status === "queued" || task.status === "running") ? <button type="button" onClick={() => void cancel(task.id)}>取消</button> : null}
@@ -1665,7 +1704,7 @@ function AigcDiagnosticText({ title, text }: { title: string; text: string }) {
   }
   return <details className="aigc-diagnostics__text" open>
     <summary>{title}</summary>
-    <button type="button" className="configuration-secondary-action" onClick={() => void copy()}><Copy size={15} aria-hidden="true" />复制{title}</button>
+    <Button type="button" className="configuration-secondary-action" onClick={() => void copy()}><Copy size={15} aria-hidden="true" />复制{title}</Button>
     <span role="status">{copied ? "已复制" : ""}</span>
     <pre tabIndex={0} aria-label={title}>{text}</pre>
   </details>;
@@ -1753,7 +1792,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
           })}
         </div>
         {!task.assets.length ? <p className="configuration-help">{task.status === "prepared" ? "参数已校验，等待 Agent 显式运行。" : task.status === "succeeded" ? "任务已完成，但没有提取到产物，请检查接口或工作流输出映射。" : "生成完成后，图片、视频和音频会直接显示在这里。"}</p> : null}
-        {(task.status === "failed" || task.status === "cancelled") && !task.preparation ? <button type="button" className="configuration-secondary-action" onClick={() => void retry()}><RefreshCw size={15} />重试</button> : null}
+        {(task.status === "failed" || task.status === "cancelled") && !task.preparation ? <Button type="button" className="configuration-secondary-action" onClick={() => void retry()}><RefreshCw size={15} />重试</Button> : null}
       </section>
       <AigcTaskDiagnostics task={task} />
       {previewAsset ? <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${previewAsset.name} 大图预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={() => setPreviewAsset(undefined)}><X size={20} /></button><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(task.id, previewAsset.id)} alt={previewAsset.name} /></div></div> : null}
@@ -1832,7 +1871,7 @@ function AigcWorkflowsPage() {
         <label><span>JSON 文件</span><input type="file" accept=".json,application/json" aria-label="ComfyUI 工作流文件" onChange={(event) => void onFile(event.target.files?.[0])} /></label>
         <label><span>工作流名称</span><input aria-label="工作流名称" value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label><span>原始 JSON</span><textarea aria-label="ComfyUI 工作流 JSON" rows={10} spellCheck={false} value={rawText} onChange={(event) => setRawText(event.target.value)} /></label>
-        <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" disabled={!online} onClick={() => void save()}><Upload size={15} />导入并解析</button></div>
+        <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online} onClick={() => void save()}><Upload size={15} />导入并解析</Button></div>
       </section>
       <div className="aigc-task-list">
         {(document?.workflows ?? []).map((workflow) => (
@@ -1989,9 +2028,9 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
           disabled={!channels.length}
           onChange={setChannelId}
         /></div>
-        <button type="button" className="configuration-secondary-action" disabled={!detail || !channelId || isDirty || syncingMetadata || checkingReplacement || replacing || Boolean(replacement)} title={isDirty ? "请先保存映射后再同步" : undefined} onClick={() => void syncNodeMetadata()}><RefreshCw size={15} />{syncingMetadata ? "同步中…" : "同步节点定义"}</button>
+        <Button type="button" className="configuration-secondary-action" disabled={!detail || !channelId || isDirty || syncingMetadata || checkingReplacement || replacing || Boolean(replacement)} title={isDirty ? "请先保存映射后再同步" : undefined} onClick={() => void syncNodeMetadata()}><RefreshCw size={15} />{syncingMetadata ? "同步中…" : "同步节点定义"}</Button>
         <input ref={replaceFileInputRef} hidden type="file" accept=".json,application/json" aria-label="替换原始工作流文件" onChange={(event) => void prepareReplacement(event.target.files?.[0])} />
-        <button type="button" className="configuration-secondary-action" disabled={!detail || isDirty || replacing || checkingReplacement || syncingMetadata || Boolean(replacement)} title={isDirty ? "请先保存映射后再替换" : undefined} onClick={() => replaceFileInputRef.current?.click()}><Upload size={15} />{checkingReplacement ? "检查中…" : replacing ? "替换中…" : "替换原始工作流"}</button>
+        <Button type="button" className="configuration-secondary-action" disabled={!detail || isDirty || replacing || checkingReplacement || syncingMetadata || Boolean(replacement)} title={isDirty ? "请先保存映射后再替换" : undefined} onClick={() => replaceFileInputRef.current?.click()}><Upload size={15} />{checkingReplacement ? "检查中…" : replacing ? "替换中…" : "替换原始工作流"}</Button>
         <small>{detail?.nodeMetadataSyncedAt ? `最近同步 ${formatAigcTime(detail.nodeMetadataSyncedAt)}` : "尚未同步节点定义"}</small>
       </div>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
@@ -2011,7 +2050,7 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
         </Suspense>
       ) : <p className="configuration-help">正在加载工作流节点…</p>}
       <div className="configuration-save-bar">
-        <button type="button" className="configuration-primary-action" disabled={!detail || !isDirty || checkingReplacement || replacing || Boolean(replacement)} onClick={() => void save()}><Save size={15} />{isDirty ? "保存映射" : "已保存"}</button>
+        <Button variant="primary" type="button" className="configuration-primary-action" disabled={!detail || !isDirty || checkingReplacement || replacing || Boolean(replacement)} onClick={() => void save()}><Save size={15} />{isDirty ? "保存映射" : "已保存"}</Button>
       </div>
       {replacement ? <ConfirmDialog
         title={`替换为“${replacement.fileName}”？`}

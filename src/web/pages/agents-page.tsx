@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { ArrowUpRight, Folder, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
@@ -155,9 +156,9 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
           <p>每个 Agent 拥有独立工作目录、运行配置与会话归属。</p>
 
         </div>
-        <button type="button" className="configuration-primary-action" onClick={() => setCreateOpen(true)} disabled={!online}>
+        <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setCreateOpen(true)} disabled={!online}>
           <Plus size={17} aria-hidden="true" />新建 Agent
-        </button>
+        </Button>
       </header>
 
       {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
@@ -180,9 +181,9 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
               <small>{directoryMode === "automatic" ? "无需填写，系统会使用不会与其他 Agent 冲突的目录。" : "只需填写 /data/ 后的路径；目录不存在时自动创建。"}</small>
             </fieldset>
           </div>
-          <button type="submit" className="configuration-primary-action" disabled={submitting || !name.trim() || !online}>
+          <Button variant="primary" type="submit" className="configuration-primary-action" disabled={submitting || !name.trim() || !online}>
             {submitting ? "创建中…" : "创建 Agent"}
-          </button>
+          </Button>
           <button type="button" className="configuration-icon-action" aria-label="关闭新建表单" onClick={resetCreateForm}>
             <X size={17} aria-hidden="true" />
           </button>

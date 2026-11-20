@@ -1,3 +1,7 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
+import { useWorkbenchNavigation } from "../layouts/workbench-shell";
+import { SearchSelect } from "../ui/search-select";
 import { Cron } from "croner";
 import { AlertTriangle, CalendarClock, Check, ChevronsUpDown, Clock3, ListRestart, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -43,7 +47,10 @@ export function ScheduledTasksPage() {
   const [editing, setEditing] = useState<ScheduledTask | "new" | undefined>();
   const [runsTaskId, setRunsTaskId] = useState<string>();
   const [deleteCandidate, setDeleteCandidate] = useState<ScheduledTask>();
-  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const navigation = useWorkbenchNavigation();
+  const [standaloneNavigationOpen, setStandaloneNavigationOpen] = useState(false);
+  const mobileNavigationOpen = navigation ? navigation.drawer === "secondary" : standaloneNavigationOpen;
+  const closeNavigation = () => navigation ? navigation.close() : setStandaloneNavigationOpen(false);
   const [error, setError] = useState("");
   const currentAgent = agents.find((agent) => agent.profile.id === agentId);
 
@@ -65,7 +72,7 @@ export function ScheduledTasksPage() {
     void reload();
   }, [agentId, runApiTask]);
   useEffect(() => {
-    const toggle = () => setMobileNavigationOpen((current) => !current);
+    const toggle = () => setStandaloneNavigationOpen((current) => !current);
     window.addEventListener(WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT, toggle);
     return () => window.removeEventListener(WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT, toggle);
   }, []);
@@ -94,9 +101,9 @@ export function ScheduledTasksPage() {
         navigationLabel="定时任务 Agent 列表"
         onSelect={(nextAgentId) => {
           setAgentId(nextAgentId);
-          setMobileNavigationOpen(false);
+          closeNavigation();
         }}
-        onClose={() => setMobileNavigationOpen(false)}
+        onClose={closeNavigation}
       />
       <section className="workspace-resources-page__main">
         <header className="workspace-resources-page__heading scheduled-tasks-page__heading">
@@ -105,9 +112,9 @@ export function ScheduledTasksPage() {
             <h1>定时任务</h1>
             <p>{currentAgent ? `管理 ${currentAgent.profile.name} 的自动执行任务。` : "选择一个 Agent 以管理其自动执行任务。"}</p>
           </div>
-          <button type="button" className="configuration-primary-action" onClick={() => setEditing("new")} disabled={!agentId}>
+          <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setEditing("new")} disabled={!agentId}>
             <Plus size={16} aria-hidden="true" />新建任务
-          </button>
+          </Button>
         </header>
 
         {error ? <p className="configuration-inline-error">{error}</p> : null}
@@ -264,7 +271,7 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
           <h2>{task ? "编辑定时任务" : "新建定时任务"}</h2>
         </div>
         <label className="scheduled-task-switch">
-          <input type="checkbox" checked={enabled} disabled={!targetResolved} onChange={(event) => setEnabled(event.target.checked)} />
+          <Checkbox checked={enabled} disabled={!targetResolved} onChange={(event) => setEnabled(event.target.checked)} />
           <span aria-hidden="true" />
           启用任务
         </label>
@@ -295,7 +302,15 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
         {mode === "interval" ? (
           <div className="scheduled-task-interval">
             <label className="scheduled-task-field"><span>间隔数值</span><input type="number" min="1" value={interval} onChange={(event) => setInterval(Number(event.target.value))} /></label>
-            <label className="scheduled-task-field"><span>时间单位</span><select value={unit} onChange={(event) => setUnit(event.target.value as typeof unit)}><option value="minute">分钟</option><option value="hour">小时</option></select></label>
+            <label className="scheduled-task-field"><span>时间单位</span><SearchSelect
+              ariaLabel="时间单位"
+              value={unit}
+              onChange={(next) => setUnit(next as typeof unit)}
+              options={[
+                { value: "minute", label: "分钟" },
+                { value: "hour", label: "小时" },
+              ]}
+            /></label>
           </div>
         ) : null}
         {mode === "once" ? (
@@ -328,7 +343,7 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
         </div>
         {targetMode === "new_session" ? (
           <label className="scheduled-task-check">
-            <input type="checkbox" checked={archiveAfterCompletion} onChange={(event) => setArchiveAfterCompletion(event.target.checked)} />
+            <Checkbox checked={archiveAfterCompletion} onChange={(event) => setArchiveAfterCompletion(event.target.checked)} />
             <span>执行完成后自动归档</span>
           </label>
         ) : (
@@ -342,7 +357,7 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
       {error ? <p className="configuration-inline-error">{error}</p> : null}
       <footer className="scheduled-task-editor__actions">
         <button type="button" onClick={onClose}>取消</button>
-        <button className="configuration-primary-action" type="submit">保存任务</button>
+        <Button variant="primary" className="configuration-primary-action" type="submit">保存任务</Button>
       </footer>
     </form>
   );
@@ -443,7 +458,18 @@ function CronEditor({ expression, fieldsValue, previews, timezone, timezones, on
 function CronFieldEditor({ field, value, onChange }: { field: typeof fields[number]; value: string; onChange(value: string): void }) {
   const mode = value === "*" ? "每个" : value.startsWith("*/") ? "步进" : value.includes(",") ? "列表" : value.includes("-") ? "范围" : "单值";
   const applyMode = (nextMode: string) => onChange(nextMode === "每个" ? "*" : nextMode === "步进" ? "*/1" : nextMode === "范围" ? "0-1" : nextMode === "列表" ? "0,1" : "0");
-  return <label className="scheduled-task-cron-field"><span>{field.label}</span><select aria-label={`${field.label} 模式`} value={mode} onChange={(event) => applyMode(event.target.value)}><option>每个</option><option>单值</option><option>范围</option><option>步进</option><option>列表</option></select><input value={value} placeholder={field.samples.join(" / ")} onChange={(event) => onChange(event.target.value)} /><small>{field.hint}</small></label>;
+  return <label className="scheduled-task-cron-field"><span>{field.label}</span><SearchSelect
+    ariaLabel={`${field.label} 模式`}
+    value={mode}
+    onChange={(next) => applyMode(next)}
+    options={[
+      { value: "每个", label: "每个" },
+      { value: "单值", label: "单值" },
+      { value: "范围", label: "范围" },
+      { value: "步进", label: "步进" },
+      { value: "列表", label: "列表" },
+    ]}
+  /><input value={value} placeholder={field.samples.join(" / ")} onChange={(event) => onChange(event.target.value)} /><small>{field.hint}</small></label>;
 }
 
 /** 加载并显示任务的最近执行记录。 */

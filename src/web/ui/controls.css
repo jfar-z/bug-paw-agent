@@ -131,3 +131,17 @@
     animation: none;
   }
 }
+
+.bp-search {
+  position: relative;
+}
+.bp-search .bp-input {
+  padding-right: 44px;
+}
+.bp-search .bp-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.bp-search input::-webkit-search-cancel-button { display: none; }

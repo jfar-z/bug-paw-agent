@@ -1,3 +1,6 @@
+import { Button } from "../../ui/controls";
+import { Checkbox } from "../../ui/choice";
+import { SearchSelect } from "../../ui/search-select";
 import { ChevronDown, ChevronUp, ExternalLink, Trash2, X } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 
@@ -173,7 +176,12 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
           <button type="button" className="icon-button" aria-label="关闭配置搜索渠道" disabled={busy} onClick={close}><X size={18} aria-hidden="true" /></button>
         </header>
 
-        {props.mode === "create" ? <label><span>渠道类型</span><select aria-label="渠道类型" value={templateId} onChange={(event) => selectTemplate(event.target.value)}>{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label> : null}
+        {props.mode === "create" ? <label><span>渠道类型</span><SearchSelect
+          ariaLabel="渠道类型"
+          value={templateId}
+          onChange={(next) => selectTemplate(next)}
+          options={templates.map((template) => ({ value: template.id, label: template.name }))}
+        /></label> : null}
         <label><span>实例名称</span><input aria-label="实例名称" autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
         {draft.connectionMode === "custom" ? <label><span>SearXNG 地址</span><input aria-label="SearXNG 地址" placeholder="https://search.example.com" value={draft.baseUrl ?? ""} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></label> : null}
         {needsCredential ? <label>
@@ -183,20 +191,25 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
             {apiKeyPortal ? <small className="configuration-help"><a href={apiKeyPortal.href} target="_blank" rel="noreferrer" aria-label={`${apiKeyPortal.label} 获取 API Key（在新标签页打开）`}>获取 API Key<ExternalLink size={13} aria-hidden="true" /></a></small> : null}
           </span>
         </label> : null}
-        {needsCredential && configured ? <div className="configuration-button-row"><button type="button" className="configuration-secondary-action configuration-secondary-action--danger" onClick={() => { setCredential({ action: "remove" }); setDraft((current) => ({ ...current, enabled: false })); clearSecret(); }}>{credential.action === "remove" ? "已标记移除凭证" : "移除已保存凭证"}</button></div> : null}
-        <label className="configuration-capability-toggle"><span>立即参与路由<small>启用后会按列表顺序参与故障切换。</small></span><input type="checkbox" aria-label="立即参与路由" checked={draft.enabled} disabled={needsCredential && !finalCredentialAvailable} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /></label>
+        {needsCredential && configured ? <div className="configuration-button-row"><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" onClick={() => { setCredential({ action: "remove" }); setDraft((current) => ({ ...current, enabled: false })); clearSecret(); }}>{credential.action === "remove" ? "已标记移除凭证" : "移除已保存凭证"}</Button></div> : null}
+        <label className="configuration-capability-toggle"><span>立即参与路由<small>启用后会按列表顺序参与故障切换。</small></span><Checkbox aria-label="立即参与路由" checked={draft.enabled} disabled={needsCredential && !finalCredentialAvailable} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /></label>
 
-        <button type="button" className="configuration-secondary-action" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((current) => !current)}>{advancedOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}{advancedOpen ? "收起高级设置" : "展开高级设置"}</button>
+        <Button type="button" className="configuration-secondary-action" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((current) => !current)}>{advancedOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}{advancedOpen ? "收起高级设置" : "展开高级设置"}</Button>
         {advancedOpen ? <div>
           <label><span>请求超时（毫秒）</span><input aria-label="请求超时（毫秒）" type="number" min={1000} max={60000} value={draft.timeoutMs} onChange={(event) => setDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
-          <label><span>联网出口</span><select aria-label="联网出口" value={draft.egressProfileId ?? "direct"} onChange={(event) => setDraft((current) => ({ ...current, egressProfileId: event.target.value }))}>{props.document.egressProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select></label>
+          <label><span>联网出口</span><SearchSelect
+            ariaLabel="联网出口"
+            value={draft.egressProfileId ?? "direct"}
+            onChange={(next) => setDraft((current) => ({ ...current, egressProfileId: next }))}
+            options={props.document.egressProfiles.map((profile) => ({ value: profile.id, label: profile.label }))}
+          /></label>
         </div> : null}
 
         {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
         {message ? <p className="configuration-help" role="status">{message}</p> : null}
         <footer>
-          <div className="configuration-button-row">{props.mode === "edit" ? <><button type="button" className="danger-button" disabled={busy || !props.online} onClick={() => setDeleteOpen(true)}><Trash2 size={14} aria-hidden="true" />删除渠道</button><button type="button" className="configuration-secondary-action" title={dirty ? "请先保存当前修改" : undefined} disabled={busy || !props.online || dirty} onClick={() => void testConnection()}>测试连接</button></> : null}</div>
-          <div className="configuration-button-row"><button type="button" className="configuration-secondary-action" disabled={busy} onClick={close}>取消</button><button type="submit" className="configuration-primary-action" disabled={busy || !props.online || !draft.name.trim() || (draft.enabled && !finalCredentialAvailable)}>{busy ? "保存中…" : props.mode === "create" ? "添加渠道" : "保存渠道"}</button></div>
+          <div className="configuration-button-row">{props.mode === "edit" ? <><button type="button" className="danger-button" disabled={busy || !props.online} onClick={() => setDeleteOpen(true)}><Trash2 size={14} aria-hidden="true" />删除渠道</button><Button type="button" className="configuration-secondary-action" title={dirty ? "请先保存当前修改" : undefined} disabled={busy || !props.online || dirty} onClick={() => void testConnection()}>测试连接</Button></> : null}</div>
+          <div className="configuration-button-row"><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={close}>取消</Button><Button variant="primary" type="submit" className="configuration-primary-action" disabled={busy || !props.online || !draft.name.trim() || (draft.enabled && !finalCredentialAvailable)}>{busy ? "保存中…" : props.mode === "create" ? "添加渠道" : "保存渠道"}</Button></div>
         </footer>
       </form>
     </div>

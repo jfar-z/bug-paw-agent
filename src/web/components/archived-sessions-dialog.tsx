@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { ArchiveRestore, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { SessionSummary } from "../api";
@@ -50,14 +51,14 @@ export function ArchivedSessionsDialog({
         >
           <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>共 {sessions.length} 个会话</span>
           <div className="configuration-heading-actions" style={{ gap: 8 }}>
-            <button type="button" className="configuration-secondary-action" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onRestoreAll}>
+            <Button type="button" className="configuration-secondary-action" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onRestoreAll}>
               <ArchiveRestore size={16} aria-hidden="true" />
               全部恢复
-            </button>
-            <button type="button" className="configuration-secondary-action configuration-secondary-action--danger" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onDeleteAll}>
+            </Button>
+            <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onDeleteAll}>
               <Trash2 size={16} aria-hidden="true" />
               全部删除
-            </button>
+            </Button>
           </div>
         </div>
         <div className="archive-dialog__list">

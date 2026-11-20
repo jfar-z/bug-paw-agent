@@ -1,3 +1,4 @@
+import { Button } from "../ui/controls";
 import { AlertTriangle, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 
 import type { SessionBulkPreview } from "../api";
@@ -45,7 +46,7 @@ export function SessionBulkConfirmationDialog({ preview, busy = false, onCancel,
           </div>
         </div> : <p className="session-bulk-dialog__plain-impact">未检测到绑定的定时任务。</p>}
         <footer>
-          <button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</button>
+          <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>取消</Button>
           <button type="button" className={deleting ? "danger-button" : "configuration-primary-action"} disabled={busy} onClick={onConfirm}>
             {busy
               ? "处理中…"

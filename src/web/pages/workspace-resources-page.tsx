@@ -1,3 +1,4 @@
+import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { useEffect, useState } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { api } from "../api";
@@ -12,7 +13,10 @@ export function WorkspaceResourcesPage() {
   const { runApiTask } = useApiTask();
   const [agents, setAgents] = useState<AgentProfileDocument[]>([]);
   const [agentId, setAgentId] = useState("");
-  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const navigation = useWorkbenchNavigation();
+  const [standaloneNavigationOpen, setStandaloneNavigationOpen] = useState(false);
+  const mobileNavigationOpen = navigation ? navigation.drawer === "secondary" : standaloneNavigationOpen;
+  const closeNavigation = () => navigation ? navigation.close() : setStandaloneNavigationOpen(false);
 
   useEffect(() => {
     void runApiTask(api.listAgents, { operation: "加载工作区 Agent" }).then((result) => {
@@ -22,14 +26,14 @@ export function WorkspaceResourcesPage() {
     });
   }, [runApiTask]);
   useEffect(() => {
-    const toggle = () => setMobileNavigationOpen((current) => !current);
+    const toggle = () => setStandaloneNavigationOpen((current) => !current);
     window.addEventListener(WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT, toggle);
     return () => window.removeEventListener(WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT, toggle);
   }, []);
 
   const selectAgent = (nextAgentId: string) => {
     setAgentId(nextAgentId);
-    setMobileNavigationOpen(false);
+    closeNavigation();
   };
   const currentAgent = agents.find((agent) => agent.profile.id === agentId);
   const heading = <>
@@ -38,7 +42,7 @@ export function WorkspaceResourcesPage() {
   </>;
 
   return <div className="workspace-resources-page">
-    <WorkspaceAgentNavigation agents={agents} selectedAgentId={agentId} mobileOpen={mobileNavigationOpen} onSelect={selectAgent} onClose={() => setMobileNavigationOpen(false)} />
+    <WorkspaceAgentNavigation agents={agents} selectedAgentId={agentId} mobileOpen={mobileNavigationOpen} onSelect={selectAgent} onClose={closeNavigation} />
     <WorkspaceBrowser agentId={agentId} mode="page" heading={heading} />
   </div>;
 }

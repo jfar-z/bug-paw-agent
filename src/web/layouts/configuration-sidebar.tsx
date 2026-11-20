@@ -24,7 +24,7 @@ interface ConfigurationSidebarProps {
   route: AppRoute;
   open: boolean;
   onClose: () => void;
-  onNavigate: (route: AppRoute) => void;
+  onNavigate: (route: AppRoute) => boolean | void;
 }
 
 /**
@@ -32,8 +32,7 @@ interface ConfigurationSidebarProps {
  */
 export function ConfigurationSidebar({ route, open, onClose, onNavigate }: ConfigurationSidebarProps) {
   const go = (nextRoute: AppRoute) => {
-    onNavigate(nextRoute);
-    onClose();
+    if (onNavigate(nextRoute) !== false) onClose();
   };
   const agentActive = route.page === "agents" || route.page === "agent-detail";
 
@@ -61,10 +60,6 @@ export function ConfigurationSidebar({ route, open, onClose, onNavigate }: Confi
         </Fragment>)}
       </nav>
 
-      <footer className="configuration-sidebar__footer">
-        <span className="status-dot" aria-hidden="true" />
-        <span><strong>配置服务运行中</strong><small>核心配置为事实来源</small></span>
-      </footer>
     </aside>
   );
 }

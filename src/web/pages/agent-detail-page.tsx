@@ -1,3 +1,6 @@
+import { Button } from "../ui/controls";
+import { Checkbox } from "../ui/choice";
+import { SearchSelect } from "../ui/search-select";
 import { MediaLibraryCatalogStatus, useMediaLibraries } from "../components/media-library-actions";
 import { ArrowLeft, Check, Copy, Folder, Save, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -330,50 +333,78 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
 
       {activeTab === "runtime" ? (
         <section className="configuration-form-card configuration-single-column">
-          <FormField label="默认模型" inherit={{ active:!agent.defaultModel, value:inheritedModelLabel, onChange:(inherited) => updateProfile({ defaultModel: inherited ? undefined : globalDefaultModel ?? models[0] ? { provider: (globalDefaultModel ?? models[0]).provider, id: (globalDefaultModel ?? models[0]).id } : undefined }) }}>{(bindings) => <select {...bindings} aria-label="Agent 默认模型" value={agent.defaultModel ? `${agent.defaultModel.provider}:${agent.defaultModel.id}` : ""} onChange={(event) => { const [provider, ...id] = event.target.value.split(":"); updateProfile({ defaultModel: { provider, id: id.join(":") } }); }}>
-              <option value="" disabled>{inheritedModelLabel}</option>
-              {models.map((model) => <option key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`}>{model.provider} / {model.name}</option>)}
-            </select>}</FormField>
-          <FormField label="思考级别" inherit={{ active:!agent.defaultThinkingLevel, value:"模型或全局默认值", onChange:(inherited) => updateProfile({ defaultThinkingLevel: inherited ? undefined : "medium" }) }}>{(bindings) => <select {...bindings} aria-label="Agent 思考级别" value={agent.defaultThinkingLevel ?? "medium"} onChange={(event) => updateProfile({ defaultThinkingLevel: event.target.value as AgentProfile["defaultThinkingLevel"] })}>
-              {thinkingLevels.map((level) => <option key={level} value={level}>{level}</option>)}
-            </select>}</FormField>
+          <FormField label="默认模型" inherit={{ active:!agent.defaultModel, value:inheritedModelLabel, onChange:(inherited) => updateProfile({ defaultModel: inherited ? undefined : globalDefaultModel ?? models[0] ? { provider: (globalDefaultModel ?? models[0]).provider, id: (globalDefaultModel ?? models[0]).id } : undefined }) }}>{(bindings) => <SearchSelect
+            {...bindings}
+            ariaLabel="Agent 默认模型"
+            value={agent.defaultModel ? `${agent.defaultModel.provider}:${agent.defaultModel.id}` : ""}
+            onChange={(next) => { const [provider, ...id] = next.split(":"); updateProfile({ defaultModel: { provider, id: id.join(":") } }); }}
+            options={[
+              { value: "", label: inheritedModelLabel, disabled: true },
+              ...models.map((model) => ({ value: `${model.provider}:${model.id}`, label: `${model.provider} / ${model.name}` })),
+            ]}
+          />}</FormField>
+          <FormField label="思考级别" inherit={{ active:!agent.defaultThinkingLevel, value:"模型或全局默认值", onChange:(inherited) => updateProfile({ defaultThinkingLevel: inherited ? undefined : "medium" }) }}>{(bindings) => <SearchSelect
+            {...bindings}
+            ariaLabel="Agent 思考级别"
+            value={agent.defaultThinkingLevel ?? "medium"}
+            onChange={(next) => updateProfile({ defaultThinkingLevel: next as AgentProfile["defaultThinkingLevel"] })}
+            options={thinkingLevels.map((level) => ({ value: level, label: level }))}
+          />}</FormField>
           <section className="configuration-form-card configuration-single-column">
             <h2>标题生成</h2>
             <p className="configuration-help">同 Agent 会跟随会话实际模型；系统默认使用 Pi 全局默认模型。启用思考后，标题会继承此 Agent 的思考级别。</p>
-            <label><span>标题模型来源</span><select aria-label="标题模型来源" value={titleGeneration.modelSource} onChange={(event) => {
-              const modelSource = event.target.value as TitleGenerationConfig["modelSource"];
+            <label><span>标题模型来源</span><SearchSelect
+              ariaLabel="标题模型来源"
+              value={titleGeneration.modelSource}
+              onChange={(next) => {
+              const modelSource = next as TitleGenerationConfig["modelSource"];
               updateProfile({ titleGeneration: {
                 modelSource,
                 ...(modelSource === "custom" && suggestedTitleModel ? { model: { provider: suggestedTitleModel.provider, id: suggestedTitleModel.id } } : {}),
                 thinkingEnabled: titleGeneration.thinkingEnabled,
               } });
-            }}>
-              <option value="session">同 Agent</option>
-              <option value="system-default">使用系统默认</option>
-              <option value="custom">单独选择模型</option>
-            </select></label>
-            {titleGeneration.modelSource === "custom" ? <label><span>标题单独模型</span><select aria-label="标题单独模型" value={titleGeneration.model ? `${titleGeneration.model.provider}:${titleGeneration.model.id}` : ""} onChange={(event) => { const [provider, ...id] = event.target.value.split(":"); updateProfile({ titleGeneration: { ...titleGeneration, model: { provider, id: id.join(":") } } }); }}>
-              <option value="" disabled>请选择标题模型</option>
-              {models.map((model) => <option key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`}>{model.provider} / {model.name}</option>)}
-            </select></label> : null}
-            <label><input aria-label="标题生成启用思考" type="checkbox" checked={titleGeneration.thinkingEnabled} onChange={(event) => updateProfile({ titleGeneration: { ...titleGeneration, thinkingEnabled: event.target.checked } })} />启用思考</label>
+            }}
+              options={[
+                { value: "session", label: "同 Agent" },
+                { value: "system-default", label: "使用系统默认" },
+                { value: "custom", label: "单独选择模型" },
+              ]}
+            /></label>
+            {titleGeneration.modelSource === "custom" ? <label><span>标题单独模型</span><SearchSelect
+              ariaLabel="标题单独模型"
+              value={titleGeneration.model ? `${titleGeneration.model.provider}:${titleGeneration.model.id}` : ""}
+              onChange={(next) => { const [provider, ...id] = next.split(":"); updateProfile({ titleGeneration: { ...titleGeneration, model: { provider, id: id.join(":") } } }); }}
+              options={[
+                { value: "", label: "请选择标题模型", disabled: true },
+                ...models.map((model) => ({ value: `${model.provider}:${model.id}`, label: `${model.provider} / ${model.name}` })),
+              ]}
+            /></label> : null}
+            <label><Checkbox aria-label="标题生成启用思考" checked={titleGeneration.thinkingEnabled} onChange={(event) => updateProfile({ titleGeneration: { ...titleGeneration, thinkingEnabled: event.target.checked } })} />启用思考</label>
           </section>
           <section className="configuration-form-card configuration-single-column">
             <h2>语音回答</h2>
             <p className="configuration-help">选择已配置的语音模型后，可让 Agent 回答自动播放。</p>
-            <label><span>语音模型</span><select aria-label="Agent 语音模型" value={agent.ttsProfileId ?? ""} onChange={(event) => {
-              if (event.target.value) {
-                updateProfile({ ttsProfileId: event.target.value });
+            <label><span>语音模型</span><SearchSelect
+              ariaLabel="Agent 语音模型"
+              value={agent.ttsProfileId ?? ""}
+              onChange={(next) => {
+              if (next) {
+                updateProfile({ ttsProfileId: next });
                 return;
               }
               setTtsCustomParametersText("{}");
               updateProfile({ ttsProfileId: undefined, ttsVoice: undefined, ttsCustomParameters: undefined, ttsAutoPlay: false, ttsStreamPlayback: false });
-            }}><option value="">不使用语音</option>{ttsProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.model} · {profile.voice}</option>)}</select></label>
+            }}
+              options={[
+                { value: "", label: "不使用语音" },
+                ...ttsProfiles.map((profile) => ({ value: profile.id, label: `${profile.name} · ${profile.model} · ${profile.voice}` })),
+              ]}
+            /></label>
             <label><span>Agent 音色<small>留空则继承所选语音模型；填写后仅在此 Agent 运行时覆盖</small></span><input aria-label="Agent 音色" disabled={!agent.ttsProfileId} maxLength={160} placeholder={selectedTtsProfile ? `继承模型音色：${selectedTtsProfile.voice}` : "请先选择语音模型"} value={agent.ttsVoice ?? ""} onChange={(event) => updateProfile({ ttsVoice: event.target.value || undefined })} /></label>
             <label><span>自定义请求参数（JSON）<small>Agent 参数覆盖模型参数，专用音色优先级最高</small></span><textarea aria-label="Agent TTS 自定义请求参数" disabled={!agent.ttsProfileId} rows={7} spellCheck={false} value={ttsCustomParametersText} onChange={(event) => { setTtsCustomParametersText(event.target.value); setNotice(""); }} /></label>
             <p className="configuration-help">不能覆盖 <code>input</code>；不要填写 API Key、账号或身份信息。嵌套对象按顶层字段整体覆盖。</p>
-            <label><input aria-label="自动播放语音" type="checkbox" disabled={!agent.ttsProfileId} checked={agent.ttsAutoPlay === true} onChange={(event) => updateProfile({ ttsAutoPlay: event.target.checked, ttsStreamPlayback: event.target.checked ? agent.ttsStreamPlayback : false })} />自动播放语音</label>
-            <label><input aria-label="流式播放语音" type="checkbox" disabled={!agent.ttsProfileId || !agent.ttsAutoPlay} checked={agent.ttsStreamPlayback === true} onChange={(event) => updateProfile({ ttsStreamPlayback: event.target.checked })} />流式播放语音</label>
+            <label><Checkbox aria-label="自动播放语音" disabled={!agent.ttsProfileId} checked={agent.ttsAutoPlay === true} onChange={(event) => updateProfile({ ttsAutoPlay: event.target.checked, ttsStreamPlayback: event.target.checked ? agent.ttsStreamPlayback : false })} />自动播放语音</label>
+            <label><Checkbox aria-label="流式播放语音" disabled={!agent.ttsProfileId || !agent.ttsAutoPlay} checked={agent.ttsStreamPlayback === true} onChange={(event) => updateProfile({ ttsStreamPlayback: event.target.checked })} />流式播放语音</label>
           </section>
         </section>
       ) : null}
@@ -385,7 +416,7 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
             const tools = toolCatalog.filter((tool) => tool.source === source);
             if (tools.length === 0) return null;
             const title = source === "builtin" ? "内置工具" : source === "system" ? "系统工具" : source === "capability" ? "能力工具" : source === "extension" ? "已加载扩展" : "保留配置";
-            return <section key={source} className="tool-permission-group" aria-label={title}><h3>{title}</h3><div className="tool-permission-grid">{tools.map((tool) => <label key={tool.name}><input type="checkbox" checked={agent.allowedTools.includes(tool.name)} onChange={(event) => updateProfile({ allowedTools: event.target.checked ? [...agent.allowedTools, tool.name] : agent.allowedTools.filter((item) => item !== tool.name) })} /><span><strong>{tool.name}</strong><small>{tool.description}</small></span>{tool.highRisk ? <em>高风险</em> : null}</label>)}</div></section>;
+            return <section key={source} className="tool-permission-group" aria-label={title}><h3>{title}</h3><div className="tool-permission-grid">{tools.map((tool) => <label key={tool.name}><Checkbox checked={agent.allowedTools.includes(tool.name)} onChange={(event) => updateProfile({ allowedTools: event.target.checked ? [...agent.allowedTools, tool.name] : agent.allowedTools.filter((item) => item !== tool.name) })} /><span><strong>{tool.name}</strong><small>{tool.description}</small></span>{tool.highRisk ? <em>高风险</em> : null}</label>)}</div></section>;
           })}
           <AgentMediaGrants key={agentId} grants={agent.mediaLibraryGrants ?? []} disabled={saving || !online}
             onChange={(mediaLibraryGrants) => updateProfile({ mediaLibraryGrants })} />
@@ -395,17 +426,17 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
       {activeTab === "resources" ? <section className="configuration-form-card configuration-single-column"><h2>资源</h2><p className="configuration-help">显示当前 Agent 经核心资源加载器合并后的真实资源与工具。完整安装和启停操作位于“Skills 与扩展”。</p><div className="agent-resource-summary"><div><strong>{resources?.resources.filter((item) => item.type === "skill").length ?? "…"}</strong><small>Skills</small></div><div><strong>{resources?.resources.filter((item) => item.type === "prompt").length ?? "…"}</strong><small>Prompts</small></div><div><strong>{resources?.resources.filter((item) => item.type === "extension").length ?? "…"}</strong><small>Extensions</small></div><div><strong>{resources?.tools.length ?? "…"}</strong><small>Tools</small></div></div><div className="agent-resource-list">{resources?.resources.slice(0, 8).map((item) => <div key={item.id}><span>{item.name}</span><small>{item.type} · {item.scope}{item.inherited ? " · 继承" : ""}</small></div>)}</div><div className="agent-path-preview"><Folder size={18} aria-hidden="true" /><code>{agent.cwd}</code></div></section> : null}
       {activeTab === "effective" ? <section className="configuration-form-card configuration-single-column"><h2>有效配置</h2><p className="configuration-help">这是当前 Agent Profile 的只读快照；未设置的模型与思考级别由运行时继承。</p><pre className="effective-config-preview">{JSON.stringify(agent, null, 2)}</pre></section> : null}
 
-      {activeTab !== "effective" && activeTab !== "resources" ? <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" onClick={save} disabled={saving || document?.revision === "fallback" || !online}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : "保存更改"}</button></div> : null}
+      {activeTab !== "effective" && activeTab !== "resources" ? <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" onClick={save} disabled={saving || document?.revision === "fallback" || !online}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : "保存更改"}</Button></div> : null}
 
       {deleteOpen ? (
         <ConfirmDialog title="删除 Agent" confirmLabel="永久删除 Agent" requireText={agent.name} onCancel={() => setDeleteOpen(false)} onConfirm={removeAgent}>
           <p>Profile 将被删除。工作目录会移动到回收区，不会直接擦除。</p>
           <dl className="delete-impact"><div><dt>Sessions</dt><dd>{deletePreview?.sessions.count ?? "…"}</dd></div><div><dt>工作目录文件</dt><dd>{deletePreview?.workspace.files ?? "…"}</dd></div><div><dt>占用空间</dt><dd>{deletePreview ? `${deletePreview.workspace.bytes} B` : "…"}</dd></div></dl>
-          <label><input type="checkbox" checked={removeSessions} onChange={(event) => setRemoveSessions(event.target.checked)} />同时删除关联 Sessions</label>
-          <label><input type="checkbox" checked={removeWorkspace} onChange={(event) => setRemoveWorkspace(event.target.checked)} />同时移除工作目录</label>
+          <label><Checkbox checked={removeSessions} onChange={(event) => setRemoveSessions(event.target.checked)} />同时删除关联 Sessions</label>
+          <label><Checkbox checked={removeWorkspace} onChange={(event) => setRemoveWorkspace(event.target.checked)} />同时移除工作目录</label>
         </ConfirmDialog>
       ) : null}
-      {bootsharpOpen ? <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog" role="dialog" aria-modal="true" aria-labelledby="bootsharp-title"><header><div><span>INITIALIZATION</span><h2 id="bootsharp-title">修改 BOOTSHARP</h2></div><button type="button" className="icon-button" aria-label="关闭 BOOTSHARP 编辑" onClick={() => setBootsharpOpen(false)}><X size={18} /></button></header><p>此提示仅在文件非空时引导首次协作；清空后将不再注入新会话。</p><label className="configuration-field"><span>BOOTSHARP 内容</span><textarea aria-label="BOOTSHARP 内容" rows={16} value={bootsharp} onChange={(event) => setBootsharp(event.target.value)} /></label><footer><button type="button" className="secondary-button" onClick={() => setBootsharpOpen(false)}>取消</button><button type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void saveBootsharp()}>{saving ? "保存中…" : "保存 BOOTSHARP"}</button></footer></section></div> : null}
+      {bootsharpOpen ? <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog" role="dialog" aria-modal="true" aria-labelledby="bootsharp-title"><header><div><span>INITIALIZATION</span><h2 id="bootsharp-title">修改 BOOTSHARP</h2></div><button type="button" className="icon-button" aria-label="关闭 BOOTSHARP 编辑" onClick={() => setBootsharpOpen(false)}><X size={18} /></button></header><p>此提示仅在文件非空时引导首次协作；清空后将不再注入新会话。</p><label className="configuration-field"><span>BOOTSHARP 内容</span><textarea aria-label="BOOTSHARP 内容" rows={16} value={bootsharp} onChange={(event) => setBootsharp(event.target.value)} /></label><footer><button type="button" className="secondary-button" onClick={() => setBootsharpOpen(false)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void saveBootsharp()}>{saving ? "保存中…" : "保存 BOOTSHARP"}</Button></footer></section></div> : null}
       {avatarFile ? <AvatarCropDialog
         file={avatarFile}
         busy={saving}
@@ -439,13 +470,13 @@ function AgentMediaGrants({ grants, disabled, onChange }: {
         ?? { libraryId: library.id, read: false, upload: false, publicTransfer: false };
       return <fieldset key={library.id} className="agent-media-grant" disabled={disabled}>
         <legend>{library.name}</legend>
-        <label className="configuration-check-line"><input type="checkbox" checked={grant.read}
+        <label className="configuration-check-line"><Checkbox checked={grant.read}
           onChange={(event) => change({ ...grant, read: event.target.checked, publicTransfer: event.target.checked && grant.publicTransfer })} />读取</label>
-        <label className="configuration-check-line"><input type="checkbox" checked={grant.upload}
+        <label className="configuration-check-line"><Checkbox checked={grant.upload}
           onChange={(event) => change({ ...grant, upload: event.target.checked })} />上传</label>
-        <label className="configuration-check-line"><input type="checkbox" checked={grant.delete ?? false}
+        <label className="configuration-check-line"><Checkbox checked={grant.delete ?? false}
           onChange={(event) => change({ ...grant, delete: event.target.checked })} />删除</label>
-        <label className="configuration-check-line"><input type="checkbox" checked={grant.publicTransfer} disabled={!grant.read}
+        <label className="configuration-check-line"><Checkbox checked={grant.publicTransfer} disabled={!grant.read}
           onChange={(event) => change({ ...grant, publicTransfer: event.target.checked })} />允许公网传输</label>
       </fieldset>;
     })}

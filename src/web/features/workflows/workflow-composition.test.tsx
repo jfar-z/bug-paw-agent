@@ -1,3 +1,4 @@
+import { chooseOption, openOptions } from "../../test-select";
 import { useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -106,18 +107,14 @@ describe("循环与工作流节点编辑", () => {
         edit={edit}
       />,
     );
-    fireEvent.change(screen.getByLabelText("循环模式"), {
-      target: { value: "array" },
-    });
+    chooseOption("循环模式", "array");
     expect(
       changed.mock.lastCall?.[0].config.loop.body.nodes[0].outputs,
     ).toContainEqual({ name: "item", type: "string", required: true });
     expect(screen.getByText("迭代数组")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /编辑循环体/ }));
     expect(edit).toHaveBeenCalledOnce();
-    fireEvent.change(screen.getByLabelText("循环模式"), {
-      target: { value: "while" },
-    });
+    chooseOption("循环模式", "while");
     expect(screen.getByLabelText("while 运算符")).toBeInTheDocument();
     expect(
       changed.mock.lastCall?.[0].config.loop.body.nodes[0].outputs.some(
@@ -130,9 +127,7 @@ describe("循环与工作流节点编辑", () => {
     render(
       <Editor initial={newWorkflowNode("loop", "loop")} changed={changed} />,
     );
-    fireEvent.change(screen.getByLabelText("result 汇总方式"), {
-      target: { value: "last" },
-    });
+    chooseOption("result 汇总方式", "last");
     expect(changed.mock.lastCall?.[0].outputs[0].multiple).toBeUndefined();
     fireEvent.click(screen.getByLabelText("零次执行使用默认值"));
     fireEvent.change(screen.getByLabelText("result", { selector: "input" }), {
@@ -153,9 +148,7 @@ describe("循环与工作流节点编辑", () => {
     const changed = vi.fn();
     render(<Editor initial={initial} changed={changed} />);
     fireEvent.click(screen.getByLabelText("score 作为循环变量"));
-    fireEvent.change(screen.getByLabelText("score 更新来源"), {
-      target: { value: "result" },
-    });
+    chooseOption("score 更新来源", "result");
     expect(changed.mock.lastCall?.[0].config.loop.state.score).toEqual({
       initial: { kind: "literal", value: 0 },
       output: "result",
@@ -178,11 +171,10 @@ describe("循环与工作流节点编辑", () => {
         changed={changed}
       />,
     );
-    expect(screen.getByRole("option", { name: /当前流程/ })).toBeDisabled();
-    expect(screen.getByRole("option", { name: /间接环路/ })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("目标工作流"), {
-      target: { value: "target" },
-    });
+    const targets = openOptions("目标工作流");
+    expect(targets.getByRole("option", { name: /当前流程/ })).toBeDisabled();
+    expect(targets.getByRole("option", { name: /间接环路/ })).toBeDisabled();
+    fireEvent.click(targets.getAllByRole("option").find((option) => option.getAttribute("value") === "target")!);
     await screen.findByRole("button", { name: /同步最新参数 · v3/ });
     expect(changed.mock.lastCall?.[0].outputs).toEqual(
       definition.nodes[1].outputs,
@@ -200,9 +192,7 @@ describe("循环与工作流节点编辑", () => {
         changed={changed}
       />,
     );
-    fireEvent.change(screen.getByLabelText("目标工作流"), {
-      target: { value: "target" },
-    });
+    chooseOption("目标工作流", "target");
     await screen.findByText("目标工作流已删除");
     expect(changed).not.toHaveBeenCalled();
   });

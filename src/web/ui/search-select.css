@@ -1,4 +1,4 @@
-/* 可搜索配置选择器由使用它的懒加载页面独立承担样式成本。 */
+/* 选择器同时服务初始化表单和工作台业务页。 */
 .bp-select {
   position: relative;
   min-width: 0;
@@ -16,11 +16,16 @@
   color: var(--text-primary);
   background: var(--surface);
   text-align: left;
+  gap: 8px;
 }
+.bp-select__trigger > svg { flex-shrink: 0; }
 
-.bp-select__trigger[aria-expanded="true"] {
+.bp-select__trigger[aria-invalid="true"] { border-color: var(--danger); }
+
+.bp-select__trigger[aria-expanded="true"]:not([aria-invalid="true"]) {
   border-color: var(--border-strong);
 }
+.bp-select__trigger:disabled,.bp-select__options > button:disabled{opacity:.55}
 
 .bp-select__trigger > span,
 .bp-select__options :where(strong, small) {
@@ -30,12 +35,13 @@
 }
 
 .bp-select__popover {
-  position: absolute;
+  position: fixed;
   z-index: 30;
-  top: calc(100% + 5px);
-  left: 0;
-  width: max(100%, min(280px, 82vw));
+  inset: auto;
+  margin: 0;
   padding: 6px;
+  overflow: auto;
+  color: var(--text-primary);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
@@ -56,9 +62,10 @@
   color: var(--text-tertiary);
 }
 
-.bp-select__search input {
+.bp-select__popover .bp-select__search input {
   width: 100%;
   min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
   outline: 0;
@@ -108,9 +115,4 @@
 .bp-select__options > p {
   margin: 10px 8px;
 }
-.bp-select__popover[data-above="true"] {
-  top: auto;
-  bottom: calc(100% + 5px);
-}
-
 @media(pointer:coarse){.bp-select__trigger,.bp-select__options > button{min-height:44px}}

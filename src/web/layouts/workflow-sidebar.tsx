@@ -12,7 +12,7 @@ export function WorkflowSidebar({
   route: AppRoute;
   open: boolean;
   onClose: () => void;
-  onNavigate: (route: AppRoute) => void;
+  onNavigate: (route: AppRoute) => boolean | void;
 }) {
   const items = [
     {
@@ -60,10 +60,7 @@ export function WorkflowSidebar({
             key={page}
             className={active ? "is-active" : undefined}
             aria-current={active ? "page" : undefined}
-            onClick={() => {
-              onNavigate({ page });
-              onClose();
-            }}
+            onClick={() => { if (onNavigate({ page }) !== false) onClose(); }}
           >
             <Icon size={17} aria-hidden="true" />
             <span>{label}</span>

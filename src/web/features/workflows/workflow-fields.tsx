@@ -1,3 +1,6 @@
+import { Button } from "../../ui/controls";
+import { Checkbox } from "../../ui/choice";
+import { SearchSelect } from "../../ui/search-select";
 import { isMediaReference } from "../../../shared/media-library-contracts";
 import {
   workflowFieldNameErrors,
@@ -132,8 +135,8 @@ export function WorkflowValue({
   if (field.type === "boolean")
     return (
       <label className="wf-check wf-boolean-value">
-        <input
-          type="checkbox"
+        <Checkbox
+
           checked={value === true}
           onChange={(e) => onChange(e.target.checked)}
         />
@@ -271,39 +274,36 @@ export function WorkflowFieldList({
           )}
           {!(system.has(index) && field.name === "index") && (
             <>
-              <select
-                aria-label={`${field.name} 类型`}
+              <SearchSelect
+                ariaLabel={`${field.name} 类型`}
                 value={field.enumValues ? "enum" : field.type}
-                onChange={(e) =>
-                  update(index, {
+                onChange={(next) => update(index, {
                     type:
-                      e.target.value === "enum"
+                      next === "enum"
                         ? "string"
-                        : (e.target.value as WorkflowField["type"]),
-                    enumValues: e.target.value === "enum" ? [] : undefined,
+                        : (next as WorkflowField["type"]),
+                    enumValues: next === "enum" ? [] : undefined,
                     enumSource: undefined,
                     defaultValue: undefined,
-                  })
-                }
-              >
-                {WORKFLOW_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-                <option value="enum">枚举 · string</option>
-              </select>
+                  })}
+                options={[
+                  ...WORKFLOW_TYPES.map((t) => ({ value: t, label: t })),
+                  { value: "enum", label: "枚举 · string" },
+                ]}
+              />
               {field.enumValues && (
                 <div className="wf-field">
                   <label>
                     枚举来源
-                    <select
-                      aria-label={`${field.name} 枚举来源`}
+                    <SearchSelect
+                      ariaLabel={`${field.name} 枚举来源`}
                       value={
                         field.enumSource ? JSON.stringify(field.enumSource) : ""
                       }
-                      onChange={(event) => {
+                      onChange={(next) => {
                         const choice = enumSources.find(
                           (s) =>
-                            JSON.stringify(s.source) === event.target.value,
+                            JSON.stringify(s.source) === next,
                         );
                         if (choice)
                           update(index, {
@@ -312,38 +312,23 @@ export function WorkflowFieldList({
                             defaultValue: undefined,
                           });
                       }}
-                    >
-                      <option value="" disabled>
-                        选择已连接 AIGC、工作流或循环节点的枚举入参
-                      </option>
-                      {field.enumSource &&
+                      options={[
+                        { value: "", label: "选择已连接 AIGC、工作流或循环节点的枚举入参", disabled: true },
+                        ...(field.enumSource &&
                         !enumSources.some(
                           (s) =>
                             JSON.stringify(s.source) ===
                             JSON.stringify(field.enumSource),
-                        ) && (
-                          <option
-                            value={JSON.stringify(field.enumSource)}
-                            disabled
-                          >
-                            枚举来源已失效，请重新选择
-                          </option>
-                        )}
-                      {enumSources.map((source) => (
-                        <option
-                          key={JSON.stringify(source.source)}
-                          value={JSON.stringify(source.source)}
-                        >
-                          {source.label}
-                        </option>
-                      ))}
-                    </select>
+                        ) ? [{ value: JSON.stringify(field.enumSource), label: "枚举来源已失效，请重新选择", disabled: true }] : []),
+                        ...enumSources.map((source) => ({ value: JSON.stringify(source.source), label: source.label })),
+                      ]}
+                    />
                   </label>
                   <small className="wf-hint">
                     作为字符串传递，可用于字符串参数和 AIGC 枚举参数。
                   </small>
                   {onRefreshEnums && (
-                    <button
+                    <Button
                       type="button"
                       className="wf-button"
                       aria-label={`${field.name} 刷新枚举来源`}
@@ -351,7 +336,7 @@ export function WorkflowFieldList({
                       onClick={onRefreshEnums}
                     >
                       {refreshingEnums ? "正在刷新…" : "刷新枚举来源"}
-                    </button>
+                    </Button>
                   )}
                   <small>
                     {field.enumValues.length
@@ -368,7 +353,7 @@ export function WorkflowFieldList({
                       return current &&
                         JSON.stringify(current.values) !==
                           JSON.stringify(field.enumValues) ? (
-                        <button
+                        <Button
                           type="button"
                           className="wf-button"
                           onClick={() =>
@@ -379,15 +364,15 @@ export function WorkflowFieldList({
                           }
                         >
                           更新枚举选项
-                        </button>
+                        </Button>
                       ) : null;
                     })()}
                 </div>
               )}
               <div className="wf-row">
                 <label className="wf-check">
-                  <input
-                    type="checkbox"
+                  <Checkbox
+
                     checked={!!field.multiple}
                     onChange={(e) =>
                       update(index, {
@@ -400,8 +385,8 @@ export function WorkflowFieldList({
                 </label>
                 {!system.has(index) && (
                   <label className="wf-check">
-                    <input
-                      type="checkbox"
+                    <Checkbox
+
                       checked={!!field.required}
                       onChange={(e) =>
                         update(index, { required: e.target.checked })
@@ -445,45 +430,40 @@ export function WorkflowFieldList({
                   <label className="wf-field">
                     默认值
                     {field.enumValues ? (
-                      <select
-                        aria-label={`${field.name} 默认值`}
-                        value={field.enumValues.findIndex(
+                      <SearchSelect
+                        ariaLabel={`${field.name} 默认值`}
+                        value={String(field.enumValues.findIndex(
                           (v) => v === field.defaultValue,
-                        )}
-                        onChange={(e) =>
-                          update(index, {
-                            defaultValue:
-                              field.enumValues![Number(e.target.value)],
-                          })
-                        }
-                      >
-                        <option value={-1}>不设置</option>
-                        {field.enumValues.map((value, i) => (
-                          <option key={i} value={i}>
-                            {String(value)}
-                          </option>
                         ))}
-                      </select>
+                        onChange={(next) => update(index, {
+                            defaultValue:
+                              field.enumValues![Number(next)],
+                          })}
+                        options={[
+                          { value: String(-1), label: "不设置" },
+                          ...field.enumValues.map((value, i) => ({ value: String(i), label: String(value) })),
+                        ]}
+                      />
                     ) : field.type === "boolean" ? (
-                      <select
+                      <SearchSelect
+                        ariaLabel="默认值"
                         value={
                           field.defaultValue === undefined
                             ? "unset"
                             : String(field.defaultValue)
                         }
-                        onChange={(e) =>
-                          update(index, {
+                        onChange={(next) => update(index, {
                             defaultValue:
-                              e.target.value === "unset"
+                              next === "unset"
                                 ? undefined
-                                : e.target.value === "true",
-                          })
-                        }
-                      >
-                        <option value="unset">不设置</option>
-                        <option value="true">true</option>
-                        <option value="false">false</option>
-                      </select>
+                                : next === "true",
+                          })}
+                        options={[
+                          { value: "unset", label: "不设置" },
+                          { value: "true", label: "true" },
+                          { value: "false", label: "false" },
+                        ]}
+                      />
                     ) : (
                       <input
                         type={field.type === "string" ? "text" : "number"}
@@ -511,7 +491,7 @@ export function WorkflowFieldList({
           )}
         </section>
       ))}
-      <button
+      <Button
         type="button"
         className="wf-button"
         onClick={() => {
@@ -527,7 +507,7 @@ export function WorkflowFieldList({
       >
         <Plus size={15} />
         添加参数
-      </button>
+      </Button>
     </div>
   );
 }
@@ -557,43 +537,36 @@ function WorkflowEnumValue({
     onValidity?.(valid);
   }, [valid, JSON.stringify(options)]);
   useEffect(() => () => onValidity?.(true), []);
+  const choices = options.map((option, index) => ({
+    value: index,
+    label: options.some((other) => other !== option && String(other) === String(option))
+      ? `${String(option)} · ${typeof option}`
+      : String(option),
+  }));
+  const unavailable = value === undefined
+    ? "请选择枚举值"
+    : "当前值已不在枚举范围内，请重新选择";
   return (
     <>
-      <select
-        aria-label={field.name}
-        aria-invalid={!valid}
-        multiple={field.multiple}
-        value={
-          field.multiple
-            ? entries.map((entry) => String(options.indexOf(entry as string)))
-            : selected
-        }
-        onChange={(event) =>
-          onChange(
-            field.multiple
-              ? Array.from(event.target.selectedOptions).map(
-                  (option) => options[Number(option.value)],
-                )
-              : options[Number(event.target.value)],
-          )
-        }
-      >
-        <option value={-1} disabled>
-          {value === undefined
-            ? "请选择枚举值"
-            : "当前值已不在枚举范围内，请重新选择"}
-        </option>
-        {options.map((option, index) => (
-          <option key={index} value={index}>
-            {String(option)}
-            {options.some(
-              (other) => other !== option && String(other) === String(option),
-            )
-              ? ` · ${typeof option}`
-              : ""}
-          </option>
-        ))}
-      </select>
+      {field.multiple ? (
+        <div role="group" aria-label={field.name} aria-invalid={!valid}>
+          {choices.map(({ value: index, label }) => (
+            <Checkbox key={index} label={label} checked={entries.includes(options[index])}
+              onChange={(event) => {
+                // 按接口枚举顺序提交选项，并允许修正已经失效的旧值。
+                onChange(options.filter((option, position) => position === index
+                  ? event.currentTarget.checked
+                  : entries.includes(option)));
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <SearchSelect ariaLabel={field.name} aria-invalid={!valid} value={selected}
+          placeholder={unavailable} options={choices}
+          onChange={(index) => onChange(options[index])}
+        />
+      )}
       {!valid && <small className="wf-error">请选择接口允许的枚举值。</small>}
     </>
   );
@@ -624,7 +597,7 @@ export function WorkflowSelectedFiles({
         const name = typeof file === "string" ? mediaNames?.[file] ?? "媒体库文件" : file.name;
         return <li key={`${id}-${index}`}>
           <span>{name}</span>
-          <button
+          <Button
             type="button"
             className="wf-button"
             disabled={disabled}
@@ -637,7 +610,7 @@ export function WorkflowSelectedFiles({
             }}
           >
             移除
-          </button>
+          </Button>
         </li>;
       })}
     </ul>
@@ -721,7 +694,7 @@ function WorkflowMediaValue({
           });
         }}
       />
-      {directory === "constants" && <button type="button" className="wf-button" disabled={busy} onClick={() => setChoosing(true)}>选择已有文件常量</button>}
+      {directory === "constants" && <Button type="button" className="wf-button" disabled={busy} onClick={() => setChoosing(true)}>选择已有文件常量</Button>}
       {choosing && <WorkflowFilePicker type={field.type} onClose={() => setChoosing(false)} onSelect={(file) => {
         void runApiTask(async () => {
           if (field.multiple && entries.length + 1 > (field.maxItems ?? 100)) throw new Error(`参数 ${field.name} 最多选择 ${field.maxItems ?? 100} 个文件`);
@@ -830,63 +803,44 @@ export function WorkflowBindingEditor({
       {field?.description && <p className="wf-hint">{field.description}</p>}
       <label className="wf-field">
         值来源
-        <select
-          aria-label={`${label} 值来源`}
+        <SearchSelect
+          ariaLabel={`${label} 值来源`}
           value={selection}
-          onChange={(event) => {
-            if (event.target.value === "unset") onChange(undefined);
-            else if (event.target.value === "literal")
+          onChange={(next) => {
+            if (next === "unset") onChange(undefined);
+            else if (next === "literal")
               onChange({ kind: "literal", value: initialLiteral(effective) });
             else {
-              const [source, name] = event.target.value.split(":");
+              const [source, name] = next.split(":");
               onChange({ kind: "reference", nodeId: source, field: name });
             }
           }}
-        >
-          <option value="unset">
-            {field?.defaultValue !== undefined ? "使用接口默认值" : "不提供"}
-          </option>
-          {!referenceOnly && <option value="literal">固定值</option>}
-          {missing && (
-            <option value={selection} disabled>
-              引用已失效，请重新选择
-            </option>
-          )}
-          {available.map((node) => (
-            <optgroup key={node.id} label={node.name}>
-              {node.outputs.map((output) => (
-                <option key={output.name} value={`${node.id}:${output.name}`}>
-                  {node.name} / {output.name} · {output.type}
-                  {output.multiple ? "[]" : ""}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          options={[
+            { value: "unset", label: field?.defaultValue !== undefined ? "使用接口默认值" : "不提供" },
+            ...(!referenceOnly ? [{ value: "literal", label: "固定值" }] : []),
+            ...(missing ? [{ value: selection, label: "引用已失效，请重新选择", disabled: true }] : []),
+            ...available.flatMap((node) => node.outputs.map((output) => ({ value: `${node.id}:${output.name}`, label: `${node.name} / ${output.name} · ${output.type}${output.multiple ? "[]" : ""}` }))),
+          ]}
+        />
       </label>
       {binding?.kind === "literal" && (
         <>
           {!field && (
             <label className="wf-field">
               数据类型
-              <select
-                aria-label={`${label} 常量类型`}
+              <SearchSelect
+                ariaLabel={`${label} 常量类型`}
                 value={constantType}
-                onChange={(event) => {
-                  const nextType = event.target.value as WorkflowField["type"];
+                onChange={(next) => {
+                  const nextType = next as WorkflowField["type"];
                   setConstantType(nextType);
                   onChange({
                     kind: "literal",
                     value: initialLiteral({ name: label, type: nextType }),
                   });
                 }}
-              >
-                {["string", "float", "integer", "boolean", "object"].map(
-                  (t) => (
-                    <option key={t}>{t}</option>
-                  ),
-                )}
-              </select>
+                options={["string", "float", "integer", "boolean", "object"].map((t) => ({ value: t, label: t }))}
+              />
             </label>
           )}
           <div className="wf-field">

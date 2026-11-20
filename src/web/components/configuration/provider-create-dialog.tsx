@@ -1,3 +1,5 @@
+import { Button } from "../../ui/controls";
+import { SearchSelect } from "../../ui/search-select";
 import { Plus } from "lucide-react";
 import { useId, useState, type CSSProperties } from "react";
 import type { ModelConfigDocument, ProviderTemplate } from "../../../shared/configuration-contracts";
@@ -125,12 +127,23 @@ export function ProviderCreateDialog({ revision, online, onCreated, onClose }: P
   }
 
   return <>
-    <ConfigurationEditorDialog variant="confirmation" classPrefix="provider" returnFocusSelector="[data-provider-create]" title="新建 Provider" description="先保存基础连接信息，创建后再配置 API Key、模型与兼容设置。" busy={busy} suspended={guard.pending} onClose={() => guard.request(onClose)} footer={<><button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => guard.request(onClose)}>取消</button><button type="submit" form={formId} className="configuration-primary-action" disabled={!canSubmit}><Plus size={15} />{busy ? "创建中…" : "创建 Provider"}</button></>}>
+    <ConfigurationEditorDialog variant="confirmation" classPrefix="provider" returnFocusSelector="[data-provider-create]" title="新建 Provider" description="先保存基础连接信息，创建后再配置 API Key、模型与兼容设置。" busy={busy} suspended={guard.pending} onClose={() => guard.request(onClose)} footer={<><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => guard.request(onClose)}>取消</Button><Button variant="primary" type="submit" form={formId} className="configuration-primary-action" disabled={!canSubmit}><Plus size={15} />{busy ? "创建中…" : "创建 Provider"}</Button></>}>
       <form id={formId} className="configuration-form-card provider-create-dialog" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <div className="thinking-protocol-preview">
           <label style={providerCreateFieldStyle}><span style={providerCreateFieldHeadingStyle}>Provider ID<small>创建后需要通过改名迁移引用</small></span><input aria-label="Provider ID" autoFocus value={draft.id} onChange={(event) => { setDraft((current) => ({ ...current, id: event.target.value })); setError(""); }} placeholder="例如 my-provider" /></label>
           <label style={providerCreateFieldStyle}><span style={providerCreateFieldHeadingStyle}>显示名称</span><input aria-label="显示名称" value={draft.name} onChange={(event) => { setDraft((current) => ({ ...current, name: event.target.value })); setError(""); }} placeholder="例如内部模型网关" /></label>
-          <label style={providerCreateFieldStyle}><span style={providerCreateFieldHeadingStyle}>Provider 模板<small>协议和认证方式使用模板默认值</small></span><select aria-label="Provider 模板" value={draft.template} onChange={(event) => selectTemplate(event.target.value as ProviderTemplate)}><option value="custom">自定义</option><option value="openai-compatible">OpenAI Compatible</option><option value="ollama">Ollama</option><option value="vllm">vLLM</option><option value="lm-studio">LM Studio</option></select></label>
+          <label style={providerCreateFieldStyle}><span style={providerCreateFieldHeadingStyle}>Provider 模板<small>协议和认证方式使用模板默认值</small></span><SearchSelect
+            ariaLabel="Provider 模板"
+            value={draft.template}
+            onChange={(next) => selectTemplate(next as ProviderTemplate)}
+            options={[
+              { value: "custom", label: "自定义" },
+              { value: "openai-compatible", label: "OpenAI Compatible" },
+              { value: "ollama", label: "Ollama" },
+              { value: "vllm", label: "vLLM" },
+              { value: "lm-studio", label: "LM Studio" },
+            ]}
+          /></label>
           <label style={providerCreateFieldStyle}><span style={providerCreateFieldHeadingStyle}>Base URL</span><input aria-label="Base URL" inputMode="url" value={draft.baseUrl} onChange={(event) => { setDraft((current) => ({ ...current, baseUrl: event.target.value })); setError(""); }} placeholder="https://models.example.com/v1" /></label>
         </div>
 

@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { WorkflowFilesPage } from "./workflow-files-page";
@@ -45,7 +46,7 @@ it("独立常量目录、筛选与文本预览使用工作流接口", async () =
   expect(screen.getByLabelText("上传文件常量")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button",{name:"预览 output.txt"}));
   expect(await screen.findByText("文本内容")).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("筛选文件类型"),{target:{value:"image"}});
+  chooseOption("筛选文件类型", "image");
   await waitFor(() => expect(list).toHaveBeenLastCalledWith(expect.objectContaining({directory:"constants",type:"image"})));
 });
 it("文件页深链及二级导航保留工作流选中态并关闭移动菜单", () => {

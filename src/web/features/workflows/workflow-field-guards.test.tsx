@@ -1,3 +1,4 @@
+import { chooseOption } from "../../test-select";
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -57,10 +58,8 @@ describe("参数保护与即时校验", () => {
     }
     expect(screen.queryByLabelText("index 类型")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("index 默认值")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("item 类型"), {
-      target: { value: "integer" },
-    });
-    expect(screen.getByLabelText("item 类型")).toHaveValue("integer");
+    chooseOption("item 类型", "integer");
+    expect(screen.getByLabelText("item 类型")).toHaveAttribute("value", "integer");
     fireEvent.change(screen.getByLabelText("参数 3 名称"), {
       target: { value: "item" },
     });
@@ -75,7 +74,7 @@ describe("参数保护与即时校验", () => {
       "aria-invalid",
       "false",
     );
-    expect(screen.getByLabelText("item 类型")).toHaveValue("integer");
+    expect(screen.getByLabelText("item 类型")).toHaveAttribute("value", "integer");
   });
 
   it("重名双方立即标错，修正即恢复；新增参数避开已占用序号", () => {

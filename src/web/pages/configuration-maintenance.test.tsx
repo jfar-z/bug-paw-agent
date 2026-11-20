@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiClientError } from "../api";
@@ -26,10 +27,10 @@ describe("配置维护页面交互", () => {
     show(<KnowledgeRetrievalPage />); await screen.findByLabelText("服务模式");
     fireEvent.click(screen.getByRole("button", { name: "显示Embedding API Key" })); await waitFor(() => expect(screen.getByLabelText("Embedding API Key")).toHaveValue("example-test-value"));
     expect(screen.getByRole("button", { name: "保存连接配置" })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("服务模式"), { target: { value: "managed" } });
+    chooseOption("服务模式", "managed");
     expect(screen.getByLabelText("每批切片数")).toHaveValue(4);
     fireEvent.click(screen.getByRole("tab", { name: "索引维护" })); expect(screen.getByRole("button", { name: "手动重建索引" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("tab", { name: "连接配置" })); expect(screen.getByLabelText("服务模式")).toHaveValue("managed");
+    fireEvent.click(screen.getByRole("tab", { name: "连接配置" })); expect(screen.getByLabelText("服务模式")).toHaveAttribute("value", "managed");
   });
   it("语义配置冲突保留草稿，重新读取必须先明确放弃", async () => {
     vi.spyOn(api, "getKnowledgeRetrieval").mockResolvedValue(embedding());

@@ -1,3 +1,5 @@
+import { Button } from "../../ui/controls";
+import { SearchSelect } from "../../ui/search-select";
 import { useEffect, useRef, useState } from "react";
 import type { ThinkingLevel } from "../../../shared/configuration-contracts";
 import { WorkflowThinkingControl } from "./workflow-thinking-control";
@@ -137,10 +139,10 @@ export function WorkflowScriptAssist({
   };
   return (
     <>
-      <button type="button" className="wf-button" onClick={() => setOpen(true)}>
+      <Button type="button" className="wf-button" onClick={() => setOpen(true)}>
         <Sparkles size={15} />
         AI 辅助
-      </button>
+      </Button>
       {open && (
         <ConfigurationEditorDialog
           variant="drawer"
@@ -152,11 +154,11 @@ export function WorkflowScriptAssist({
           onClose={close}
           footer={
             <>
-              <button type="button" className="wf-button" onClick={close}>
+              <Button type="button" className="wf-button" onClick={close}>
                 {busy ? "取消生成并关闭" : "关闭"}
-              </button>
-              {busy && <button type="button" className="wf-button" onClick={cancel}>取消生成</button>}
-              <button
+              </Button>
+              {busy && <Button type="button" className="wf-button" onClick={cancel}>取消生成</Button>}
+              <Button
                 type="button"
                 className="wf-button"
                 disabled={
@@ -170,8 +172,8 @@ export function WorkflowScriptAssist({
                 onClick={() => void generate()}
               >
                 {busy ? "正在生成…" : candidate ? "重新生成" : "生成脚本"}
-              </button>
-              <button
+              </Button>
+              <Button variant="primary"
                 type="button"
                 className="wf-button wf-primary"
                 disabled={busy || !candidate || !!stale}
@@ -184,7 +186,7 @@ export function WorkflowScriptAssist({
                 }}
               >
                 应用到脚本
-              </button>
+              </Button>
             </>
           }
         >
@@ -192,15 +194,19 @@ export function WorkflowScriptAssist({
             <div className="wf-assist-model-row">
               <label className="wf-field">
                 生成模型
-                <select aria-label="脚本辅助模型" value={model} disabled={busy} onChange={(event) => {
-                  setModel(event.target.value);
+                <SearchSelect
+                  ariaLabel="脚本辅助模型"
+                  value={model}
+                  disabled={busy}
+                  onChange={(next) => {
+                  setModel(next);
                   setThinkingLevel(undefined);
-                }}>
-                  <option value="">选择已配置模型</option>
-                  {catalog.models.map((item) => <option key={`${item.provider}:${item.id}`} value={`${item.provider}\t${item.id}`}>
-                    {item.name} · {item.provider}
-                  </option>)}
-                </select>
+                }}
+                  options={[
+                    { value: "", label: "选择已配置模型" },
+                    ...catalog.models.map((item) => ({ value: `${item.provider}\t${item.id}`, label: `${item.name} · ${item.provider}` })),
+                  ]}
+                />
               </label>
               <WorkflowThinkingControl levels={selectedModel?.thinkingLevels ?? []} value={thinkingLevel}
                 disabled={busy || !selectedModel?.reasoning || !selectedModel.thinkingLevels?.length}

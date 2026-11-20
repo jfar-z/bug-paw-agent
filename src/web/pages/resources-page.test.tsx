@@ -1,3 +1,4 @@
+import { chooseOption } from "../test-select";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiClientError, type ResourceCatalog } from "../api";
@@ -46,8 +47,8 @@ describe("Skills 与扩展交互",()=>{
   it("启停失败保留原状态和对象，内容失败有重试与全局错误",async()=>{
     vi.spyOn(api,"setResourceMode").mockRejectedValue(new ApiClientError("INTERNAL_ERROR","保存资源模式时存储不可用",500));
     const content=vi.spyOn(api,"getResourceContent").mockRejectedValueOnce(new ApiClientError("INTERNAL_ERROR","读取资源 UTF-8 内容失败",500)).mockResolvedValueOnce({content:"虚构内容"});
-    show();fireEvent.click(await screen.findByRole("button",{name:"查看资源 Research"}));fireEvent.change(screen.getByLabelText("当前资源模式"),{target:{value:"disabled"}});
-    await screen.findAllByText("保存资源模式时存储不可用");expect(screen.getByLabelText("当前资源模式")).toHaveValue("default");
+    show();fireEvent.click(await screen.findByRole("button",{name:"查看资源 Research"}));chooseOption("当前资源模式", "disabled");
+    await screen.findAllByText("保存资源模式时存储不可用");expect(screen.getByLabelText("当前资源模式")).toHaveAttribute("value", "default");
     fireEvent.click(screen.getByRole("button",{name:"查看资源内容"}));fireEvent.click(await screen.findByRole("button",{name:"重新读取资源内容"}));await screen.findByText("虚构内容");expect(content).toHaveBeenCalledTimes(2);expect(screen.getAllByRole("button",{name:"查看错误详情"}).length).toBeGreaterThan(0);
   });
   it("断流不重提安装，切换 Agent 后完成事件仍属于全局任务",async()=>{
@@ -76,6 +77,6 @@ describe("Skills 与扩展交互",()=>{
   it("Agent 目录失败不冒充空态，迟到目录不能覆盖新目标",async()=>{
     let resolveA: (value: ResourceCatalog)=>void = ()=>undefined;
     vi.mocked(api.listResources).mockImplementation(async(id)=>id==="a"?new Promise<ResourceCatalog>(resolve=>{resolveA=resolve;}):{...doc(),resources:doc().resources.map(r=>({...r,name:id==="b"?"Code":"Research"}))});
-    show();await screen.findByRole("button",{name:"查看资源 Research"});fireEvent.click(screen.getByRole("button",{name:"Agent 资源"}));await waitFor(()=>expect(api.listResources).toHaveBeenCalledWith("a"));fireEvent.change(screen.getByLabelText("资源 Agent"),{target:{value:"b"}});await screen.findByRole("button",{name:"查看资源 Code"});await act(async()=>resolveA(doc()));expect(screen.queryByRole("button",{name:"查看资源 Research"})).not.toBeInTheDocument();
+    show();await screen.findByRole("button",{name:"查看资源 Research"});fireEvent.click(screen.getByRole("button",{name:"Agent 资源"}));await waitFor(()=>expect(api.listResources).toHaveBeenCalledWith("a"));chooseOption("资源 Agent", "b");await screen.findByRole("button",{name:"查看资源 Code"});await act(async()=>resolveA(doc()));expect(screen.queryByRole("button",{name:"查看资源 Research"})).not.toBeInTheDocument();
   });
 });

@@ -40,17 +40,6 @@
 .bp-segment__option input:focus-visible + span {
   outline: 2px solid var(--focus);
 }
-.bp-search {
-  position: relative;
-}
-.bp-search .bp-input {
-  padding-right: 44px;
-}
-.bp-search .bp-button {
-  position: absolute;
-  right: 0;
-  top: 0;
-}
 .bp-table {
   overflow: auto;
 }

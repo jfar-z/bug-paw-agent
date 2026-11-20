@@ -1,3 +1,4 @@
+import { Button } from "../../ui/controls";
 import { SaveMediaResultButton } from "../../components/media-library-actions";
 import { useEffect, useState } from "react";
 import type { WorkflowFile } from "../../../shared/workflow-contracts";
@@ -93,13 +94,13 @@ function WorkflowMediaItem({ file, outputRunId }: { file: WorkflowFile; outputRu
           busy={false}
           onClose={() => setLarge(false)}
           footer={
-            <button
+            <Button
               type="button"
               className="configuration-secondary-action"
               onClick={() => setLarge(false)}
             >
               关闭图片预览
-            </button>
+            </Button>
           }
         >
           <div className="wf-media-large">

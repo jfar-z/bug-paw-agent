@@ -1,11 +1,15 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
 import "./choice.css";
 
-type ChoiceProps = InputHTMLAttributes<HTMLInputElement> & { label: ReactNode };
+type ChoiceProps = InputHTMLAttributes<HTMLInputElement> & { label?: ReactNode };
 function Choice({ label, type, role, className = "", ...props }: ChoiceProps) {
+  const input = <input {...props} type={type} role={role}
+    className={label === undefined ? `bp-choice__input ${className}` : "bp-choice__input"} />;
+  // 表格及已有标签的字段可以复用输入而不生成嵌套标签。
+  if (label === undefined) return input;
   return (
     <label className={`bp-choice ${className}`}>
-      <input {...props} type={type} role={role} className="bp-choice__input" />
+      {input}
       {label}
     </label>
   );

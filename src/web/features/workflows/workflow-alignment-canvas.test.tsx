@@ -1,3 +1,4 @@
+import { chooseOption } from "../../test-select";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -58,7 +59,7 @@ describe("画布吸附事件与工作流作用域", () => {
     act(() => flowProps.onNodesChange!([
       { type: "select", id: "input", selected: true }, { type: "select", id: "output", selected: true },
     ]));
-    fireEvent.change(screen.getByLabelText("对齐所选节点"), { target: { value: "bottom" } });
+    chooseOption("对齐所选节点", "bottom");
     expect(current.nodes[0].position.y + 60).toBe(current.nodes[1].position.y + 90);
     expect(current.nodes[0].position.x).toBe(99);
   });

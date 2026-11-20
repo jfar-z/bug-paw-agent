@@ -1,3 +1,6 @@
+import { Button } from "../../ui/controls";
+import { Checkbox } from "../../ui/choice";
+import { SearchSelect } from "../../ui/search-select";
 import { useEffect, useRef, useState } from "react";
 import { Plus, X, Trash2, Copy } from "lucide-react";
 import {
@@ -196,17 +199,14 @@ export function WorkflowNodeEditor({
           change({ ...c, left: v ?? { kind: "literal", value: null } })
         }
       />
-      <select
-        aria-label="条件运算符"
+      <SearchSelect
+        ariaLabel="条件运算符"
         value={c.operator}
-        onChange={(e) =>
-          change({
+        onChange={(next) => change({
             ...c,
-            operator: e.target.value as WorkflowCondition["operator"],
-          })
-        }
-      >
-        {[
+            operator: next as WorkflowCondition["operator"],
+          })}
+        options={[
           ["eq", "等于"],
           ["ne", "不等于"],
           ["gt", "大于"],
@@ -216,12 +216,8 @@ export function WorkflowNodeEditor({
           ["contains", "包含"],
           ["empty", "为空"],
           ["not_empty", "非空"],
-        ].map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
+        ].map(([v, l]) => ({ value: v, label: l }))}
+      />
       {!["empty", "not_empty"].includes(c.operator) && (
         <WorkflowBindingEditor
           onValidity={(valid) =>
@@ -263,11 +259,16 @@ export function WorkflowNodeEditor({
           />
         </label>
         {(node.kind === "semaphore_acquire" || node.kind === "semaphore_release") && <>
-          <label className="wf-field">共享资源信号量<select value={config.semaphoreCode ?? ""} onChange={(event) => patch({ semaphoreCode: event.target.value || undefined })}>
-            <option value="">选择已配置的信号量</option>
-            {(catalog.semaphores ?? []).map((item) => <option key={item.code} value={item.code}>{item.name} · {item.code} · 上限 {item.limit}</option>)}
-            {config.semaphoreCode && !catalog.semaphores?.some((item) => item.code === config.semaphoreCode) && <option value={config.semaphoreCode}>{config.semaphoreCode}（不可用）</option>}
-          </select></label>
+          <label className="wf-field">共享资源信号量<SearchSelect
+            ariaLabel="共享资源信号量"
+            value={config.semaphoreCode ?? ""}
+            onChange={(next) => patch({ semaphoreCode: next || undefined })}
+            options={[
+              { value: "", label: "选择已配置的信号量" },
+              ...(catalog.semaphores ?? []).map((item) => ({ value: item.code, label: `${item.name} · ${item.code} · 上限 ${item.limit}` })),
+              ...(config.semaphoreCode && !catalog.semaphores?.some((item) => item.code === config.semaphoreCode) ? [{ value: config.semaphoreCode, label: `${config.semaphoreCode}（不可用）` }] : []),
+            ]}
+          /></label>
           {binding("count", node.kind === "semaphore_acquire" ? "获取数量" : "释放数量", { name: "count", type: "integer", required: true, min: 1 })}
           <p className="wf-hint">额度不足时按申请顺序等待。只能释放当前运行持有的额度；根工作流结束、报错或取消后自动释放剩余额度。</p>
         </>}
@@ -319,13 +320,13 @@ export function WorkflowNodeEditor({
                 <p className="wf-error" role="alert">
                   未声明的输出绑定：{staleOutputs.join("、")}。请清理后保存工作流。
                 </p>
-                <button
+                <Button
                   type="button"
                   className="wf-button"
                   onClick={() => onChange({ ...node, inputs: workflowOutputBindings(node) })}
                 >
                   清理未声明的输出绑定
-                </button>
+                </Button>
               </div>
             )}
             <h3>输出绑定</h3>
@@ -337,15 +338,15 @@ export function WorkflowNodeEditor({
             <h3>模型与提示词</h3>
             <label className="wf-field">
               模型
-              <select
-                aria-label="模型"
+              <SearchSelect
+                ariaLabel="模型"
                 value={
                   config.provider && config.modelId
                     ? `${config.provider}\t${config.modelId}`
                     : ""
                 }
-                onChange={(e) => {
-                  const [provider, modelId] = e.target.value.split("\t");
+                onChange={(next) => {
+                  const [provider, modelId] = next.split("\t");
                   const model = catalog.models.find(
                     (m) => m.provider === provider && m.id === modelId,
                   );
@@ -356,18 +357,11 @@ export function WorkflowNodeEditor({
                     topP: model?.reasoning ? undefined : 1,
                   });
                 }}
-              >
-                <option value="">选择模型</option>
-                {catalog.models.map((m) => (
-                  <option
-                    key={m.provider + m.id}
-                    value={`${m.provider}\t${m.id}`}
-                  >
-                    {m.name} · {m.provider}
-                    {m.images ? " · 视觉" : ""}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "选择模型" },
+                  ...catalog.models.map((m) => ({ value: `${m.provider}\t${m.id}`, label: `${m.name} · ${m.provider}${m.images ? " · 视觉" : ""}` })),
+                ]}
+              />
             </label>
             <label className="wf-field">
               系统提示词
@@ -390,14 +384,11 @@ export function WorkflowNodeEditor({
             <h3>思考与常见超参</h3>
             <label className="wf-field">
               思考等级
-              <select
-                aria-label="思考等级"
+              <SearchSelect
+                ariaLabel="思考等级"
                 value={config.thinking ?? "inherit"}
-                onChange={(e) =>
-                  patch({ thinking: e.target.value as typeof config.thinking })
-                }
-              >
-                {[
+                onChange={(next) => patch({ thinking: next as typeof config.thinking })}
+                options={[
                   "inherit",
                   "off",
                   "minimal",
@@ -405,12 +396,8 @@ export function WorkflowNodeEditor({
                   "medium",
                   "high",
                   "xhigh",
-                ].map((t) => (
-                  <option key={t} value={t}>
-                    {t === "inherit" ? "模型默认" : t === "off" ? "关闭" : t}
-                  </option>
-                ))}
-              </select>
+                ].map((t) => ({ value: t, label: t === "inherit" ? "模型默认" : t === "off" ? "关闭" : t }))}
+              />
             </label>
             <div className="wf-two-fields">
               {(
@@ -473,19 +460,15 @@ export function WorkflowNodeEditor({
             <h3>Agent 与输入</h3>
             <label className="wf-field">
               Agent
-              <select
+              <SearchSelect
+                ariaLabel="Agent"
                 value={config.agentId ?? ""}
-                onChange={(e) =>
-                  patch({ agentId: e.target.value, sessionId: undefined })
-                }
-              >
-                <option value="">选择 Agent</option>
-                {catalog.agents.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(next) => patch({ agentId: next, sessionId: undefined })}
+                options={[
+                  { value: "", label: "选择 Agent" },
+                  ...catalog.agents.map((a) => ({ value: a.id, label: a.name })),
+                ]}
+              />
             </label>
             {binding("prompt", "用户 prompt · 必填", {
               name: "prompt",
@@ -500,35 +483,33 @@ export function WorkflowNodeEditor({
             <h3>会话行为</h3>
             <label className="wf-field">
               目标会话
-              <select
+              <SearchSelect
+                ariaLabel="目标会话"
                 value={config.sessionMode ?? "new"}
-                onChange={(e) =>
-                  patch({ sessionMode: e.target.value as "new" | "fixed" })
-                }
-              >
-                <option value="new">每次新建会话</option>
-                <option value="fixed">每次发送至同一会话</option>
-              </select>
+                onChange={(next) => patch({ sessionMode: next as "new" | "fixed" })}
+                options={[
+                  { value: "new", label: "每次新建会话" },
+                  { value: "fixed", label: "每次发送至同一会话" },
+                ]}
+              />
             </label>
             {config.sessionMode === "fixed" && (
               <label className="wf-field">
                 固定会话
-                <select
+                <SearchSelect
+                  ariaLabel="固定会话"
                   value={config.sessionId ?? ""}
-                  onChange={(e) => patch({ sessionId: e.target.value })}
-                >
-                  <option value="">选择该 Agent 的会话</option>
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || s.firstMessage || s.id}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) => patch({ sessionId: next })}
+                  options={[
+                    { value: "", label: "选择该 Agent 的会话" },
+                    ...sessions.map((s) => ({ value: s.id, label: s.name || s.firstMessage || s.id })),
+                  ]}
+                />
               </label>
             )}
             <label className="wf-check">
-              <input
-                type="checkbox"
+              <Checkbox
+
                 checked={!!config.archiveAfterCompletion}
                 onChange={(e) =>
                   patch({ archiveAfterCompletion: e.target.checked })
@@ -546,29 +527,27 @@ export function WorkflowNodeEditor({
             <h3>创作接口</h3>
             <label className="wf-field">
               AIGC 工具
-              <select
+              <SearchSelect
+                ariaLabel="AIGC 工具"
                 value={config.interfaceId ?? ""}
-                onChange={(e) => {
+                onChange={(next) => {
                   const item = catalog.interfaces.find(
-                    (i) => i.id === e.target.value,
+                    (i) => i.id === next,
                   );
                   onChange({
                     ...node,
-                    config: { interfaceId: e.target.value },
+                    config: { interfaceId: next },
                     inputs: {},
                     outputs: item?.outputs ?? [
                       { name: "files", type: "file", multiple: true },
                     ],
                   });
                 }}
-              >
-                <option value="">选择创作与运行中的接口</option>
-                {catalog.interfaces.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "选择创作与运行中的接口" },
+                  ...catalog.interfaces.map((i) => ({ value: i.id, label: i.name })),
+                ]}
+              />
             </label>
             {aigc?.fields
               .filter((f) => !groupFields.has(f.name))
@@ -586,13 +565,13 @@ export function WorkflowNodeEditor({
                   <strong>{group.label}</strong>
                   <label className="wf-field">
                     输入方式
-                    <select
-                      aria-label={`${group.label} 输入方式`}
+                    <SearchSelect
+                      ariaLabel={`${group.label} 输入方式`}
                       value={setting ? "array" : "split"}
-                      onChange={(event) => {
+                      onChange={(next) => {
                         const referenceGroups = { ...config.referenceGroups };
                         const inputs = { ...node.inputs };
-                        if (event.target.value === "array") {
+                        if (next === "array") {
                           referenceGroups[group.id] = { mode: "array" };
                           group.fields.forEach((name) => delete inputs[name]);
                         } else delete referenceGroups[group.id];
@@ -602,10 +581,11 @@ export function WorkflowNodeEditor({
                           config: { ...config, referenceGroups },
                         });
                       }}
-                    >
-                      <option value="split">逐项输入</option>
-                      <option value="array">数组输入</option>
-                    </select>
+                      options={[
+                        { value: "split", label: "逐项输入" },
+                        { value: "array", label: "数组输入" },
+                      ]}
+                    />
                   </label>
                   <p className="wf-hint">
                     最多 {group.fields.length}{" "}
@@ -652,15 +632,15 @@ export function WorkflowNodeEditor({
             <h3>分支条件</h3>
             <label className="wf-field">
               组合方式
-              <select
+              <SearchSelect
+                ariaLabel="组合方式"
                 value={config.conditionMode ?? "all"}
-                onChange={(e) =>
-                  patch({ conditionMode: e.target.value as "all" | "any" })
-                }
-              >
-                <option value="all">全部满足 · AND</option>
-                <option value="any">任一满足 · OR</option>
-              </select>
+                onChange={(next) => patch({ conditionMode: next as "all" | "any" })}
+                options={[
+                  { value: "all", label: "全部满足 · AND" },
+                  { value: "any", label: "任一满足 · OR" },
+                ]}
+              />
             </label>
             {conditions.map((c, i) => (
               <div key={i}>
@@ -682,7 +662,7 @@ export function WorkflowNodeEditor({
                 </button>
               </div>
             ))}
-            <button
+            <Button
               type="button"
               className="wf-button"
               onClick={() =>
@@ -700,7 +680,7 @@ export function WorkflowNodeEditor({
             >
               <Plus size={15} />
               添加条件
-            </button>
+            </Button>
             <p className="wf-hint">从画布右侧 IF / ELSE 端口分别连接分支。</p>
           </>
         )}
@@ -709,25 +689,23 @@ export function WorkflowNodeEditor({
             <h3>选择输入值</h3>
             <label className="wf-field">
               选择方式
-              <select
+              <SearchSelect
+                ariaLabel="选择方式"
                 value={config.selectMode ?? "first_available"}
-                onChange={(e) =>
-                  patch({
-                    selectMode: e.target.value as
+                onChange={(next) => patch({
+                    selectMode: next as
                       "first_available" | "condition",
                     selectCondition: {
                       left: { kind: "literal", value: true },
                       operator: "eq",
                       right: { kind: "literal", value: true },
                     },
-                  })
-                }
-              >
-                <option value="first_available">
-                  按顺序选择首个已执行输入
-                </option>
-                <option value="condition">按条件选择两个输入之一</option>
-              </select>
+                  })}
+                options={[
+                  { value: "first_available", label: "按顺序选择首个已执行输入" },
+                  { value: "condition", label: "按条件选择两个输入之一" },
+                ]}
+              />
             </label>
             {config.selectMode === "condition" &&
               config.selectCondition &&
@@ -765,7 +743,7 @@ export function WorkflowNodeEditor({
                 </button>
               </div>
             ))}
-            <button
+            <Button
               type="button"
               className="wf-button"
               onClick={() =>
@@ -779,7 +757,7 @@ export function WorkflowNodeEditor({
             >
               <Plus size={15} />
               添加候选
-            </button>
+            </Button>
             <h3>返回类型</h3>
             <WorkflowFieldList
               fields={node.outputs}
@@ -810,7 +788,7 @@ export function WorkflowNodeEditor({
                 </button>
               </div>
             ))}
-            <button
+            <Button
               type="button"
               className="wf-button"
               onClick={() => {
@@ -828,7 +806,7 @@ export function WorkflowNodeEditor({
             >
               <Plus size={15} />
               添加输入
-            </button>
+            </Button>
             <div className="wf-section-heading">
               <h3>JavaScript</h3>
               <WorkflowScriptAssist
