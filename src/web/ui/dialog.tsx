@@ -16,6 +16,7 @@ export function Dialog({
   title,
   children,
   footer,
+  headerActions,
   onClose,
   closeLabel = "关闭",
   busy = false,
@@ -28,6 +29,7 @@ export function Dialog({
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  headerActions?: ReactNode;
   onClose?: () => void;
   closeLabel?: string;
   busy?: boolean;
@@ -35,10 +37,16 @@ export function Dialog({
   className?: string;
   style?: CSSProperties;
   bodyStyle?: CSSProperties;
-  dismissOnBackdrop?: boolean;
+  dismissOnBackdrop?: boolean | "surface";
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     id = useId();
+  const hasHeaderActions = headerActions !== undefined;
+  const closeButton = onClose && (
+    <IconButton label={closeLabel} data-initial-focus={hasHeaderActions ? true : undefined} disabled={busy} onClick={onClose}>
+      <X />
+    </IconButton>
+  );
   useViewportScrollLock();
   useLayoutEffect(() => {
     const node = ref.current!;
@@ -70,7 +78,7 @@ export function Dialog({
         if (!(event.target instanceof Element) || event.target.closest("dialog") !== dialog) return;
         // 模态层屏蔽背景，首尾循环同时阻止焦点跳到浏览器地址栏。
         const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
-          "button, input, select, textarea, a[href], summary, [tabindex], [contenteditable='true'], audio[controls], video[controls]",
+          "button, input, select, textarea, a[href], summary, iframe, [tabindex], [contenteditable='true'], audio[controls], video[controls]",
         )).filter((node) =>
           node.tabIndex >= 0 && !node.matches(":disabled") &&
           node.getClientRects().length > 0 && getComputedStyle(node).visibility === "visible",
@@ -90,6 +98,7 @@ export function Dialog({
         if (!dismissOnBackdrop || e.target !== ref.current || busy) return;
         const r = e.currentTarget.getBoundingClientRect();
         if (
+          dismissOnBackdrop === "surface" ||
           e.clientX < r.left ||
           e.clientX > r.right ||
           e.clientY < r.top ||
@@ -102,11 +111,7 @@ export function Dialog({
         <h2 className="bp-dialog__title" id={id}>
           {title}
         </h2>
-        {onClose && (
-          <IconButton label={closeLabel} disabled={busy} onClick={onClose}>
-            <X />
-          </IconButton>
-        )}
+        {hasHeaderActions ? <div className="bp-dialog__actions">{headerActions}{closeButton}</div> : closeButton}
       </div>
       <div className="bp-dialog__body" style={bodyStyle}>{children}</div>
       {footer && <div className="bp-dialog__footer">{footer}</div>}

@@ -353,7 +353,16 @@ function EditorPreview({ project, activeClip, activeOffsetMs, totalDurationMs, p
 
   return <div className={project.kind === "video" ? "aigc-media-editor-preview" : "aigc-media-editor-preview is-audio"}>
     <div className="aigc-media-editor-preview__stage">{renderJob?.status === "succeeded" ? <div className="aigc-media-editor-rendered-preview">{project.kind === "video" ? <video src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" /> : <audio src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" />}<Button onClick={onTimelinePreview}>返回时间线预览</Button></div> : activeClip ? <>{activeClip.kind === "image" ? <img src={source} alt={activeClip.name} /> : activeClip.kind === "video" ? <video ref={(node) => { mediaRef.current = node; }} src={source} muted={Boolean(activeClip.muted)} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /> : <div className="aigc-media-editor-audio-stage"><AudioLines size={44} aria-hidden="true" /><strong>{activeClip.name}</strong><audio ref={(node) => { mediaRef.current = node; }} src={source} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /></div>}</> : <div className="aigc-media-editor-preview__empty">{project.kind === "video" ? <Clapperboard size={38} aria-hidden="true" /> : <AudioLines size={38} aria-hidden="true" />}<strong>{project.kind === "video" ? "空视频工程" : "空音频工程"}</strong><Button onClick={onOpenLibrary} icon={<ImagePlus size={16} aria-hidden="true" />}>添加产物</Button></div>}</div>
-    <div className="aigc-media-editor-transport"><button type="button" aria-label={playing ? "暂停预览" : "播放预览"} title={playing ? "暂停预览" : "播放预览"} disabled={!activeClip || Boolean(renderJob)} onClick={() => onPlayChange(!playing)}>{playing ? <Pause size={17} aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}</button><span><strong>{formatTime(playheadMs, true)}</strong><small>/ {formatTime(totalDurationMs, true)}</small></span><input type="range" aria-label="时间线播放位置" min="0" max={Math.max(totalDurationMs, 1)} step="50" value={Math.min(playheadMs, totalDurationMs)} disabled={!activeClip || Boolean(renderJob)} onChange={(event) => { onPlayChange(false); onPlayheadChange(Number(event.target.value)); }} /><Volume2 size={17} aria-hidden="true" /></div>
+    <div className="aigc-media-editor-transport">
+      <IconButton label={playing ? "暂停预览" : "播放预览"} disabled={!activeClip || Boolean(renderJob)} onClick={() => onPlayChange(!playing)}>
+        {playing ? <Pause /> : <Play />}
+      </IconButton>
+      <span><strong>{formatTime(playheadMs, true)}</strong><small>/ {formatTime(totalDurationMs, true)}</small></span>
+      <input type="range" aria-label="时间线播放位置" min="0" max={Math.max(totalDurationMs, 1)} step="50"
+        value={Math.min(playheadMs, totalDurationMs)} disabled={!activeClip || Boolean(renderJob)}
+        onChange={(event) => { onPlayChange(false); onPlayheadChange(Number(event.target.value)); }} />
+      <Volume2 size={17} aria-hidden="true" />
+    </div>
   </div>;
 }
 
@@ -388,7 +397,25 @@ function EditorInspector({ project, clip, saving, onProjectChange, onProjectSave
 
 /** 横向时间线片段支持拖动与移动端显式排序按钮。 */
 function TimelineClip({ clip, index, count, selected, saving, onSelect, onMove, onRemove, onDragStart, onDrop }: { clip: AigcMediaClip; index: number; count: number; selected: boolean; saving: boolean; onSelect: () => void; onMove: (target: number) => void; onRemove: () => void; onDragStart: () => void; onDrop: () => void }) {
-  return <article className={selected ? "aigc-media-editor-clip is-selected" : "aigc-media-editor-clip"} draggable={!saving} onDragStart={onDragStart} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}><button type="button" className="aigc-media-editor-clip__main" onClick={onSelect} aria-label={`选择片段 ${clip.name}`}><GripVertical size={14} aria-hidden="true" />{clip.kind === "image" ? <img src={aigcTaskThumbnailUrl(clip.source.taskId, clip.source.assetId)} alt="" /> : clip.kind === "video" ? <Film size={20} aria-hidden="true" /> : <AudioLines size={20} aria-hidden="true" />}<span><strong title={clip.name}>{clip.name}</strong><small>{formatTime(clipDuration(clip), true)}{clip.kind === "video" && clip.hasAudio && !clip.muted ? " · 原音" : ""}</small></span></button><footer><button type="button" aria-label="向前移动" title="向前移动" disabled={saving || index === 0} onClick={() => onMove(index - 1)}><ChevronLeft size={14} /></button><button type="button" aria-label="向后移动" title="向后移动" disabled={saving || index >= count - 1} onClick={() => onMove(index + 1)}><ChevronRight size={14} /></button><button type="button" aria-label="移除片段" title="移除片段" disabled={saving} onClick={onRemove}><Trash2 size={14} /></button></footer></article>;
+  return (
+    <article className={selected ? "aigc-media-editor-clip is-selected" : "aigc-media-editor-clip"}
+      draggable={!saving} onDragStart={onDragStart} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+      <button type="button" className="aigc-media-editor-clip__main" onClick={onSelect} aria-label={`选择片段 ${clip.name}`}>
+        <GripVertical size={14} aria-hidden="true" />
+        {clip.kind === "image" ? <img src={aigcTaskThumbnailUrl(clip.source.taskId, clip.source.assetId)} alt="" />
+          : clip.kind === "video" ? <Film size={20} aria-hidden="true" /> : <AudioLines size={20} aria-hidden="true" />}
+        <span>
+          <strong title={clip.name}>{clip.name}</strong>
+          <small>{formatTime(clipDuration(clip), true)}{clip.kind === "video" && clip.hasAudio && !clip.muted ? " · 原音" : ""}</small>
+        </span>
+      </button>
+      <footer>
+        <IconButton label="向前移动" size="sm" disabled={saving || index === 0} onClick={() => onMove(index - 1)}><ChevronLeft /></IconButton>
+        <IconButton label="向后移动" size="sm" disabled={saving || index >= count - 1} onClick={() => onMove(index + 1)}><ChevronRight /></IconButton>
+        <IconButton label="移除片段" size="sm" disabled={saving} onClick={onRemove}><Trash2 /></IconButton>
+      </footer>
+    </article>
+  );
 }
 
 /** 从真实 AIGC 产物中选择与当前工程兼容的素材。 */

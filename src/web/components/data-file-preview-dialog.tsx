@@ -1,8 +1,9 @@
-import { Download, FileQuestion, X } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Download, FileQuestion } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { DataFileSummary, DataFileTextPreview } from "../../shared/contracts";
 import { api, dataFileUrl } from "../api";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
+import { Dialog } from "../ui/dialog";
 import { formatFileSize } from "./attachment-picker";
 
 interface DataFilePreviewDialogProps {
@@ -16,7 +17,6 @@ export function DataFilePreviewDialog({ agentId, path, onClose }: DataFilePrevie
   const [summary, setSummary] = useState<DataFileSummary>();
   const [text, setText] = useState<DataFileTextPreview>();
   const [error, setError] = useState("");
-  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -40,34 +40,21 @@ export function DataFilePreviewDialog({ agentId, path, onClose }: DataFilePrevie
   }, [agentId, path]);
 
   useEffect(() => {
-    closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
+    // 移动端系统返回与弹层的键盘关闭共用同一个回调。
     const onMobileBack = (event: Event) => {
       event.preventDefault();
       onClose();
     };
-    window.addEventListener("keydown", onKeyDown);
     window.addEventListener(MOBILE_BACK_REQUEST_EVENT, onMobileBack);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener(MOBILE_BACK_REQUEST_EVENT, onMobileBack);
-    };
+    return () => window.removeEventListener(MOBILE_BACK_REQUEST_EVENT, onMobileBack);
   }, [onClose]);
 
   const source = summary ? dataFileUrl(agentId, summary.path) : "";
-  return <div style={styles.backdrop} role="presentation" onPointerDown={(event) => {
-    if (event.target === event.currentTarget) onClose();
-  }}>
-    <section style={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="data-file-preview-title">
-      <header style={styles.header}>
-        <div style={styles.heading}><span style={styles.meta}>FILE PREVIEW</span><strong id="data-file-preview-title" style={styles.title}>{summary?.name ?? "正在读取文件"}</strong>{summary ? <small style={styles.meta}>{formatFileSize(summary.size)} · {summary.mediaType}</small> : null}</div>
-        <div style={styles.actions}>
-          {summary ? <a style={styles.iconButton} href={dataFileUrl(agentId, summary.path, true)} download={summary.name} aria-label={`下载 ${summary.name}`} title="下载文件"><Download size={17} aria-hidden="true" /></a> : null}
-          <button style={styles.iconButton} ref={closeRef} type="button" aria-label="关闭文件预览" title="关闭" onClick={onClose}><X size={19} aria-hidden="true" /></button>
-        </div>
-      </header>
+  return <Dialog className="data-file-preview-dialog" title={summary?.name ?? "正在读取文件"}
+    closeLabel="关闭文件预览" onClose={onClose}
+    headerActions={summary ? <a className="bp-button bp-button--icon" href={dataFileUrl(agentId, summary.path, true)}
+      download={summary.name} aria-label={`下载 ${summary.name}`} title="下载文件"><Download size={17} aria-hidden="true" /></a> : null}>
+      {summary ? <small style={styles.meta}>{formatFileSize(summary.size)} · {summary.mediaType}</small> : null}
       <div style={styles.body}>
         {error ? <div style={styles.empty} role="alert"><FileQuestion size={28} aria-hidden="true" /><p>{error}</p></div> : null}
         {!error && !summary ? <p style={styles.empty}>正在读取文件信息…</p> : null}
@@ -83,20 +70,12 @@ export function DataFilePreviewDialog({ agentId, path, onClose }: DataFilePrevie
           : null}
         {summary && !isPreviewable(summary) ? <div style={styles.empty}><FileQuestion size={28} aria-hidden="true" /><p>当前格式不支持在线预览，可以下载后查看。</p></div> : null}
       </div>
-    </section>
-  </div>;
+  </Dialog>;
 }
 
 const styles: Record<string, CSSProperties> = {
-  backdrop: { position: "fixed", zIndex: 90, inset: 0, display: "grid", placeItems: "center", padding: 12, background: "color-mix(in srgb, var(--background) 46%, transparent)", backdropFilter: "blur(8px)" },
-  dialog: { display: "grid", width: "min(980px, 100%)", height: "min(760px, calc(100dvh - 24px))", gridTemplateRows: "auto minmax(0, 1fr)", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", boxShadow: "var(--shadow-float)", overflow: "hidden" },
-  header: { display: "flex", minWidth: 0, alignItems: "center", justifyContent: "space-between", gap: 16, padding: "13px 14px 13px 18px", borderBottom: "1px solid var(--border)" },
-  heading: { display: "grid", minWidth: 0, gap: 2 },
   meta: { color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", fontSize: 10 },
-  title: { overflow: "hidden", color: "var(--text-primary)", fontSize: 14, textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  actions: { display: "flex", flex: "0 0 auto", gap: 5 },
-  iconButton: { display: "inline-grid", width: 34, height: 34, placeItems: "center", padding: 0, border: "1px solid var(--border)", borderRadius: 7, color: "var(--text-secondary)", background: "transparent", textDecoration: "none" },
-  body: { display: "grid", minHeight: 0, placeItems: "center", background: "var(--surface-soft)", overflow: "auto" },
+  body: { display: "grid", gridRow: "-2 / -1", minHeight: 0, placeItems: "center", background: "var(--surface-soft)", overflow: "auto" },
   media: { display: "block", maxWidth: "100%", maxHeight: "100%", objectFit: "contain" },
   audio: { width: "min(620px, calc(100% - 40px))" },
   frame: { width: "100%", height: "100%", border: 0, background: "#fff" },

@@ -49,7 +49,11 @@ export function MediaAttachment({ file, agentId = "default", onResolved, onPrevi
   const mediaType = summary?.mediaType ?? "application/octet-stream";
   const media = mediaType.startsWith("image/")
     ? onPreview && summary
-      ? <button type="button" className="media-attachment__open" aria-label={`全屏预览 ${name}`} onClick={() => onPreview(summary)}><img src={previewUrl} alt={name} loading="lazy" /></button>
+      ? <button type="button" className="media-attachment__open" aria-label={`全屏预览 ${name}`} onClick={(event) => {
+        // 触控激活在部分浏览器中不聚焦按钮，显式指定弹层的回焦入口。
+        event.currentTarget.focus({ preventScroll: true });
+        onPreview(summary);
+      }}><img src={previewUrl} alt={name} loading="lazy" /></button>
       : <img src={previewUrl} alt={name} loading="lazy" />
       : mediaType.startsWith("audio/")
       ? <audio src={previewUrl} controls preload="metadata" />

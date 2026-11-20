@@ -24,6 +24,9 @@ export function Menu({
   triggerClassName,
   triggerVariant,
   openRequestId,
+  onOpen,
+  focusKey,
+  emptyMessage,
 }: {
   label: string;
   icon?: ReactNode;
@@ -34,6 +37,9 @@ export function Menu({
   triggerClassName?: string;
   triggerVariant?: "secondary" | "ghost";
   openRequestId?: number;
+  onOpen?: () => void;
+  focusKey?: string;
+  emptyMessage?: string;
   items: readonly {
     key: string;
     label: string;
@@ -43,10 +49,12 @@ export function Menu({
     icon?: ReactNode;
     danger?: boolean;
     separatorBefore?: boolean;
+    groupLabel?: string;
   }[];
 }) {
   const [expanded, setOpen] = useState(false);
   const open = expanded && !disabled;
+  const hasOptions = items.some((item) => !item.disabled);
   const root = useRef<HTMLDivElement>(null),
     menu = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null),
@@ -62,6 +70,12 @@ export function Menu({
   function close() {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
+  }
+
+  function openFromTrigger() {
+    if (open) return;
+    onOpen?.();
+    setOpen(true);
   }
   useEffect(() => {
     if (disabled) setOpen(false);
@@ -95,12 +109,9 @@ export function Menu({
         "px 0";
     }
     place();
-    popup
-      .querySelector<HTMLElement>("[role=menuitem]:not(:disabled)")
-      ?.focus({ preventScroll: true });
     function onScroll(event: Event) {
       if (!portal) place();
-      else if (event.target !== popup) close();
+      else if (!(event.target instanceof Node) || !popup.contains(event.target)) close();
     }
     const onResize = portal ? close : place;
     window.addEventListener("scroll", onScroll, true);
@@ -109,7 +120,14 @@ export function Menu({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open, portal]);
+  }, [open, portal, focusKey, items.length]);
+  useLayoutEffect(() => {
+    if (!open || !menu.current) return;
+    // 异步选项到达或目录切换后，把焦点移到当前列表的第一个操作。
+    const first = menu.current.querySelector<HTMLElement>("[role=menuitem]:not(:disabled)") ?? menu.current;
+    menu.current.scrollTop = 0;
+    first.focus({ preventScroll: true });
+  }, [open, focusKey, hasOptions]);
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {
@@ -127,6 +145,7 @@ export function Menu({
       data-portal={portal || undefined}
       id={id}
       ref={menu}
+      tabIndex={-1}
       onKeyDown={(e) => {
         const buttons = Array.from(
           e.currentTarget.querySelectorAll<HTMLButtonElement>(
@@ -142,14 +161,14 @@ export function Menu({
           close();
           return;
         }
-        if (e.key === "Tab" && portal) {
-          // 浮层位于文档末尾，Tab 从原条目的导航顺序继续。
+        if (e.key === "Tab") {
+          // Tab 从触发入口的导航顺序继续。
           close();
           return;
         }
         const targets: Record<string, number> = {
           ArrowDown: (index + 1) % buttons.length,
-          ArrowUp: (index - 1 + buttons.length) % buttons.length,
+          ArrowUp: (index < 0 ? buttons.length - 1 : (index - 1 + buttons.length) % buttons.length),
           Home: 0,
           End: buttons.length - 1,
         };
@@ -159,9 +178,11 @@ export function Menu({
         }
       }}
     >
+      {!items.length && emptyMessage && <span className="bp-menu__group" role="status">{emptyMessage}</span>}
       {items.map((item) => (
         <Fragment key={item.key}>
           {item.separatorBefore && <div role="separator" className="bp-menu__separator" />}
+          {item.groupLabel && <span className="bp-menu__group" aria-hidden="true">{item.groupLabel}</span>}
           <button role="menuitem" type="button" className="bp-menu__item" tabIndex={-1}
             disabled={item.disabled} data-danger={item.danger || undefined}
             onClick={() => {
@@ -197,11 +218,11 @@ export function Menu({
         aria-controls={open ? id : undefined}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (open) close(); else openFromTrigger(); }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();
-            setOpen(true);
+            openFromTrigger();
           }
         }}
       >

@@ -57,6 +57,12 @@
 
 .bp-menu__item[data-danger] { color: var(--bp-danger-text, var(--danger)); }
 .bp-menu__separator { border-top:1px solid var(--border); }
+.bp-menu__group {
+  display: block;
+  padding: var(--bp-space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
 .bp-menu__item svg { width:16px;height:16px;margin-inline-end:8px;vertical-align:middle; }
 @media (pointer: coarse) {
   .bp-menu__item { min-height: var(--bp-touch-target); }

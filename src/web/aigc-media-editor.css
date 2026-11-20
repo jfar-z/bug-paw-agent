@@ -1,5 +1,7 @@
 .aigc-media-editor-page {
   display: grid;
+  /* 工程加载后，片段的固有宽度只参与时间线自身滚动。 */
+  grid-template-columns: minmax(0, 1fr);
   width: min(100%, 1440px);
   min-height: 100%;
   margin: 0 auto;
@@ -125,7 +127,7 @@
   padding: 18px;
   border-right: 1px solid var(--border);
   background: #0e1110;
-  grid-template-rows: minmax(0, 1fr) 42px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .aigc-media-editor-preview__stage {
@@ -197,33 +199,28 @@
   color: var(--text-primary);
 }
 
-.aigc-media-editor-transport button {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid currentColor;
-  border-radius: 6px;
+.aigc-media-editor-transport .bp-button {
+  flex: none;
+  border-color: currentColor;
   color: inherit;
-  background: transparent;
-  place-items: center;
 }
 
-.aigc-media-editor-transport button:disabled {
-  opacity: .45;
+.aigc-media-editor-preview:not(.is-audio) .aigc-media-editor-transport .bp-button:not(:disabled):hover {
+  color: inherit;
+  background: rgb(255 255 255 / 14%);
 }
 
-.aigc-media-editor-transport span {
+.aigc-media-editor-transport > span {
   display: flex;
-  min-width: 112px;
   gap: 5px;
   font-family: var(--font-mono);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .aigc-media-editor-transport input[type="range"] {
   width: min(34vw, 420px);
-  min-width: 80px;
+  min-width: 0;
   accent-color: var(--accent);
 }
 
@@ -346,6 +343,7 @@
 
 .aigc-media-editor-timeline > header {
   justify-content: space-between;
+  flex-wrap: wrap;
   margin-bottom: 10px;
   gap: 12px;
 }
@@ -454,27 +452,6 @@
   padding: 4px 6px;
   border-top: 1px solid var(--border);
   gap: 2px;
-}
-
-.aigc-media-editor-clip footer button {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  color: var(--text-secondary);
-  background: transparent;
-  place-items: center;
-}
-
-.aigc-media-editor-clip footer button:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.aigc-media-editor-clip footer button:disabled {
-  opacity: .35;
 }
 
 .aigc-media-editor-library.bp-dialog {
@@ -637,7 +614,7 @@
   }
 
   .aigc-media-editor-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .aigc-media-editor-preview {
@@ -676,8 +653,16 @@
     padding: 12px;
   }
 
+  .aigc-media-editor-transport {
+    gap: var(--bp-space-2);
+  }
+
+  .aigc-media-editor-transport input[type="range"] {
+    flex: 1;
+  }
+
   .aigc-media-editor-inspector {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .aigc-media-editor-inspector > header,

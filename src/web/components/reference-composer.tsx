@@ -1,8 +1,9 @@
 import { ChevronLeft, Database, File, Folder, Plus, Terminal, WandSparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type ComponentProps, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { AgentReference, FileReference } from "../../shared/agent-reference-contracts";
-import type { ComposerCatalog, WorkspaceEntry } from "../../shared/contracts";
+import type { ComposerCatalog } from "../../shared/contracts";
 import { useApiTask } from "../api-task-provider";
+import { Menu } from "../ui/menu";
 import { AgentReferenceChips } from "./agent-reference-chips";
 
 interface ReferenceComposerProps {
@@ -44,11 +45,10 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
   const { runApiTask } = useApiTask();
   const [text, setText] = useState(value);
   const [catalog, setCatalog] = useState<ComposerCatalog>();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [menuDirectory, setMenuDirectory] = useState("");
   const [draggingInput, setDraggingInput] = useState(false);
-  const composerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragDepthRef = useRef(0);
   const candidateMenuRef = useRef<HTMLDivElement>(null);
@@ -58,7 +58,6 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
 
   const mode = useMemo(() => detectMode(text), [text]);
   const candidates = useMemo(() => catalog ? buildCandidates(catalog, mode, references) : [], [catalog, mode, references]);
-  const displayMenu = (mode !== undefined && candidates.length > 0) || menuOpen;
 
   const loadReferenceCatalog = async () => {
     const result = await runApiTask(loadCatalog, {
@@ -75,24 +74,6 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
   useEffect(() => {
     setActiveIndex((index) => Math.min(index, Math.max(candidates.length - 1, 0)));
   }, [candidates.length]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && !composerRef.current?.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     const activeCandidate = candidateMenuRef.current?.querySelector<HTMLElement>("button[aria-selected='true']");
@@ -168,7 +149,6 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
     if (mode?.type === "reference") {
       updateText(`${text.slice(0, mode.start)}${text.slice(mode.end)}`);
     }
-    setMenuOpen(false);
   };
 
   const selectCandidate = (candidate: Candidate | undefined) => {
@@ -180,20 +160,46 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
     updateText(`/${candidate.name}`);
   };
 
-  const toggleMenu = () => {
-    setMenuOpen((open) => !open);
+  const openReferenceMenu = () => {
     setMenuDirectory("");
-    if (!catalog) {
-      void loadReferenceCatalog();
+    if (!catalog && !catalogLoading) {
+      setCatalogLoading(true);
+      void loadReferenceCatalog().finally(() => setCatalogLoading(false));
     }
   };
 
-  const menuEntries = catalog?.workspaceEntries.filter((entry) => parentDirectory(entry.path) === menuDirectory) ?? [];
+  // 文件夹操作替换当前菜单内容，同一个菜单继续管理焦点。
+  const menuItems: ComponentProps<typeof Menu>["items"] = [
+    ...(menuDirectory ? [{
+      key: "parent", label: "返回上级", icon: <ChevronLeft />,
+      keepOpen: true, onSelect: () => setMenuDirectory(parentDirectory(menuDirectory)),
+    }] : [
+      ...(catalog?.skills.map((skill, index) => ({
+        key: `skill:${skill.name}`, label: skill.name, icon: <WandSparkles />,
+        groupLabel: index === 0 ? "技能" : undefined,
+        onSelect: () => addReference({ type: "skill", name: skill.name }),
+      })) ?? []),
+      ...(catalog?.knowledgeBases.map((base, index) => ({
+        key: `knowledge:${base.id}`, label: base.name, icon: <Database />,
+        groupLabel: index === 0 ? "知识库" : undefined,
+        onSelect: () => addReference({ type: "knowledge", id: base.id, name: base.name }),
+      })) ?? []),
+    ]),
+    ...(catalog?.workspaceEntries.filter((entry) => parentDirectory(entry.path) === menuDirectory).map((entry, index) => ({
+      key: `workspace:${entry.path}`, label: entry.name,
+      icon: entry.kind === "directory" ? <Folder /> : <File />,
+      groupLabel: index === 0 ? "文件" : undefined,
+      keepOpen: entry.kind === "directory",
+      onSelect: () => {
+        if (entry.kind === "directory") setMenuDirectory(entry.path);
+        else addReference({ type: "file", path: entry.path, kind: "file", name: entry.name });
+      },
+    })) ?? []),
+  ];
   return (
     <div
       className={`reference-composer${draggingInput ? " is-dragging-input" : ""}`}
       style={draggingInput ? { outline: "2px dashed var(--accent)", background: "var(--accent-soft)" } : undefined}
-      ref={composerRef}
       onDragEnter={(event) => {
         if (disabled || !supportsDrop(event.dataTransfer.types)) return;
         event.preventDefault();
@@ -242,7 +248,7 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
             }
           }}
         />
-        {displayMenu && !menuOpen && mode ? <div className="reference-composer__candidate-menu" ref={candidateMenuRef} role="listbox" aria-label={mode.type === "reference" ? "引用候选" : "命令候选"}>
+        {mode && candidates.length > 0 ? <div className="reference-composer__candidate-menu" ref={candidateMenuRef} role="listbox" aria-label={mode.type === "reference" ? "引用候选" : "命令候选"}>
           {candidates.map((candidate, index) => <button key={`${candidate.type}:${candidate.name}`} type="button" role="option" aria-label={`${candidateLabel(candidate)} ${candidate.name}`} aria-selected={index === activeIndex} className={index === activeIndex ? "is-active" : ""} onMouseDown={(event) => event.preventDefault()} onClick={() => selectCandidate(candidate)}>
             <CandidateIcon candidate={candidate} />
             <span><b>{candidate.name}</b><small>{candidate.description}</small></span>
@@ -252,19 +258,10 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
       {attachmentContent}
       <div className="reference-composer__footer">
         <div className="reference-composer__control-rail">
-          <div className="reference-composer__picker">
-            <button type="button" className="icon-button" aria-label="添加引用" disabled={disabled} onClick={toggleMenu}><Plus size={18} /></button>
-            {menuOpen ? <div className="reference-composer__quick-menu" role="menu">
-              {menuDirectory ? <button type="button" role="menuitem" onClick={() => setMenuDirectory(parentDirectory(menuDirectory))}><ChevronLeft size={14} />返回上级</button> : <>
-                <p>技能</p>
-                {catalog?.skills.map((skill) => <button key={skill.name} type="button" role="menuitem" onClick={() => addReference({ type: "skill", name: skill.name })}><WandSparkles size={14} />{skill.name}</button>)}
-                <p>知识库</p>
-                {catalog?.knowledgeBases.map((base) => <button key={base.id} type="button" role="menuitem" onClick={() => addReference({ type: "knowledge", id: base.id, name: base.name })}><Database size={14} />{base.name}</button>)}
-              </>}
-              <p>文件</p>
-              {menuEntries.map((entry) => <WorkspaceMenuItem key={entry.path} entry={entry} onOpenDirectory={setMenuDirectory} onSelect={addReference} />)}
-            </div> : null}
-          </div>
+          <Menu label="添加引用" icon={<Plus />} className="reference-composer__picker"
+            triggerVariant="ghost" disabled={disabled} items={menuItems} onOpen={openReferenceMenu}
+            focusKey={menuDirectory}
+            emptyMessage={catalogLoading ? "正在加载引用目录…" : catalog ? "暂无可引用内容" : undefined} />
           {attachmentControl}
           {railControls}
         </div>
@@ -272,11 +269,6 @@ export function ReferenceComposer({ value, references, disabled, loadCatalog, on
       </div>
     </div>
   );
-}
-
-function WorkspaceMenuItem({ entry, onOpenDirectory, onSelect }: { entry: WorkspaceEntry; onOpenDirectory(path: string): void; onSelect(reference: AgentReference): void }) {
-  if (entry.kind === "directory") return <button type="button" role="menuitem" onClick={() => onOpenDirectory(entry.path)}><Folder size={14} />{entry.name}</button>;
-  return <button type="button" role="menuitem" onClick={() => onSelect({ type: "file", path: entry.path, kind: "file", name: entry.name })}><File size={14} />{entry.name}</button>;
 }
 
 function CandidateIcon({ candidate }: { candidate: Candidate }) {

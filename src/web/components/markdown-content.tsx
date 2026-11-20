@@ -49,7 +49,11 @@ export const MarkdownContent = memo(function MarkdownContent({
       const mediaKind = href && onLinkActivate ? dataFileLinkMediaKind(href) : undefined;
       return (
         <a className={mediaKind ? "markdown-file-link" : undefined} href={href} {...(external ? { target: "_blank", rel: "noreferrer noopener" } : {})} onClick={(event) => {
-          if (href && onLinkActivate?.(href)) event.preventDefault();
+          if (href && onLinkActivate?.(href)) {
+            event.preventDefault();
+            // 让文件预览关闭时回到触控或键盘激活的同一个链接。
+            event.currentTarget.focus({ preventScroll: true });
+          }
         }}>
           {children}
           {mediaKind ? <MarkdownFileIcon kind={mediaKind} /> : null}

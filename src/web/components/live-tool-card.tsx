@@ -48,7 +48,10 @@ export function LiveToolCard({ tool, onLinkActivate }: LiveToolCardProps) {
             style={styles.previewButton}
             aria-label={`查看 ${previewPath} 文件内容`}
             title="查看文件内容"
-            onClick={() => onLinkActivate(previewPath)}
+            onClick={(event) => {
+              event.currentTarget.focus({ preventScroll: true });
+              onLinkActivate(previewPath);
+            }}
           >
             <Eye size={15} aria-hidden="true" />
           </button> : null}

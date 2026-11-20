@@ -1233,12 +1233,36 @@ img.message-avatar {
   background: var(--surface-hover);
 }
 
+.data-file-preview-dialog.bp-dialog {
+  display: grid;
+  width: min(980px, calc(100% - 24px));
+  height: min(760px, calc(100dvh - 24px));
+  max-height: none;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.data-file-preview-dialog .bp-dialog__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-file-preview-dialog .bp-dialog__actions {
+  display: flex;
+  flex: none;
+  gap: var(--bp-space-1);
+}
+
+.data-file-preview-dialog .bp-dialog__body {
+  max-height: none;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 /* 关闭图片时短暂隔离指针，防止误触底层聊天操作。 */
 .media-lightbox__dismiss-guard {
-  position: fixed;
-  z-index: 220;
+  position: absolute;
+  z-index: 1;
   inset: 0;
-  background: transparent;
 }
 
 /* 缩放与拖动基于完整适配后的画布，保持既有手势交互。 */
@@ -1268,7 +1292,7 @@ img.message-avatar {
   display: grid;
   width: max-content;
   min-height: 44px;
-  grid-template-columns: 44px auto 44px;
+  grid-template-columns: auto auto auto;
   align-items: center;
   gap: 4px;
   padding: 4px;
@@ -1277,35 +1301,6 @@ img.message-avatar {
   color: rgba(255, 255, 255, 0.82);
   background: rgba(24, 31, 27, 0.66);
   backdrop-filter: blur(12px);
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.media-lightbox__image-controls button,
-.media-lightbox__zoom-controls button {
-  display: grid;
-  width: 44px;
-  height: 36px;
-  place-items: center;
-  border: 0;
-  border-radius: 10px;
-  color: white;
-  background: transparent;
-}
-
-.media-lightbox__image-controls button:hover:not(:disabled),
-.media-lightbox__zoom-controls button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.media-lightbox__image-controls button:disabled,
-.media-lightbox__zoom-controls button:disabled {
-  cursor: not-allowed;
-  opacity: 0.3;
-}
-
-.media-lightbox__zoom-controls button:nth-child(2) {
-  width: 52px;
   font-family: var(--font-mono);
   font-size: 10px;
 }
@@ -2173,22 +2168,10 @@ img.message-avatar {
   flex: 0 0 auto;
 }
 
-.reference-composer__picker {
-  position: relative;
-}
-
-.reference-composer__picker > .icon-button {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--text-secondary);
-}
-
-.reference-composer__picker > .icon-button:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface-hover);
+.reference-composer__picker .bp-menu__popup {
+  width: min(420px, calc(100vw - 48px));
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
 }
 
 .reference-composer textarea {
@@ -2431,9 +2414,10 @@ img.message-avatar {
   background: var(--surface-hover);
 }
 
-.reference-composer__candidate-menu,
-.reference-composer__quick-menu {
+.reference-composer__candidate-menu {
   position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
   z-index: 12;
   min-width: min(420px, calc(100vw - 48px));
   max-width: min(520px, calc(100vw - 48px));
@@ -2447,18 +2431,11 @@ img.message-avatar {
   overscroll-behavior: contain;
 }
 
-.reference-composer__candidate-menu {
-  bottom: calc(100% + 8px);
-  left: 0;
+.reference-composer:has(.reference-composer__picker [aria-expanded="true"]) .reference-composer__candidate-menu {
+  display: none;
 }
 
-.reference-composer__quick-menu {
-  bottom: 42px;
-  left: 0;
-}
-
-.reference-composer__candidate-menu button,
-.reference-composer__quick-menu button {
+.reference-composer__candidate-menu button {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -2473,8 +2450,7 @@ img.message-avatar {
 }
 
 .reference-composer__candidate-menu button:hover,
-.reference-composer__candidate-menu button.is-active,
-.reference-composer__quick-menu button:hover {
+.reference-composer__candidate-menu button.is-active {
   color: var(--text-primary);
   background: var(--surface-hover);
 }
@@ -2497,8 +2473,7 @@ img.message-avatar {
   font-size: 12px;
 }
 
-.reference-composer__candidate-menu small,
-.reference-composer__quick-menu p {
+.reference-composer__candidate-menu small {
   margin: 4px 8px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);

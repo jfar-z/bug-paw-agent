@@ -1,8 +1,10 @@
 import "../media-lightbox.css";
-import { ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { WorkspaceFileSummary } from "../../shared/contracts";
 import { workspaceFileUrl } from "../api";
+import { Button, IconButton } from "../ui/controls";
+import { Dialog } from "../ui/dialog";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
 
 interface MediaLightboxProps {
@@ -47,18 +49,10 @@ export function MediaLightbox({ item, images, agentId = "default", onClose }: Me
   const activeImage = images[activeIndex] ?? item;
 
   const requestClose = () => {
-    if (closing) return;
+    if (dismissTimerRef.current !== undefined) return;
     setClosing(true);
     dismissTimerRef.current = window.setTimeout(onClose, DISMISS_GUARD_DURATION_MS);
   };
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") requestClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closing]);
 
   useEffect(() => {
     const onMobileBackRequest = (event: Event) => {
@@ -146,32 +140,16 @@ export function MediaLightbox({ item, images, agentId = "default", onClose }: Me
     setDragging(false);
   };
 
-  if (closing) {
-    return <div className="media-lightbox__dismiss-guard" data-testid="media-lightbox-dismiss-guard" aria-hidden="true" />;
-  }
-
   return (
-    <div
-      className="media-lightbox"
-      role="dialog"
-      aria-modal="true"
-      aria-label="媒体预览"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) requestClose();
-      }}
+    <Dialog
+      title="媒体预览"
+      className={closing ? "media-lightbox is-dismissing" : "media-lightbox"}
+      closeLabel="关闭全屏预览"
+      onClose={requestClose}
+      dismissOnBackdrop="surface"
     >
-      <button
-        type="button"
-        className="media-lightbox__close"
-        aria-label="关闭全屏预览"
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          requestClose();
-        }}
-      >
-        <X size={22} aria-hidden="true" />
-      </button>
+      {/* 防误触期间保留模态层，结束后由公共弹层恢复入口焦点。 */}
+      {closing ? <div className="media-lightbox__dismiss-guard" data-testid="media-lightbox-dismiss-guard" aria-hidden="true" /> : null}
       <div
         className="media-lightbox__stage"
         onPointerDown={onStagePointerDown}
@@ -194,18 +172,18 @@ export function MediaLightbox({ item, images, agentId = "default", onClose }: Me
       <div className="media-lightbox__controls">
         {images.length > 1 ? (
           <div className="media-lightbox__image-controls" aria-label="图片切换">
-            <button type="button" aria-label="上一张图片" disabled={activeIndex === 0} onClick={() => changeImage(-1)}><ChevronLeft size={22} aria-hidden="true" /></button>
+            <IconButton label="上一张图片" disabled={activeIndex === 0} onClick={() => changeImage(-1)}><ChevronLeft /></IconButton>
             <span>{activeIndex + 1} / {images.length}</span>
-            <button type="button" aria-label="下一张图片" disabled={activeIndex === images.length - 1} onClick={() => changeImage(1)}><ChevronRight size={22} aria-hidden="true" /></button>
+            <IconButton label="下一张图片" disabled={activeIndex === images.length - 1} onClick={() => changeImage(1)}><ChevronRight /></IconButton>
           </div>
         ) : null}
         <div className="media-lightbox__zoom-controls" aria-label="图片缩放">
-          <button type="button" aria-label="缩小图片" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - SCALE_STEP)}><Minus size={18} aria-hidden="true" /></button>
-          <button type="button" aria-label="重置图片缩放" onClick={resetZoom}><span aria-label="当前缩放比例">{Math.round(scale * 100)}%</span></button>
-          <button type="button" aria-label="放大图片" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + SCALE_STEP)}><Plus size={18} aria-hidden="true" /></button>
+          <IconButton label="缩小图片" disabled={scale <= MIN_SCALE} onClick={() => updateScale(scale - SCALE_STEP)}><Minus /></IconButton>
+          <Button variant="ghost" aria-label={`重置图片缩放，当前 ${Math.round(scale * 100)}%`} onClick={resetZoom}>{Math.round(scale * 100)}%</Button>
+          <IconButton label="放大图片" disabled={scale >= MAX_SCALE} onClick={() => updateScale(scale + SCALE_STEP)}><Plus /></IconButton>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
