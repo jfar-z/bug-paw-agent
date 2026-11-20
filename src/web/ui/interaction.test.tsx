@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Button, IconButton } from "./controls";
+import { readFileSync } from "node:fs";
 import { Menu, Tooltip } from "./menu";
 import { Tabs } from "./tabs";
 
@@ -8,11 +9,21 @@ import { Tabs } from "./tabs";
 describe("公共控件交互", () => {
   it("忙碌按钮保留操作名称并阻止重复触发", () => {
     const click = vi.fn();
-    render(<Button loading onClick={click}>保存</Button>);
-    const button = screen.getByRole("button", {name:"保存"});
-    expect(button).toBeDisabled();
-    fireEvent.click(button);
-    expect(click).not.toHaveBeenCalled();
+    // 默认测试环境跳过 CSS，须应用实际样式才能验证可访问名称。
+    const style = document.createElement("style");
+    style.textContent = readFileSync("src/web/ui/controls.css", "utf8");
+    document.head.append(style);
+    try {
+      render(<Button loading onClick={click}>保存</Button>);
+      const button = screen.getByRole("button");
+      expect(button).toHaveAccessibleName("保存");
+      expect(button).toHaveAttribute("aria-busy", "true");
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(click).not.toHaveBeenCalled();
+    } finally {
+      style.remove();
+    }
   });
   it("图标菜单允许用方向键选择并将焦点还给入口", () => {
     const choose = vi.fn();

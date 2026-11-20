@@ -70,8 +70,9 @@
   width: var(--bp-icon-md);
   height: var(--bp-icon-md);
 }
+/* 加载时让文字透明，保留按钮宽度和供读屏使用的名称。 */
 .bp-button[aria-busy="true"] .bp-button__content {
-  visibility: hidden;
+  opacity: 0;
 }
 .bp-button__spinner {
   position: absolute;
