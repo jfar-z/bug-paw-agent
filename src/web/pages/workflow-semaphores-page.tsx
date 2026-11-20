@@ -1,4 +1,5 @@
-import { Button } from "../ui/controls";
+import { FormField } from "../ui/form-field";
+import { Button, NumberField, TextField } from "../ui/controls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView } from "../../shared/workflow-contracts";
@@ -62,10 +63,18 @@ export function WorkflowSemaphoresPage() {
         {!!(item.holders.length || item.waiting.length) && <details><summary>查看占用与等待运行</summary><ul>{[...item.holders.map((entry) => ({ ...entry, state: "占用" })), ...item.waiting.map((entry) => ({ ...entry, state: "等待" }))].map((entry, index) => <li key={`${entry.runId}-${index}`}><span>{entry.state} {entry.count} 个</span><Button className="configuration-secondary-action" onClick={() => navigateTo({ page: "workflow-run", runId: entry.runId })}>查看运行 {entry.runId}</Button></li>)}</ul></details>}
       </article>)}
     </section>
-    {editing && <ConfigurationEditorDialog variant="drawer" title={editing.revision ? "编辑信号量" : "新建信号量"} description="code 是工作流引用标识，创建后不能修改。" busy={busy} onClose={() => setEditing(undefined)} footer={<><Button className="configuration-secondary-action" disabled={busy} onClick={() => setEditing(undefined)}>取消</Button><Button variant="primary" className="configuration-primary-action" disabled={busy || !online || !valid} onClick={() => void save()}>保存信号量</Button></>}>
-      <div className="semaphore-form"><label>信号量 code<input required maxLength={80} disabled={busy || !!editing.revision} value={editing.code} placeholder="例如 gpu_pool" onChange={(event) => setEditing({ ...editing, code: event.target.value })}/><small>字母开头，可包含数字、下划线和连字符。</small></label>
-      <label>信号量名称<input required maxLength={100} disabled={busy} value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })}/></label>
-      <label>额度上限<input required type="number" min={1} step={1} disabled={busy} value={editing.limit || ""} onChange={(event) => setEditing({ ...editing, limit: Number(event.target.value) })}/></label></div>
+    {editing && <ConfigurationEditorDialog variant="drawer" title={editing.revision ? "编辑信号量" : "新建信号量"} description="code 是工作流引用标识，创建后不能修改。" busy={busy} onClose={() => setEditing(undefined)} footer={<><Button className="configuration-secondary-action" disabled={busy} onClick={() => setEditing(undefined)}>取消</Button><Button variant="primary" className="configuration-primary-action" loading={busy} disabled={!online || !valid} onClick={() => void save()}>保存信号量</Button></>}>
+      <div className="semaphore-form">
+        <FormField label="信号量 code" hint="字母开头，可包含数字、下划线和连字符。" required>
+          {(props) => <TextField {...props} maxLength={80} disabled={busy || !!editing.revision} value={editing.code} placeholder="例如 gpu_pool" onChange={(event) => setEditing({ ...editing, code: event.target.value })} />}
+        </FormField>
+        <FormField label="信号量名称" required>
+          {(props) => <TextField {...props} maxLength={100} disabled={busy} value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />}
+        </FormField>
+        <FormField label="额度上限" required>
+          {(props) => <NumberField {...props} min={1} step={1} disabled={busy} value={editing.limit || ""} onChange={(event) => setEditing({ ...editing, limit: Number(event.target.value) })} />}
+        </FormField>
+      </div>
     </ConfigurationEditorDialog>}
     {removing && <ConfigurationEditorDialog variant="confirmation" title="删除信号量" description={`确认删除“${removing.name}”（${removing.code}）？`} busy={busy} onClose={() => setRemoving(undefined)} footer={<><Button className="configuration-secondary-action" disabled={busy} onClick={() => setRemoving(undefined)}>取消</Button><Button variant="primary" className="configuration-primary-action" disabled={busy || !online} onClick={() => void remove()}>确认删除</Button></>}><p>存在工作流引用、占用或等待时不能删除，请先处理相关工作流。</p></ConfigurationEditorDialog>}
   </main>;

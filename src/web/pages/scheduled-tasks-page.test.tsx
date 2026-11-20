@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiTaskProvider } from "../api-task-provider";
 import { ErrorToastProvider } from "../error-toast-provider";
@@ -24,17 +24,16 @@ describe("ScheduledTasksPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "新建任务" }));
 
-    expect(await screen.findByRole("combobox", { name: "时区" })).toHaveValue("Etc/UTC");
-    fireEvent.click(screen.getByRole("radio", { name: "现有会话" }));
-    expect(screen.queryByRole("combobox", { name: "选择会话" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: /时区/ })).toHaveValue("Etc/UTC");
+    expect(screen.getByRole("radio", { name: "现有会话" })).toBeChecked();
 
     const trigger = screen.getByRole("button", { name: "选择现有会话" });
     fireEvent.click(trigger);
-    expect(screen.getByRole("listbox", { name: "可用会话" })).toBeInTheDocument();
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: /日报/u }));
 
     expect(trigger).toHaveTextContent("日报");
-    expect(screen.queryByRole("listbox", { name: "可用会话" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
 });

@@ -1,4 +1,5 @@
-import { Button } from "../ui/controls";
+import { FormField } from "../ui/form-field";
+import { Button, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
@@ -1335,7 +1336,7 @@ export function OpenAiParameterEditor({ config, onChange }: {
       {parameters.map((parameter, index) => (
         <div className="aigc-fieldset" key={index}>
           <div className="configuration-field-row">
-            <label><span>参数名</span><input aria-label={`OpenAI 参数 ${index + 1} 名称`} value={parameter.name} onChange={(event) => update(index, { ...parameter, name: event.target.value })} /></label>
+            <label><span>参数名</span><TextField aria-label={`OpenAI 参数 ${index + 1} 名称`} value={parameter.name} onChange={(event) => update(index, { ...parameter, name: event.target.value })} /></label>
             <label><span>数据类型</span><SearchSelect
               ariaLabel={`OpenAI 参数 ${parameter.name} 类型`}
               value={parameter.type}
@@ -1344,10 +1345,10 @@ export function OpenAiParameterEditor({ config, onChange }: {
             /></label>
           </div>
           <div className="configuration-field-row">
-            <label><span>枚举值<small>每行一个；留空表示允许任意同类型值</small></span><textarea aria-label={`OpenAI 参数 ${parameter.name} 枚举值`} rows={3} value={formatOpenAiEnumValues(parameter.enumValues)} onChange={(event) => update(index, { ...parameter, enumValues: parseOpenAiEnumValues(event.target.value, parameter.type), defaultValue: undefined })} /></label>
+            <label><span>枚举值<small>每行一个；留空表示允许任意同类型值</small></span><Textarea aria-label={`OpenAI 参数 ${parameter.name} 枚举值`} rows={3} value={formatOpenAiEnumValues(parameter.enumValues)} onChange={(event) => update(index, { ...parameter, enumValues: parseOpenAiEnumValues(event.target.value, parameter.type), defaultValue: undefined })} /></label>
             <OpenAiParameterDefaultEditor parameter={parameter} onChange={(defaultValue) => update(index, { ...parameter, ...(defaultValue === undefined ? { defaultValue: undefined } : { defaultValue }) })} />
           </div>
-          <label><span>参数说明</span><textarea aria-label={`OpenAI 参数 ${parameter.name} 说明`} rows={2} value={parameter.description} onChange={(event) => update(index, { ...parameter, description: event.target.value })} /></label>
+          <label><span>参数说明</span><Textarea aria-label={`OpenAI 参数 ${parameter.name} 说明`} rows={2} value={parameter.description} onChange={(event) => update(index, { ...parameter, description: event.target.value })} /></label>
           <div className="configuration-button-row">
             <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" aria-label={`删除 OpenAI 参数 ${parameter.name}`} onClick={() => replace(parameters.filter((_, parameterIndex) => parameterIndex !== index))}><Trash2 size={15} />删除参数</Button>
           </div>
@@ -1388,7 +1389,7 @@ function OpenAiParameterDefaultEditor({ parameter, onChange }: {
     /></label>;
   }
   const numberType = parameter.type === "integer" || parameter.type === "number";
-  return <label><span>默认值</span><input type={numberType ? "number" : "text"} step={parameter.type === "number" ? "any" : undefined} aria-label={`OpenAI 参数 ${parameter.name} 默认值`} value={parameter.defaultValue === undefined ? "" : String(parameter.defaultValue)} onChange={(event) => onChange(event.target.value === "" ? undefined : numberType ? Number(event.target.value) : event.target.value)} /></label>;
+  return <label><span>默认值</span><TextField type={numberType ? "number" : "text"} step={parameter.type === "number" ? "any" : undefined} aria-label={`OpenAI 参数 ${parameter.name} 默认值`} value={parameter.defaultValue === undefined ? "" : String(parameter.defaultValue)} onChange={(event) => onChange(event.target.value === "" ? undefined : numberType ? Number(event.target.value) : event.target.value)} /></label>;
 }
 
 const openAiParameterTypeOptions: Array<{ value: AigcOpenAiParameterType; label: string }> = [
@@ -1420,6 +1421,26 @@ function parseOpenAiEnumValues(text: string, type: AigcOpenAiParameterType): Aig
     if (Number.isFinite(number) && (type !== "integer" || Number.isInteger(number))) values.push(number);
   }
   return values.length ? values : undefined;
+}
+
+/** 列表抽屉与深链详情共用接口标识和说明字段。 */
+export function AigcInterfaceBasicFields({ draft, onChange }: {
+  draft: AigcInterfaceInput;
+  onChange: (draft: AigcInterfaceInput) => void;
+}) {
+  return (
+    <>
+      <FormField label="接口名称">
+        {(props) => <TextField {...props} aria-label="AIGC 接口名称" value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} />}
+      </FormField>
+      <FormField label="描述">
+        {(props) => <Textarea {...props} aria-label="AIGC 接口描述" rows={2} value={draft.description} onChange={(event) => onChange({ ...draft, description: event.target.value })} />}
+      </FormField>
+      <FormField label="接口说明（Agent）" hint="说明适用场景、调用约束和结果含义，Agent 查询接口明细时会读取此内容。">
+        {(props) => <Textarea {...props} aria-label="AIGC Agent 接口说明" rows={4} value={draft.toolDescription ?? ""} onChange={(event) => onChange({ ...draft, toolDescription: event.target.value })} />}
+      </FormField>
+    </>
+  );
 }
 
 /** 接口详情页复用编辑表单。 */
@@ -1474,9 +1495,7 @@ function AigcInterfaceDetail({ interfaceId }: { interfaceId: string }) {
       <header className="aigc-page-heading"><h1>接口详情</h1><p>编辑接口的协议、能力与目标工作流。</p></header>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
-        <label><span>名称</span><input aria-label="AIGC 接口名称" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-        <label><span>描述</span><textarea aria-label="AIGC 接口描述" rows={2} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-        <label><span>接口说明（Agent）</span><textarea aria-label="AIGC Agent 接口说明" rows={4} value={draft.toolDescription ?? ""} onChange={(event) => setDraft({ ...draft, toolDescription: event.target.value })} /><small>Agent 查询接口明细时使用，建议写清适用场景、约束和出参含义。</small></label>
+        <AigcInterfaceBasicFields draft={draft} onChange={setDraft} />
         <p className="configuration-help">协议、渠道与能力已在接口列表中创建；如需变更协议，请删除后重新创建。</p>
         {draft.protocol === "comfyui" ? <p className="configuration-help">工作流：{workflows.find((item) => item.id === (draft.config as { workflowId?: string }).workflowId)?.name ?? "未找到"}</p> : null}
         <label className="configuration-check-line"><Checkbox checked={draft.toolPublishEnabled} onChange={(event) => setDraft({ ...draft, toolPublishEnabled: event.target.checked })} /><span>发布为 Agent 工具</span></label>

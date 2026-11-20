@@ -1,7 +1,8 @@
-import { Button } from "../ui/controls";
+import { Button, SearchField, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
+import { FormField } from "../ui/form-field";
 import { ConfirmDialog } from "../ui/dialog";
-import { Copy, KeyRound, Plus, Search, ShieldCheck } from "lucide-react";
+import { Copy, KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AigcChannelSummary, AigcInterfaceRecord, AigcMcpClient, AigcMcpOperation } from "../../shared/aigc-contracts";
 import { api } from "../api";
@@ -17,10 +18,9 @@ const OPERATION_LABELS: Record<AigcMcpOperation, string> = {
 const ALL_OPERATIONS = Object.keys(OPERATION_LABELS) as AigcMcpOperation[];
 
 /** 外部 MCP 管理视图：接入地址、客户端授权及一次性令牌展示。 */
-export function AigcMcpClientManager({ interfaces, channels, visible, createRequest, onCountChange }: {
+export function AigcMcpClientManager({ interfaces, channels, createRequest, onCountChange }: {
   interfaces: AigcInterfaceRecord[];
   channels: AigcChannelSummary[];
-  visible: boolean;
   createRequest: number;
   onCountChange: (count: number) => void;
 }) {
@@ -118,7 +118,7 @@ export function AigcMcpClientManager({ interfaces, channels, visible, createRequ
   const choices = [...interfaces, ...interfaceIds.filter((id) => !interfaces.some((item) => item.id === id)).map((id) => ({ id, name: `已删除接口（${id}）`, enabled: false, mcpPublishEnabled: false } as AigcInterfaceRecord))];
   const invalidSelected = choices.some((item) => interfaceIds.includes(item.id) && !item.mcpPublishEnabled);
 
-  return <section hidden={!visible} id="aigc-mcp-panel" role="tabpanel" aria-labelledby="aigc-mcp-tab">
+  return <section aria-label="MCP 接入与授权">
     <div className="aigc-mcp-endpoint"><small className="aigc-config-eyebrow">STREAMABLE HTTP</small><h2>MCP 接入地址</h2><p>客户端使用 Bearer Key 访问已授权的生成接口。</p><div><code>{endpoint}</code><Button type="button" className="configuration-secondary-action" onClick={() => void runApiTask(() => navigator.clipboard.writeText(endpoint), { operation: "复制 MCP 接入地址" })}><Copy size={14} />复制地址</Button></div><small>Authorization: Bearer &lt;MCP Key&gt;</small></div>
     {message ? <p role="status" className="configuration-help">{message}</p> : null}
     {issuedToken ? <div className="aigc-mcp-issued" role="status"><strong>新 Key 仅显示一次</strong><p>复制后请保存到客户端，关闭或离开页面后将无法再次查看。</p><div><code>{issuedToken}</code><Button type="button" className="configuration-secondary-action" onClick={() => void runApiTask(() => navigator.clipboard.writeText(issuedToken), { operation: "复制 MCP Key" })}><Copy size={14} />复制 Key</Button><Button type="button" className="configuration-secondary-action" onClick={() => setIssuedToken("")}>已保存，隐藏</Button></div></div> : null}
@@ -127,8 +127,8 @@ export function AigcMcpClientManager({ interfaces, channels, visible, createRequ
     <p className="aigc-mcp-security"><ShieldCheck size={16} />Key 明文仅在签发时显示一次。已签发 Key 可修改授权，撤销后无法继续调用。</p>
     {open ? <AigcConfigDrawer title={selected ? `编辑授权 · ${selected.name}` : "签发 MCP Key"} eyebrow={selected ? "EDIT ACCESS" : "NEW MCP KEY"} description="指定此客户端可访问的接口，以及允许执行的操作。" busy={busy} onClose={close} footer={<><small>{selected ? "原 Key 继续使用" : "Key 仅显示一次"}</small><div><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={close}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" disabled={busy || !online || !name.trim() || !interfaceIds.length || !operations.length || invalidSelected || !!selected && !dirty} onClick={() => void save()}>{busy ? "正在保存…" : selected ? "保存授权" : "签发 Key"}</Button></div></>}>
       {selected ? <p className="aigc-config-info">保存后原 Key 将使用新的授权范围，无需重新签发。</p> : null}
-      <label className="aigc-config-field"><span>客户端名称</span><input aria-label="MCP 客户端名称" maxLength={80} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
-      <section className="aigc-config-form-section"><h3>可访问接口 <small>已选择 {interfaceIds.length} 个</small></h3><label className="aigc-config-search"><Search size={16} /><input aria-label="搜索授权接口" placeholder="搜索接口名称" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="aigc-mcp-choices">{choices.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())).map((item) => { const selectedId = interfaceIds.includes(item.id); const channel = channels.find((candidate) => candidate.id === item.channelId); return <label key={item.id}><Checkbox aria-label={`授权 ${item.name}`} disabled={busy || !item.mcpPublishEnabled && !selectedId} checked={selectedId} onChange={(event) => setInterfaceIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><div><strong>{item.name}</strong><small>{channel?.name ?? "无可用渠道"}{!item.enabled || !channel?.enabled ? " · 当前不可调用" : ""}</small></div><span className={item.mcpPublishEnabled ? "aigc-access-badge is-mcp" : "aigc-access-badge"}>{item.mcpPublishEnabled ? "已开放" : "未开放 MCP"}</span></label>; })}</div><p className="configuration-help">未开放 MCP 的接口需先在接口配置中开启；历史授权可取消勾选并移除。</p></section>
+      <FormField label="客户端名称">{(props) => <TextField {...props} aria-label="MCP 客户端名称" maxLength={80} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} />}</FormField>
+      <section className="aigc-config-form-section"><h3>可访问接口 <small>已选择 {interfaceIds.length} 个</small></h3><SearchField label="搜索授权接口" className="aigc-config-search" placeholder="搜索接口名称" value={query} onChange={setQuery} /><div className="aigc-mcp-choices">{choices.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())).map((item) => { const selectedId = interfaceIds.includes(item.id); const channel = channels.find((candidate) => candidate.id === item.channelId); return <label key={item.id}><Checkbox aria-label={`授权 ${item.name}`} disabled={busy || !item.mcpPublishEnabled && !selectedId} checked={selectedId} onChange={(event) => setInterfaceIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><div><strong>{item.name}</strong><small>{channel?.name ?? "无可用渠道"}{!item.enabled || !channel?.enabled ? " · 当前不可调用" : ""}</small></div><span className={item.mcpPublishEnabled ? "aigc-access-badge is-mcp" : "aigc-access-badge"}>{item.mcpPublishEnabled ? "已开放" : "未开放 MCP"}</span></label>; })}</div><p className="configuration-help">未开放 MCP 的接口需先在接口配置中开启；历史授权可取消勾选并移除。</p></section>
       <section className="aigc-config-form-section"><h3>允许操作</h3><div className="aigc-mcp-operations">{ALL_OPERATIONS.map((operation) => <label key={operation}><Checkbox checked={operations.includes(operation)} disabled={busy} onChange={(event) => setOperations((current) => event.target.checked ? [...current, operation] : current.filter((item) => item !== operation))} /><span>{OPERATION_LABELS[operation]}<small>{operation}</small></span></label>)}</div></section>
     </AigcConfigDrawer> : null}
     {discard ? <ConfirmDialog title="放弃未保存授权？" description="当前 MCP 授权修改尚未保存。" confirmLabel="放弃修改" destructive={false} onCancel={() => setDiscard(false)} onConfirm={() => { setDiscard(false); setOpen(false); }} /> : null}

@@ -125,6 +125,7 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? "danger" : "primary"}
             loading={busy}
+            aria-label={confirmLabel}
             className={confirmClassName}
             disabled={
               confirmDisabled || (!!requireText && text !== requireText)

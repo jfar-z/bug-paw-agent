@@ -17,14 +17,14 @@ it("新建校验 code 和额度，编辑时保留 code 与版本", async () => {
   fireEvent.click(screen.getByRole("button", { name: "新建信号量" }));
   expect(screen.getByRole("button", { name: "保存信号量" })).toBeDisabled();
   fireEvent.change(screen.getByLabelText(/信号量 code/), { target: { value: "pool" } });
-  fireEvent.change(screen.getByLabelText("信号量名称"), { target: { value: "资源池" } });
-  fireEvent.change(screen.getByLabelText("额度上限"), { target: { value: "3" } });
+  fireEvent.change(screen.getByLabelText(/信号量名称/), { target: { value: "资源池" } });
+  fireEvent.change(screen.getByLabelText(/额度上限/), { target: { value: "3" } });
   fireEvent.click(screen.getByRole("button", { name: "保存信号量" }));
   await waitFor(() => expect(save).toHaveBeenCalledWith({ code: "pool", name: "资源池", limit: 3 }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole("button", { name: "编辑 共享 GPU" }));
   expect(screen.getByLabelText(/信号量 code/)).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("额度上限"), { target: { value: "4" } });
+  fireEvent.change(screen.getByLabelText(/额度上限/), { target: { value: "4" } });
   fireEvent.click(screen.getByRole("button", { name: "保存信号量" }));
   await waitFor(() => expect(save).toHaveBeenLastCalledWith({ code: "gpu", name: "共享 GPU", limit: 4, revision: 1 }));
   expect(list).toHaveBeenCalledTimes(3);

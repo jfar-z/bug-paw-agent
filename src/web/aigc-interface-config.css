@@ -5,12 +5,6 @@
 .aigc-config-heading h1 { margin: 8px 0; font-size: 30px; font-weight: 650; letter-spacing: -.045em; }
 .aigc-config-heading p, .aigc-mcp-list-heading p, .aigc-mcp-endpoint p { margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
 .aigc-config-eyebrow { color: var(--fg); font: 600 10px var(--font-mono); letter-spacing: .12em; }
-.aigc-config-tabs { display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--border); }
-.aigc-config-tabs button { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 0 16px; border: 0; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
-.aigc-config-tabs button[aria-selected="true"] { color: var(--fg); }
-.aigc-config-tabs button[aria-selected="true"]::after { position: absolute; inset: auto 0 -1px; height: 3px; border-radius: 3px; background: var(--fg); content: ""; }
-.aigc-config-tabs button span { padding: 2px 7px; border-radius: 5px; background: var(--surface-soft); font-size: 10px; }
-.aigc-config-tabs > small { margin-left: auto; padding-bottom: 16px; color: var(--text-secondary); font-size: 11px; }
 .aigc-config-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .aigc-config-toolbar > small { margin-left: auto; color: var(--text-secondary); font-size: 11px; }
 .aigc-config-search { display: flex; align-items: center; gap: 10px; width: min(350px, 100%); padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text-secondary); }
@@ -19,13 +13,9 @@
 .aigc-config-search input:focus-visible { outline: 0; }
 .aigc-config-toolbar select { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); font-size: 12px; }
 .aigc-config-table-wrap { width: 100%; max-width: 100%; overflow: auto; contain: layout paint; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.aigc-config-table { width: 100%; border-collapse: collapse; text-align: left; }
-.aigc-config-table th { padding: 14px 20px; background: var(--panel); color: var(--text-secondary); font-size: 10px; font-weight: 500; }
-.aigc-config-table td { padding: 20px; border-top: 1px solid var(--border); font-size: 12px; }
-.aigc-config-table tr:hover td { background: color-mix(in srgb, var(--surface-soft) 35%, transparent); }
-.aigc-config-table td small, .aigc-config-meta { display: block; margin: 5px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.aigc-config-table-wrap small, .aigc-config-meta { display: block; color: var(--text-secondary); overflow-wrap: anywhere; }
 .aigc-config-identity { display: flex; align-items: center; gap: 12px; }
-.aigc-config-identity strong { font-size: 13px; font-weight: 600; }
+.aigc-config-identity strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 600; }
 .aigc-config-mark { display: grid; flex: none; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel); color: var(--fg); font: 600 13px var(--font-mono); place-items: center; }
 .aigc-config-badges { display: flex; flex-wrap: wrap; gap: 5px; }
 .aigc-access-badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 5px; background: var(--surface-soft); color: var(--text-secondary); font-size: 10px; white-space: nowrap; }
@@ -89,9 +79,8 @@
 .aigc-config-drawer .aigc-form-stack { display: grid; gap: 18px; }
 .aigc-config-drawer .aigc-form-stack > label, .aigc-config-drawer .configuration-field-row > label, .aigc-config-drawer .aigc-fieldset > label { display: grid; gap: 8px; font-size: 12px; }
 .aigc-config-drawer .aigc-form-stack > label > small { color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
-.aigc-config-drawer input:not([type="checkbox"]), .aigc-config-drawer select, .aigc-config-drawer textarea { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface); color: var(--text-primary); font-size: 12px; }
+.aigc-config-drawer input:not([type="checkbox"], .bp-input), .aigc-config-drawer textarea:not(.bp-input) { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface); color: var(--text-primary); font-size: 12px; }
 .aigc-config-drawer textarea { resize: vertical; }
-.aigc-config-drawer .aigc-config-search input { border: 0; padding: 0; background: transparent; }
 .aigc-config-settings > label { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 15px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
 .aigc-config-settings strong { font-weight: 600; }
 .aigc-config-settings small { display: block; margin-top: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
@@ -120,9 +109,6 @@
 .aigc-config-info { padding: 14px 16px; margin: 0 0 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--accent-soft); color: var(--fg); font-size: 12px; line-height: 1.7; }
 @keyframes aigc-config-enter { from { opacity: .5; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
 @media (max-width: 1180px) {
-  .aigc-config-table { min-width: 660px; }
-  .aigc-config-table td, .aigc-config-table th { padding-left: 14px; padding-right: 14px; }
-  .aigc-config-tabs > small { display: none; }
   .aigc-mcp-client { grid-template-columns: 36px minmax(0, 1fr); }
   .aigc-mcp-client__actions { grid-column: 2; }
 }
@@ -131,8 +117,6 @@
   .aigc-config-heading h1 { font-size: 26px; }
   .aigc-config-heading p { max-width: 240px; font-size: 11px; }
   .aigc-config-heading > button { margin-top: 22px; flex: none; }
-  .aigc-config-tabs { gap: 20px; }
-  .aigc-config-tabs button { font-size: 12px; }
   .aigc-config-toolbar { flex-wrap: wrap; }
   .aigc-config-toolbar .aigc-config-search { flex: 1; min-width: 150px; }
   .aigc-config-toolbar > small { width: 100%; margin: 0; }

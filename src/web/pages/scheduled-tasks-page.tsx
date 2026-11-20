@@ -1,9 +1,12 @@
-import { Button } from "../ui/controls";
-import { Checkbox } from "../ui/choice";
+import { Button, IconButton, NumberField, Textarea, TextField } from "../ui/controls";
+import { Checkbox, Switch } from "../ui/choice";
+import { SegmentedControl } from "../ui/collection";
+import { ConfirmDialog } from "../ui/dialog";
+import { FormField } from "../ui/form-field";
 import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { SearchSelect } from "../ui/search-select";
 import { Cron } from "croner";
-import { AlertTriangle, CalendarClock, Check, ChevronsUpDown, Clock3, ListRestart, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock3, ListRestart, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { isDeletedSessionTarget, type ScheduledTaskSchedule } from "../../shared/scheduled-task-contracts";
@@ -47,6 +50,8 @@ export function ScheduledTasksPage() {
   const [editing, setEditing] = useState<ScheduledTask | "new" | undefined>();
   const [runsTaskId, setRunsTaskId] = useState<string>();
   const [deleteCandidate, setDeleteCandidate] = useState<ScheduledTask>();
+  const pending = useRef(false);
+  const [mutation, setMutation] = useState<"save" | "delete">();
   const navigation = useWorkbenchNavigation();
   const [standaloneNavigationOpen, setStandaloneNavigationOpen] = useState(false);
   const mobileNavigationOpen = navigation ? navigation.drawer === "secondary" : standaloneNavigationOpen;
@@ -81,13 +86,29 @@ export function ScheduledTasksPage() {
     const result = await runApiTask(() => api.runScheduledTask(task.id), { operation: "手动执行定时任务", expected: scheduledTaskExpected(setError) });
     if (result.status === "success") setRunsTaskId(task.id);
   };
+  /** 请求完成前锁住同一页面的写入，覆盖 React 更新按钮状态前的重复触发。 */
+  async function mutate(action: "save" | "delete", execute: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setMutation(action);
+    try {
+      await execute();
+    } finally {
+      pending.current = false;
+      setMutation(undefined);
+    }
+  }
+
   const removeTask = async () => {
     if (!deleteCandidate) return;
-    const result = await runApiTask(() => api.deleteScheduledTask(deleteCandidate.id), { operation: "删除定时任务", expected: scheduledTaskExpected(setError) });
-    if (result.status === "success") {
-      setDeleteCandidate(undefined);
-      await reload();
-    }
+    await mutate("delete", async () => {
+      const result = await runApiTask(() => api.deleteScheduledTask(deleteCandidate.id), { operation: "删除定时任务", expected: scheduledTaskExpected(setError) });
+      if (result.status === "success") {
+        setDeleteCandidate(undefined);
+        if (runsTaskId === deleteCandidate.id) setRunsTaskId(undefined);
+        await reload();
+      }
+    });
   };
 
   return (
@@ -100,6 +121,7 @@ export function ScheduledTasksPage() {
         title="定时任务 Agent"
         navigationLabel="定时任务 Agent 列表"
         onSelect={(nextAgentId) => {
+          if (pending.current) return;
           setAgentId(nextAgentId);
           closeNavigation();
         }}
@@ -112,24 +134,35 @@ export function ScheduledTasksPage() {
             <h1>定时任务</h1>
             <p>{currentAgent ? `管理 ${currentAgent.profile.name} 的自动执行任务。` : "选择一个 Agent 以管理其自动执行任务。"}</p>
           </div>
-          <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setEditing("new")} disabled={!agentId}>
+          <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setEditing("new")} disabled={!agentId || !!mutation}>
             <Plus size={16} aria-hidden="true" />新建任务
           </Button>
         </header>
 
         {error ? <p className="configuration-inline-error">{error}</p> : null}
-        {editing ? <TaskForm agentId={agentId} task={editing === "new" ? undefined : editing} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); void reload(); }} /> : null}
+        {editing ? (
+          <TaskForm
+            key={editing === "new" ? "new" : editing.id}
+            agentId={agentId}
+            task={editing === "new" ? undefined : editing}
+            busy={!!mutation}
+            saving={mutation === "save"}
+            onClose={() => setEditing(undefined)}
+            onSave={(execute) => mutate("save", execute)}
+            onSaved={async () => { setEditing(undefined); await reload(); }}
+          />
+        ) : null}
         {deleteCandidate ? (
-          <section className="scheduled-task-confirm" aria-label="删除定时任务确认">
-            <div>
-              <span>DELETE TASK</span>
-              <p>删除“{deleteCandidate.name}”及其执行记录？此操作不可恢复。</p>
-            </div>
-            <footer>
-              <button type="button" onClick={() => setDeleteCandidate(undefined)}>取消</button>
-              <button type="button" className="is-danger" onClick={() => void removeTask()}>删除任务</button>
-            </footer>
-          </section>
+          <ConfirmDialog
+            title="删除定时任务确认"
+            description={`删除“${deleteCandidate.name}”及其执行记录？此操作不可恢复。`}
+            confirmLabel="删除任务"
+            busy={mutation === "delete"}
+            onCancel={() => setDeleteCandidate(undefined)}
+            onConfirm={() => void removeTask()}
+          >
+            {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
+          </ConfirmDialog>
         ) : null}
 
         <section className="scheduled-task-list-section" aria-label="定时任务列表">
@@ -141,7 +174,7 @@ export function ScheduledTasksPage() {
             <small>{tasks.length} 个任务</small>
           </header>
           <div className="scheduled-tasks-list">
-            {tasks.map((task) => <TaskCard key={task.id} task={task} onRun={() => void runTask(task)} onEdit={() => setEditing(task)} onDelete={() => setDeleteCandidate(task)} onRuns={() => setRunsTaskId((current) => current === task.id ? undefined : task.id)} />)}
+            {tasks.map((task) => <TaskCard key={task.id} task={task} onRun={() => void runTask(task)} onEdit={() => setEditing(task)} onDelete={() => { setError(""); setDeleteCandidate(task); }} busy={!!mutation} onRuns={() => setRunsTaskId((current) => current === task.id ? undefined : task.id)} />)}
             {!tasks.length ? <p className="scheduled-task-empty">当前 Agent 暂无定时任务。</p> : null}
           </div>
         </section>
@@ -152,7 +185,7 @@ export function ScheduledTasksPage() {
 }
 
 /** 展示单个任务及其快捷操作。 */
-function TaskCard({ task, onRun, onEdit, onDelete, onRuns }: { task: ScheduledTask; onRun(): void; onEdit(): void; onDelete(): void; onRuns(): void }) {
+function TaskCard({ task, busy, onRun, onEdit, onDelete, onRuns }: { task: ScheduledTask; busy: boolean; onRun(): void; onEdit(): void; onDelete(): void; onRuns(): void }) {
   const deletedTarget = isDeletedSessionTarget(task.target) ? task.target : undefined;
   const targetMissing = Boolean(deletedTarget);
 
@@ -176,17 +209,25 @@ function TaskCard({ task, onRun, onEdit, onDelete, onRuns }: { task: ScheduledTa
       </div>
       <span className={!targetMissing && task.enabled ? "scheduled-task-state is-enabled" : "scheduled-task-state"}>{targetMissing ? "需重新指定目标" : task.enabled ? "已启用" : "已暂停"}</span>
       <div className="scheduled-task-card__actions">
-        <button type="button" className="scheduled-task-card__run" onClick={onRun} disabled={targetMissing} title={targetMissing ? "请先重新指定目标会话" : undefined}><Play size={14} aria-hidden="true" />立即执行</button>
-        <button type="button" aria-label={`编辑 ${task.name}`} title="编辑任务" onClick={onEdit}><Pencil size={15} aria-hidden="true" /></button>
-        <button type="button" aria-label={`查看 ${task.name} 执行记录`} title="执行记录" onClick={onRuns}><ListRestart size={15} aria-hidden="true" /></button>
-        <button type="button" className="is-danger" aria-label={`删除 ${task.name}`} title="删除任务" onClick={onDelete}><Trash2 size={15} aria-hidden="true" /></button>
+        <Button size="sm" variant="ghost" className="scheduled-task-card__run" onClick={onRun} disabled={targetMissing || busy} title={targetMissing ? "请先重新指定目标会话" : undefined}><Play size={14} aria-hidden="true" />立即执行</Button>
+        <IconButton size="sm" label={`编辑 ${task.name}`} disabled={busy} onClick={onEdit}><Pencil size={15} /></IconButton>
+        <IconButton size="sm" label={`查看 ${task.name} 执行记录`} onClick={onRuns}><ListRestart size={15} /></IconButton>
+        <IconButton size="sm" danger label={`删除 ${task.name}`} disabled={busy} onClick={onDelete}><Trash2 size={15} /></IconButton>
       </div>
     </article>
   );
 }
 
 /** 创建或编辑任务的表单。 */
-function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?: ScheduledTask; onClose(): void; onSaved(): void }) {
+function TaskForm({ agentId, task, busy, saving, onClose, onSave, onSaved }: {
+  agentId: string;
+  task?: ScheduledTask;
+  busy: boolean;
+  saving: boolean;
+  onClose(): void;
+  onSave(execute: () => Promise<void>): Promise<void>;
+  onSaved(): Promise<void>;
+}) {
   const { runApiTask } = useApiTask();
   const targetWasDeleted = task ? isDeletedSessionTarget(task.target) : false;
   const [name, setName] = useState(task?.name ?? "");
@@ -234,6 +275,7 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
 
   async function save(event: FormEvent) {
     event.preventDefault();
+    if (busy) return;
     if (!targetResolved) {
       setError("请重新选择任务目标");
       return;
@@ -256,164 +298,127 @@ function TaskForm({ agentId, task, onClose, onSaved }: { agentId: string; task?:
         ? { type: "new_session" as const, archiveAfterCompletion }
         : { type: "existing_session" as const, sessionId },
     };
-    const result = await runApiTask(
-      () => task ? api.updateScheduledTask(task.id, input) : api.createScheduledTask(agentId, input),
-      { operation: "保存定时任务", expected: scheduledTaskExpected(setError) },
-    );
-    if (result.status === "success") onSaved();
+    await onSave(async () => {
+      setError("");
+      const result = await runApiTask(
+        () => task ? api.updateScheduledTask(task.id, input) : api.createScheduledTask(agentId, input),
+        { operation: "保存定时任务", expected: scheduledTaskExpected(setError) },
+      );
+      if (result.status === "success") await onSaved();
+    });
   }
 
   return (
     <form className="scheduled-task-editor" onSubmit={save}>
-      <header className="scheduled-task-editor__header">
-        <div>
-          <span>{task ? "EDIT TASK" : "NEW TASK"}</span>
-          <h2>{task ? "编辑定时任务" : "新建定时任务"}</h2>
-        </div>
-        <label className="scheduled-task-switch">
-          <Checkbox checked={enabled} disabled={!targetResolved} onChange={(event) => setEnabled(event.target.checked)} />
-          <span aria-hidden="true" />
-          启用任务
-        </label>
-      </header>
-
-      <section className="scheduled-task-editor__section scheduled-task-editor__section--basics">
-        <label className="scheduled-task-field">
-          <span>任务名称</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：每日工作总结" required />
-        </label>
-        <label className="scheduled-task-field scheduled-task-field--wide">
-          <span>执行提示词</span>
-          <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="任务触发时发送给会话的提示词" required />
-        </label>
-      </section>
-
-      <section className="scheduled-task-editor__section">
-        <div className="scheduled-task-section-heading">
-          <div><span>SCHEDULE</span><h3>执行方式</h3></div>
-          <p>选择固定间隔、Cron 规则或单次执行。</p>
-        </div>
-        <div className="scheduled-task-segmented" role="radiogroup" aria-label="执行方式">
-          <button type="button" role="radio" aria-checked={mode === "interval"} className={mode === "interval" ? "is-active" : undefined} onClick={() => setMode("interval")}>间隔执行</button>
-          <button type="button" role="radio" aria-checked={mode === "cron"} className={mode === "cron" ? "is-active" : undefined} onClick={() => setMode("cron")}>Cron 表达式</button>
-          <button type="button" role="radio" aria-checked={mode === "once"} className={mode === "once" ? "is-active" : undefined} onClick={() => setMode("once")}>指定时间一次</button>
-        </div>
-
-        {mode === "interval" ? (
-          <div className="scheduled-task-interval">
-            <label className="scheduled-task-field"><span>间隔数值</span><input type="number" min="1" value={interval} onChange={(event) => setInterval(Number(event.target.value))} /></label>
-            <label className="scheduled-task-field"><span>时间单位</span><SearchSelect
-              ariaLabel="时间单位"
-              value={unit}
-              onChange={(next) => setUnit(next as typeof unit)}
-              options={[
-                { value: "minute", label: "分钟" },
-                { value: "hour", label: "小时" },
-              ]}
-            /></label>
+      <fieldset className="scheduled-task-editor__fields" disabled={busy}>
+        <header className="scheduled-task-editor__header">
+          <div>
+            <span>{task ? "EDIT TASK" : "NEW TASK"}</span>
+            <h2>{task ? "编辑定时任务" : "新建定时任务"}</h2>
           </div>
-        ) : null}
-        {mode === "once" ? (
-          <label className="scheduled-task-field scheduled-task-once">
-            <span>执行时间</span>
-            <input type="datetime-local" value={onceAt} onChange={(event) => setOnceAt(event.target.value)} required />
-            <small>到达该时间点后只执行一次，并自动暂停任务。</small>
-          </label>
-        ) : null}
-        {mode === "cron" ? <CronEditor expression={expression} fieldsValue={parts} previews={previews} timezone={timezone} timezones={timezones} onExpressionChange={setExpression} onPartChange={setPart} onTimezoneChange={setTimezone} /> : null}
-      </section>
+          <Switch label="启用任务" checked={enabled} disabled={!targetResolved} onChange={(event) => setEnabled(event.target.checked)} />
+        </header>
 
-      <section className="scheduled-task-editor__section">
-        <div className="scheduled-task-section-heading">
-          <div><span>TARGET SESSION</span><h3>目标会话</h3></div>
-          <p>可为每次任务创建独立会话，或向已有会话发送消息。</p>
-        </div>
-        {!targetResolved && task && isDeletedSessionTarget(task.target) ? (
-          <div className="scheduled-task-target-missing scheduled-task-target-missing--editor" style={{ display: "flex", gap: 7, padding: 12, border: "1px solid var(--danger)", borderRadius: 9, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))" }} role="alert">
-            <AlertTriangle size={18} aria-hidden="true" />
-            <span style={{ display: "grid" }}>
-              <strong>原目标会话“{task.target.sessionName}”已删除</strong>
-              <small>任务已停用，重新选择目标后才能启用或保存。</small>
-            </span>
-          </div>
-        ) : null}
-        <div className="scheduled-task-segmented" role="radiogroup" aria-label="目标会话">
-          <button type="button" role="radio" aria-checked={targetMode === "new_session"} className={targetMode === "new_session" ? "is-active" : undefined} onClick={() => { setTargetMode("new_session"); setTargetResolved(true); }}>每次新建会话</button>
-          <button type="button" role="radio" aria-checked={targetMode === "existing_session"} className={targetMode === "existing_session" ? "is-active" : undefined} onClick={() => { setTargetMode("existing_session"); setTargetResolved(Boolean(sessionId)); }}>现有会话</button>
-        </div>
-        {targetMode === "new_session" ? (
-          <label className="scheduled-task-check">
-            <Checkbox checked={archiveAfterCompletion} onChange={(event) => setArchiveAfterCompletion(event.target.checked)} />
-            <span>执行完成后自动归档</span>
-          </label>
-        ) : (
-          <div className="scheduled-task-field scheduled-task-session-select">
-            <span>选择会话</span>
-            <SessionPicker sessions={sessions} value={sessionId} onChange={(nextSessionId) => { setSessionId(nextSessionId); setTargetResolved(true); }} />
-          </div>
-        )}
-      </section>
+        <section className="scheduled-task-editor__section scheduled-task-editor__section--basics">
+          <FormField label="任务名称" required>
+            {(props) => <TextField {...props} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：每日工作总结" />}
+          </FormField>
+          <FormField label="执行提示词" required>
+            {(props) => <Textarea {...props} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="任务触发时发送给会话的提示词" />}
+          </FormField>
+        </section>
 
-      {error ? <p className="configuration-inline-error">{error}</p> : null}
+        <section className="scheduled-task-editor__section">
+          <div className="scheduled-task-section-heading">
+            <div><span>SCHEDULE</span><h3>执行方式</h3></div>
+            <p>选择固定间隔、Cron 规则或单次执行。</p>
+          </div>
+          <SegmentedControl
+            label="执行方式"
+            value={mode}
+            options={[
+              { id: "interval", label: "间隔执行" },
+              { id: "cron", label: "Cron 表达式" },
+              { id: "once", label: "指定时间一次" },
+            ]}
+            onChange={setMode}
+          />
+
+          {mode === "interval" ? (
+            <div className="scheduled-task-interval">
+              <FormField label="间隔数值">
+                {(props) => <NumberField {...props} min={1} value={interval} onChange={(event) => setInterval(Number(event.target.value))} />}
+              </FormField>
+              <FormField label="时间单位">
+                {(props) => <SearchSelect
+                  {...props}
+                  value={unit}
+                  onChange={setUnit}
+                  options={[
+                    { value: "minute", label: "分钟" },
+                    { value: "hour", label: "小时" },
+                  ]}
+                />}
+              </FormField>
+            </div>
+          ) : null}
+          {mode === "once" ? (
+            <FormField label="执行时间" hint="到达该时间点后只执行一次，并自动暂停任务。" required>
+              {(props) => <TextField {...props} type="datetime-local" value={onceAt} onChange={(event) => setOnceAt(event.target.value)} />}
+            </FormField>
+          ) : null}
+          {mode === "cron" ? <CronEditor expression={expression} fieldsValue={parts} previews={previews} timezone={timezone} timezones={timezones} onExpressionChange={setExpression} onPartChange={setPart} onTimezoneChange={setTimezone} /> : null}
+        </section>
+
+        <section className="scheduled-task-editor__section">
+          <div className="scheduled-task-section-heading">
+            <div><span>TARGET SESSION</span><h3>目标会话</h3></div>
+            <p>可为每次任务创建独立会话，或向已有会话发送消息。</p>
+          </div>
+          {!targetResolved && task && isDeletedSessionTarget(task.target) ? (
+            <div className="scheduled-task-target-missing scheduled-task-target-missing--editor" style={{ display: "flex", gap: 7, padding: 12, border: "1px solid var(--danger)", borderRadius: 9, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))" }} role="alert">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <span style={{ display: "grid" }}>
+                <strong>原目标会话“{task.target.sessionName}”已删除</strong>
+                <small>任务已停用，重新选择目标后才能启用或保存。</small>
+              </span>
+            </div>
+          ) : null}
+          <SegmentedControl
+            label="目标会话"
+            value={targetMode}
+            options={[
+              { id: "new_session", label: "每次新建会话" },
+              { id: "existing_session", label: "现有会话" },
+            ]}
+            onChange={(next) => {
+              setTargetMode(next);
+              setTargetResolved(next === "new_session" || Boolean(sessionId));
+            }}
+          />
+          {targetMode === "new_session" ? (
+            <Checkbox label="执行完成后自动归档" checked={archiveAfterCompletion} onChange={(event) => setArchiveAfterCompletion(event.target.checked)} />
+          ) : (
+            <FormField label="选择现有会话">
+              {(props) => <SearchSelect
+                {...props}
+                value={sessionId}
+                disabled={!sessions.length}
+                placeholder={sessions.length ? "请选择会话" : "暂无可用会话"}
+                options={sessions.map((session) => ({ value: session.id, label: sessionTitle(session), description: session.id }))}
+                onChange={(nextSessionId) => { setSessionId(nextSessionId); setTargetResolved(true); }}
+              />}
+            </FormField>
+          )}
+        </section>
+      </fieldset>
+
+      {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
       <footer className="scheduled-task-editor__actions">
-        <button type="button" onClick={onClose}>取消</button>
-        <Button variant="primary" className="configuration-primary-action" type="submit">保存任务</Button>
+        <Button onClick={onClose} disabled={busy}>取消</Button>
+        <Button variant="primary" className="configuration-primary-action" type="submit" loading={saving} disabled={busy}>保存任务</Button>
       </footer>
     </form>
-  );
-}
-
-/** 使用应用内列表框选择定时任务应投递的既有会话。 */
-function SessionPicker({ sessions, value, onChange }: { sessions: SessionSummary[]; value: string; onChange(value: string): void }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const selectedSession = sessions.find((session) => session.id === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    return () => document.removeEventListener("pointerdown", closeOutside);
-  }, [open]);
-
-  return (
-    <div className="scheduled-task-session-picker" ref={rootRef}>
-      <button
-        type="button"
-        className="scheduled-task-session-picker__trigger"
-        aria-label="选择现有会话"
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        disabled={!sessions.length}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <span>{selectedSession ? sessionTitle(selectedSession) : "暂无可用会话"}</span>
-        <ChevronsUpDown size={15} aria-hidden="true" />
-      </button>
-      {open ? (
-        <div className="scheduled-task-session-picker__popover" role="listbox" aria-label="可用会话" onKeyDown={(event) => {
-          if (event.key === "Escape") setOpen(false);
-        }}>
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              type="button"
-              role="option"
-              aria-selected={session.id === value}
-              onClick={() => {
-                onChange(session.id);
-                setOpen(false);
-              }}
-            >
-              <span><strong>{sessionTitle(session)}</strong><small>{session.id}</small></span>
-              {session.id === value ? <Check size={16} aria-hidden="true" /> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -431,21 +436,20 @@ function CronEditor({ expression, fieldsValue, previews, timezone, timezones, on
   return (
     <div className="scheduled-task-cron-editor">
       <div className="scheduled-task-cron-presets" aria-label="Cron 快捷规则">
-        {presets.map(([label, value]) => <button key={value} type="button" onClick={() => onExpressionChange(value)}>{label}</button>)}
+        {presets.map(([label, value]) => <Button key={value} size="sm" onClick={() => onExpressionChange(value)}>{label}</Button>)}
       </div>
-      <label className="scheduled-task-field">
-        <span>原始 Cron 表达式</span>
-        <input value={expression} onChange={(event) => onExpressionChange(event.target.value)} aria-label="原始 Cron 表达式" />
-        <small>支持通配符、单值、范围、步进与列表；字段修改会同步到此表达式。</small>
-      </label>
+      <FormField label="原始 Cron 表达式" hint="支持通配符、单值、范围、步进与列表；字段修改会同步到此表达式。">
+        {(props) => <TextField {...props} value={expression} onChange={(event) => onExpressionChange(event.target.value)} />}
+      </FormField>
       <div className="scheduled-task-cron-fields">
         {fields.map((field, index) => <CronFieldEditor key={field.label} field={field} value={fieldsValue[index]} onChange={(value) => onPartChange(index, value)} />)}
       </div>
-      <label className="scheduled-task-field scheduled-task-timezone">
-        <span>时区</span>
-        <input list="timezone-options" value={timezone} onChange={(event) => onTimezoneChange(event.target.value)} required />
-        <datalist id="timezone-options">{timezones.map((zone) => <option key={zone} value={zone} />)}</datalist>
-      </label>
+      <FormField label="时区" required>
+        {(props) => <>
+          <TextField {...props} list={`${props.id}-options`} value={timezone} onChange={(event) => onTimezoneChange(event.target.value)} />
+          <datalist id={`${props.id}-options`}>{timezones.map((zone) => <option key={zone} value={zone} />)}</datalist>
+        </>}
+      </FormField>
       <section className="scheduled-task-cron-preview" aria-label="未来 5 次执行预览">
         <header><span>NEXT RUNS</span><strong>下 5 次执行预览</strong></header>
         {previews.length ? <ol>{previews.map((value, index) => <li key={`${value}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span>{value}</li>)}</ol> : <p>当前 Cron 表达式或时区无效。</p>}
@@ -458,7 +462,7 @@ function CronEditor({ expression, fieldsValue, previews, timezone, timezones, on
 function CronFieldEditor({ field, value, onChange }: { field: typeof fields[number]; value: string; onChange(value: string): void }) {
   const mode = value === "*" ? "每个" : value.startsWith("*/") ? "步进" : value.includes(",") ? "列表" : value.includes("-") ? "范围" : "单值";
   const applyMode = (nextMode: string) => onChange(nextMode === "每个" ? "*" : nextMode === "步进" ? "*/1" : nextMode === "范围" ? "0-1" : nextMode === "列表" ? "0,1" : "0");
-  return <label className="scheduled-task-cron-field"><span>{field.label}</span><SearchSelect
+  return <div className="scheduled-task-cron-field"><SearchSelect
     ariaLabel={`${field.label} 模式`}
     value={mode}
     onChange={(next) => applyMode(next)}
@@ -469,7 +473,11 @@ function CronFieldEditor({ field, value, onChange }: { field: typeof fields[numb
       { value: "步进", label: "步进" },
       { value: "列表", label: "列表" },
     ]}
-  /><input value={value} placeholder={field.samples.join(" / ")} onChange={(event) => onChange(event.target.value)} /><small>{field.hint}</small></label>;
+  />
+    <FormField label={field.label} hint={field.hint}>
+      {(props) => <TextField {...props} value={value} placeholder={field.samples.join(" / ")} onChange={(event) => onChange(event.target.value)} />}
+    </FormField>
+  </div>;
 }
 
 /** 加载并显示任务的最近执行记录。 */

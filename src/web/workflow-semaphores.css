@@ -16,7 +16,6 @@
 .semaphore-item li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .semaphore-item li button { overflow-wrap: anywhere; text-align: left; }
 .semaphore-form { display: grid; gap: 20px; }
-.semaphore-form label { display: grid; gap: 8px; }
 .semaphore-form small { color: var(--text-secondary); }
 @media(max-width:760px) {
   .semaphore-page { padding: 16px; }

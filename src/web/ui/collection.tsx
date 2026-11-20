@@ -36,16 +36,17 @@ export function FilterChips({
     </div>
   );
 }
-export function SegmentedControl({
+/** 原生单选组提供方向键切换，并将选项类型传递给调用方。 */
+export function SegmentedControl<T extends string>({
   label,
   options,
   value,
   onChange,
 }: {
   label: string;
-  options: readonly Option[];
-  value: string;
-  onChange: (value: string) => void;
+  options: readonly { id: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
 }) {
   const name = useId();
   return (
@@ -87,13 +88,15 @@ export function Table<T>({
   onSort?: (id: string) => void;
 }) {
   return (
-    <div className="bp-table">
-      <table aria-label={label}>
-        <thead>
-          <tr>
+    <div className={onSort ? "bp-table" : "bp-table bp-table--static"}>
+      {/* 窄屏静态表格按行堆叠，显式保留表格语义。 */}
+      <table role="table" aria-label={label}>
+        <thead role="rowgroup">
+          <tr role="row">
             {columns.map((c) => (
               <th
                 scope="col"
+                role="columnheader"
                 key={c.id}
                 style={{ width: c.width }}
                 aria-sort={
@@ -124,11 +127,11 @@ export function Table<T>({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           {rows.map((row) => (
-            <tr key={rowKey(row)}>
+            <tr role="row" key={rowKey(row)}>
               {columns.map((c) => (
-                <td key={c.id} data-label={c.label}>
+                <td role="cell" key={c.id} data-label={c.label}>
                   {c.cell(row)}
                 </td>
               ))}
