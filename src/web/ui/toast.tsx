@@ -6,6 +6,7 @@ interface ToastProps {
   items: ErrorToastItem[];
   announcement?: { id: string; text: string };
   onDismiss: (id: string) => void;
+  restoreFocus?: () => void;
   onExpandedChange: (id: string, expanded: boolean) => void;
   onPauseChange: (id: string, source: "hover" | "focus", paused: boolean) => void;
 }
@@ -29,6 +30,7 @@ export function Toast(props: ToastProps) {
 function ErrorToastCard({
   item,
   onDismiss,
+  restoreFocus,
   onExpandedChange,
   onPauseChange,
 }: Omit<ToastProps, "items" | "announcement"> & { item: ErrorToastItem }) {
@@ -74,7 +76,10 @@ function ErrorToastCard({
             {item.expanded ? "收起详情" : "查看详情"}
           </button>
         </div>
-        <button type="button" className="error-toast__close" aria-label="关闭错误通知" onClick={() => onDismiss(item.id)}>
+        <button type="button" className="error-toast__close" aria-label="关闭错误通知" onClick={() => {
+          restoreFocus?.();
+          onDismiss(item.id);
+        }}>
           <X size={16} aria-hidden="true" />
         </button>
       </div>

@@ -328,7 +328,7 @@
 .provider-model-edit-heading p { width: 100%; }
 .provider-drawer .configuration-interaction-fields > section[hidden] { display: none; }
 .provider-drawer input[type="checkbox"] { width: 18px; min-height: 18px; }
-.provider-drawer .configuration-editor-drawer__footer { flex-wrap: wrap; }
+.provider-drawer > .bp-dialog__footer { flex-wrap: wrap; }
 .provider-drawer .configuration-editing-state { font-size: 11px; color: var(--text-secondary); }
 .provider-drawer .configuration-button-row button, .provider-model-edit-heading button { min-height: 44px; }
 @media (max-width: 760px) {
@@ -340,5 +340,5 @@
   .provider-model-row { align-items: start; flex-direction: column; }
   .provider-model-row > .configuration-button-row { align-self: flex-end; }
   .provider-drawer .configuration-form-card label { grid-template-columns: 1fr; gap: 8px; }
-  .provider-drawer .configuration-editor-drawer__footer button { padding: 0 12px; font-size: 12px; }
+  .provider-drawer > .bp-dialog__footer button { padding: 0 12px; font-size: 12px; }
 }

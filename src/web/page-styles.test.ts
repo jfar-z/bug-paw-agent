@@ -52,7 +52,7 @@ it("共享确认弹层自行加载布局和按钮样式，配置中心复用同�
   expect(dialog).toContain('import "../../configuration-dialog.css"');
   expect(configuration).toContain('@import "./configuration-dialog.css"');
   expect(main).not.toContain("configuration-dialog.css");
-  for (const selector of [".configuration-dialog-backdrop", ".configuration-dialog {", ".provider-rename-dialog {", ".configuration-primary-action {", ".configuration-secondary-action {"]) {
+  for (const selector of [".configuration-primary-action {", ".configuration-secondary-action {"]) {
     expect(shared).toContain(selector);
     expect(configuration).not.toContain(selector);
   }

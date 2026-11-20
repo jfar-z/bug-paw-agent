@@ -1910,6 +1910,19 @@ a[href].is-pressing,
   animation-play-state: paused;
 }
 
+/* 模态通知占用标题下方的空间，展开详情也不会挡住标题或关闭入口。 */
+.bp-dialog__notifications { display: contents; }
+.bp-dialog__notifications .error-toast-layer { display: contents; }
+.bp-dialog__notifications .error-toast-viewport {
+  position: static;
+  width: min(380px, calc(100% - 24px));
+  max-height: min(38dvh, 280px);
+  margin: var(--bp-space-2) 12px var(--bp-space-2) auto;
+  transform: none;
+}
+.bp-dialog__notifications .error-toast-viewport:empty { display: none; }
+.bp-dialog__notifications .error-toast__content p { overflow-wrap: anywhere; }
+
 @keyframes error-toast-enter {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }

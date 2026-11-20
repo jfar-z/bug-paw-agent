@@ -8,7 +8,7 @@ import { useApiTask } from "../api-task-provider";
 import { useOnlineStatus } from "../use-online-status";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
 import { navigateTo } from "../router";
-import "../configuration.css";
+
 import "../workflow-semaphores.css";
 
 /** 共享资源列表沿用工作台主题，编辑与删除复用可访问配置弹层。 */
@@ -51,7 +51,7 @@ export function WorkflowSemaphoresPage() {
       <Button className="configuration-secondary-action" disabled={!online || loading || busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true"/>刷新用量</Button>
       <Button variant="primary" className="configuration-primary-action" disabled={!online || busy} onClick={() => setEditing({ code: "", name: "", limit: 1 })}><Plus size={16} aria-hidden="true"/>新建信号量</Button>
     </div></header>
-    <p className="configuration-help">额度不足时按申请顺序等待。工作流完成、报错或取消后，剩余占用自动释放。用量为上次刷新时的状态。</p>
+    <p className="semaphore-help">额度不足时按申请顺序等待。工作流完成、报错或取消后，剩余占用自动释放。用量为上次刷新时的状态。</p>
     <section className="semaphore-list" aria-label="共享资源信号量" aria-busy={loading}>
       {!items?.length && <p role="status">{loading ? "正在读取信号量…" : items ? "尚未配置信号量。新建后即可在工作流节点中选择。" : "尚未加载信号量，请刷新重试。"}</p>}
       {items?.map((item) => <article className="semaphore-item" key={item.code}>

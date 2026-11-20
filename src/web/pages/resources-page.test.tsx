@@ -40,9 +40,9 @@ describe("Skills 与扩展交互",()=>{
     fireEvent.click(screen.getByRole("button",{name:"安装扩展包"}));fireEvent.change(screen.getByLabelText("扩展包来源"),{target:{value:"npm:example"}});
     fireEvent.click(screen.getByRole("checkbox"));expect(screen.getByRole("button",{name:"开始安装"})).toBeEnabled();
     fireEvent.change(screen.getByLabelText("扩展包来源"),{target:{value:"npm:changed"}});expect(screen.getByRole("checkbox")).not.toBeChecked();
-    fireEvent.keyDown(document,{key:"Escape"});const guard=screen.getByRole("dialog",{name:"还有未提交的安装输入"});expect(within(guard).queryByRole("button",{name:"保存并切换"})).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "安装扩展包" }), { key: "Escape" });const guard=screen.getByRole("dialog",{name:"还有未提交的安装输入"});expect(within(guard).queryByRole("button",{name:"保存并切换"})).not.toBeInTheDocument();
     fireEvent.click(within(guard).getByRole("button",{name:"继续编辑"}));expect(screen.getByLabelText("扩展包来源")).toHaveValue("npm:changed");
-    fireEvent.keyDown(document,{key:"Escape"});fireEvent.click(screen.getByRole("button",{name:"放弃并切换"}));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(install).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "安装扩展包" }), { key: "Escape" });fireEvent.click(screen.getByRole("button",{name:"放弃并切换"}));expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(install).not.toHaveBeenCalled();
   });
   it("启停失败保留原状态和对象，内容失败有重试与全局错误",async()=>{
     vi.spyOn(api,"setResourceMode").mockRejectedValue(new ApiClientError("INTERNAL_ERROR","保存资源模式时存储不可用",500));

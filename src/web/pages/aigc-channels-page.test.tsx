@@ -102,7 +102,7 @@ describe("AIGC 渠道列表与编辑抽屉", () => {
     show(); await edit();
     fireEvent.change(screen.getByLabelText("AIGC Base URL"), { target: { value: "https://changed.example.test" } });
     fireEvent.change(screen.getByLabelText("AIGC API Key"), { target: { value: "fictional-new-key" } });
-    fireEvent.keyDown(window.document, { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("AIGC API Key"), { key: "Escape" });
     const guard = screen.getByRole("dialog", { name: "还有未保存的修改" });
     expect(within(guard).getByRole("button", { name: "继续编辑" })).toHaveFocus();
     fireEvent.click(within(guard).getByRole("button", { name: "保存并切换" }));

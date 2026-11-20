@@ -117,8 +117,9 @@ it("创建成功后自动选中新 Provider 并可立即保存 API Key", async (
     expect(within(confirm).getByText(/独立 API Key 保留/)).toBeInTheDocument();
     expect(remove).not.toHaveBeenCalled();
     fireEvent.click(within(confirm).getByRole("button", { name: "确认删除" }));
-    await within(confirm).findByText("Provider 正被 Agent 默认模型引用");
-    expect(screen.getByRole("button", { name: "查看错误详情" })).toBeInTheDocument();
+    await within(confirm).findByText("Provider 正被 Agent 默认模型引用", { selector: ".configuration-inline-error" });
+    const notice = within(confirm).getByRole("group", { name: "配置 Provider · Example失败" });
+    expect(within(notice).getByRole("button", { name: "查看错误详情" })).toBeInTheDocument();
     fireEvent.click(within(confirm).getByRole("button", { name: "确认删除" }));
     await screen.findByRole("button", { name: "管理 Provider Second" });
     expect(screen.queryByRole("dialog", { name: "删除 Provider？" })).not.toBeInTheDocument();
@@ -191,7 +192,7 @@ it("创建成功后自动选中新 Provider 并可立即保存 API Key", async (
     renderProvidersPage();
     fireEvent.click(await screen.findByRole("button", { name: "新建 Provider" }));
     fireEvent.change(screen.getByLabelText("Provider ID"), { target: { value: "new-provider" } });
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("Provider ID"), { key: "Escape" });
     expect(screen.getByRole("dialog", { name: "还有未保存的修改" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
     expect(screen.getByLabelText("Provider ID")).toHaveValue("new-provider");

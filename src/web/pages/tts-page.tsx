@@ -181,7 +181,7 @@ export function TtsPage() {
       <p className="configuration-help">密钥状态仅表示是否已配置，不代表接口连接或语音合成测试通过。密钥默认隐藏，可在编辑时按需查看。</p>
       {!revision && !loading ? <Button type="button" className="configuration-secondary-action" disabled={!online || saving} onClick={() => void (async () => { if (await reload()) setMessage("语音配置列表已更新"); })()}>重新加载语音配置</Button> : null}
     </main>
-    {editorOpen ? <TtsDialog variant="drawer" title={selected ? `编辑语音配置 · ${selected.name}` : "新增语音配置"}
+    {editorOpen ? <TtsDialog variant="drawer" closeLabel="关闭语音配置编辑" returnFocusSelector="[data-tts-create]" title={selected ? `编辑语音配置 · ${selected.name}` : "新增语音配置"}
       description={selected ? "修改接口与默认语音参数，保存后返回配置列表。" : "创建接口连接与默认语音参数，供 Agent 选择使用。"}
       busy={saving} suspended={guard.pending || deleteOpen} onClose={() => guard.request(closeEditor)}
       footer={<><span className="configuration-editing-state">{dirty ? "有未保存的修改" : creating ? "新建草稿" : "当前没有未保存的修改"}</span><div><Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => guard.request(closeEditor)}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!writable} onClick={() => void (async () => { if (await save()) closeEditor(); })()}><Save size={16} />{task === "save" ? "保存中…" : selected ? "保存更改" : "创建语音配置"}</Button></div></>}>
@@ -213,7 +213,7 @@ export function TtsPage() {
       {message && !deleteOpen ? <p className="configuration-help" role="status">{message}</p> : null}
     </TtsDialog> : null}
     {guard.dialog}
-    {deleteOpen && selected ? <TtsDialog variant="confirmation" title="删除语音配置？" description={`将删除“${selected.name}”，此操作无法恢复。${dirty ? "当前未保存的修改也会丢弃。" : ""}如果配置正被 Agent 使用，将阻止删除。`}
+    {deleteOpen && selected ? <TtsDialog variant="confirmation" returnFocusSelector="[data-tts-create]" title="删除语音配置？" description={`将删除“${selected.name}”，此操作无法恢复。${dirty ? "当前未保存的修改也会丢弃。" : ""}如果配置正被 Agent 使用，将阻止删除。`}
       busy={saving} onClose={() => setDeleteOpen(false)} footer={<><Button type="button" className="configuration-secondary-action" disabled={saving} onClick={() => setDeleteOpen(false)}>取消</Button><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => void remove()}>{task === "delete" ? "删除中…" : "确认删除"}</Button></>}>
       {message ? <p className="configuration-inline-error" role="alert">{message}</p> : null}
     </TtsDialog> : null}

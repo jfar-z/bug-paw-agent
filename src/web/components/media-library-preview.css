@@ -2,16 +2,14 @@
 .media-library-preview p { overflow-wrap: anywhere; }
 
 /* 行高由视口约束，放大后的图片从左上角开始滚动，可到达全部边缘。 */
-.configuration-dialog.media-library-preview {
+.configuration-dialog.media-library-preview.bp-dialog[open] {
   width: min(100%, 1080px);
   height: calc(100dvh - 40px);
   padding: 14px;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
 }
 
-.media-library-preview > div { min-width: 0; min-height: 0; }
+.media-library-preview > .bp-dialog__body { flex: 1; min-width: 0; }
 
 .media-library-preview h2 {
   display: -webkit-box;
@@ -54,7 +52,7 @@
 
 .media-library-preview__stage p { padding: 12px; }
 
-.configuration-dialog.media-library-preview > footer {
+.configuration-dialog.media-library-preview > .bp-dialog__footer {
   flex-flow: row wrap;
   justify-content: space-between;
   gap: 6px;

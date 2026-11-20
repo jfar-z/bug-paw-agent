@@ -81,3 +81,5 @@
   border-radius: var(--bp-radius-control);
   background: #070b09;
 }
+
+:is(.media-lightbox, .aigc-media-preview-dialog):has(.bp-dialog__notifications .error-toast) { grid-template-rows: auto auto minmax(0, 1fr); }

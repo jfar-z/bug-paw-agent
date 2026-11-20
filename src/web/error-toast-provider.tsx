@@ -22,7 +22,7 @@ const ErrorToastContext = createContext<ErrorToastController | undefined>(undefi
 const ErrorToastModalContext = createContext<{
   registerModal: (modal: HTMLDialogElement) => () => void;
   activeModal: HTMLDialogElement | undefined;
-  toast: ReactNode;
+  renderToast: (restoreFocus?: () => void) => ReactNode;
 } | undefined>(undefined);
 
 /** 模态打开时将全局错误提示呈现在原生顶层，保留详情操作和播报。 */
@@ -132,20 +132,21 @@ export function ErrorToastProvider({ children }: { children: ReactNode }) {
 
   const controller = useMemo<ErrorToastController>(() => ({ push, clear }), [clear, push]);
   const activeModal = modals.at(-1);
-  const toast = (
+  const renderToast = (restoreFocus?: () => void) => (
     <Toast
       items={items.slice(0, MAX_VISIBLE_TOASTS)}
       announcement={announcement}
       onDismiss={dismiss}
+      restoreFocus={restoreFocus}
       onExpandedChange={setExpanded}
       onPauseChange={setPaused}
     />
   );
   return (
     <ErrorToastContext.Provider value={controller}>
-      <ErrorToastModalContext.Provider value={{ registerModal, activeModal, toast }}>
+      <ErrorToastModalContext.Provider value={{ registerModal, activeModal, renderToast }}>
         {children}
-        {activeModal ? null : toast}
+        {activeModal ? null : renderToast()}
       </ErrorToastModalContext.Provider>
     </ErrorToastContext.Provider>
   );

@@ -519,15 +519,6 @@
   gap: 8px;
   overflow-wrap: anywhere;
 }
-/* 参数列表在弹窗内滚动，标题和确认按钮始终留在可视区域。 */
-.configuration-dialog:has(.wf-import-fields) {
-  max-height: calc(100dvh - 40px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-.configuration-dialog:has(.wf-import-fields) > div {
-  overflow: auto;
-  overscroll-behavior: contain;
-}
 .wf-type-badge {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -894,7 +885,7 @@
   padding: 0;
   background: transparent;
 }
-.wf-assist-drawer .configuration-editor-drawer__footer {
+.wf-assist-drawer > .bp-dialog__footer {
   flex-wrap: wrap;
 }
 .wf-value-view,
@@ -981,9 +972,9 @@
 .wf-output-data {
   margin-top: 12px;
 }
-.configuration-dialog:has(.wf-media-large) {
+.configuration-dialog.bp-dialog[open]:has(.wf-media-large) {
   width: min(1000px, 96vw);
-  max-width: 1000px;
+  max-width: calc(100% - 40px);
 }
 .wf-media-large {
   display: grid;

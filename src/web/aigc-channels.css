@@ -38,5 +38,5 @@
   .aigc-channel-row { align-items: start; }
   .aigc-channel-danger { align-items: start; flex-direction: column; }
   .aigc-channel-fields { gap: 20px; }
-  .aigc-channel-drawer .configuration-editor-drawer__footer > div { flex-wrap: wrap; }
+  .aigc-channel-drawer > .bp-dialog__footer > div { flex-wrap: wrap; }
 }
