@@ -936,9 +936,13 @@
   gap: 8px;
   overflow-wrap: anywhere;
 }
-.wf-selected-files span {
+.wf-selected-file-label {
+  flex: 1;
+  display: grid;
+  gap: 3px;
   min-width: 0;
 }
+.wf-selected-file-label small { color: var(--muted); }
 .wf-media-item {
   min-width: 0;
   padding: 12px;

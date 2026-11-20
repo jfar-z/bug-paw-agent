@@ -47,6 +47,8 @@ export function ScheduledTasksPage() {
   const [agents, setAgents] = useState<AgentProfileDocument[]>([]);
   const [agentId, setAgentId] = useState("");
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
+  const [filter, setFilter] = useState<"all" | "enabled" | "paused">("all");
+  const visibleTasks = tasks.filter((task) => filter === "all" || task.enabled === (filter === "enabled"));
   const [editing, setEditing] = useState<ScheduledTask | "new" | undefined>();
   const [runsTaskId, setRunsTaskId] = useState<string>();
   const [deleteCandidate, setDeleteCandidate] = useState<ScheduledTask>();
@@ -122,6 +124,8 @@ export function ScheduledTasksPage() {
         navigationLabel="定时任务 Agent 列表"
         onSelect={(nextAgentId) => {
           if (pending.current) return;
+          setFilter("all");
+          setRunsTaskId(undefined);
           setAgentId(nextAgentId);
           closeNavigation();
         }}
@@ -168,13 +172,17 @@ export function ScheduledTasksPage() {
         <section className="scheduled-task-list-section" aria-label="定时任务列表">
           <header>
             <div>
-              <span>ACTIVE CONFIGURATION</span>
+              <span>{currentAgent?.profile.name}</span>
               <h2>任务列表</h2>
             </div>
             <small>{tasks.length} 个任务</small>
           </header>
+          <SegmentedControl label="按任务状态筛选" value={filter} onChange={setFilter} options={[
+            { id: "all", label: "全部" }, { id: "enabled", label: "已启用" }, { id: "paused", label: "已暂停" },
+          ]} />
           <div className="scheduled-tasks-list">
-            {tasks.map((task) => <TaskCard key={task.id} task={task} onRun={() => void runTask(task)} onEdit={() => setEditing(task)} onDelete={() => { setError(""); setDeleteCandidate(task); }} busy={!!mutation} onRuns={() => setRunsTaskId((current) => current === task.id ? undefined : task.id)} />)}
+            {visibleTasks.map((task) => <TaskCard key={task.id} task={task} onRun={() => void runTask(task)} onEdit={() => setEditing(task)} onDelete={() => { setError(""); setDeleteCandidate(task); }} busy={!!mutation} onRuns={() => setRunsTaskId((current) => current === task.id ? undefined : task.id)} />)}
+            {tasks.length > 0 && !visibleTasks.length && <p className="scheduled-task-empty">当前筛选下没有任务。</p>}
             {!tasks.length ? <p className="scheduled-task-empty">当前 Agent 暂无定时任务。</p> : null}
           </div>
         </section>

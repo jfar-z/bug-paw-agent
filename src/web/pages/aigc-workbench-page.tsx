@@ -1610,10 +1610,12 @@ function AigcTasksPage() {
             ]}
           /></label>
           <Button disabled={!document || !visibleTasks.length} onClick={() => setSelectedIds(visibleTasks.map((task) => task.id))}>全选</Button>
-          <Button disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>取消全选</Button>
-          <Button variant="danger" disabled={!selectedIds.length} onClick={() => setBulkDeleteOpen(true)}>
-            删除选中{selectedIds.length ? `（${selectedIds.length}）` : ""}
+          {selectedIds.length > 0 && <>
+          <Button onClick={() => setSelectedIds([])}>取消全选</Button>
+          <Button variant="danger" onClick={() => setBulkDeleteOpen(true)}>
+            删除选中（{selectedIds.length}）
           </Button>
+          </>}
         </div>
       </div>
       <div className="aigc-task-list">

@@ -1,3 +1,4 @@
+import type { MediaFile } from "../../shared/media-library-contracts";
 import { Checkbox } from "../ui/choice";
 import { SearchField, Button, FilePickerButton, IconButton, TextField, Textarea } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
@@ -597,7 +598,7 @@ function Runner({
     setInputs((old) => ({ ...old, [name]: value }));
     key.current = workflowClientId();
   };
-  const [mediaNames, setMediaNames] = useState<Record<string, string>>({});
+  const [mediaFiles, setMediaFiles] = useState<Record<string, MediaFile>>({});
   const start = async (confirmed = false) => {
     if (!definition || !online || busy) return;
     transfer.clear();
@@ -732,12 +733,12 @@ function Runner({
                             onSelect={(file) => {
                               const reference = mediaReference(file.libraryId, file.id);
                               const current = inputs[f.name];
-                              setMediaNames((names) => ({ ...names, [reference]: file.name }));
+                              setMediaFiles((names) => ({ ...names, [reference]: file }));
                               change(f.name, f.multiple ? [...(Array.isArray(current) ? current : current ? [current] : []), reference] : reference);
                             }} />
                         </div>
                         <WorkflowSelectedFiles
-                          mediaNames={mediaNames}
+                          mediaFiles={mediaFiles}
                           field={f}
                           value={inputs[f.name]}
                           disabled={busy || !online}
@@ -953,6 +954,9 @@ function History() {
       Awaited<ReturnType<typeof api.listWorkflowRuns>>["runs"]
     >([]),
     [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const term = query.trim().toLowerCase();
+  const filtered = runs.filter((run) => (run.name + " " + run.id).toLowerCase().includes(term));
   const reload = useCallback(async () => {
     setLoading(true);
     const r = await runApiTask(api.listWorkflowRuns, {
@@ -993,7 +997,9 @@ function History() {
         </div>
       ) : (
         <div className="wf-workflow-list">
-          {runs.map((run) => (
+          <SearchField label="查找运行记录" placeholder="工作流名称或运行 ID" value={query} onChange={setQuery} />
+          {filtered.length === 0 && <p role="status">没有匹配的运行记录。</p>}
+          {filtered.map((run) => (
             <button
               className="wf-history-row"
               key={run.id}

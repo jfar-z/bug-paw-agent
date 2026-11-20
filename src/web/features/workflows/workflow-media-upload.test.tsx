@@ -75,7 +75,7 @@ async function fixture(surface: "run" | "editor", field: WorkflowInputField) {
     upload,
     names() {
       const list = screen.queryByRole("list", { name: "已选择的文件 media" });
-      return list ? within(list).getAllByRole("listitem").map((item) => item.querySelector("span")!.textContent) : [];
+      return list ? within(list).getAllByRole("listitem").map((item) => within(item).getByRole("button", { name: /^移除 / }).getAttribute("aria-label")!.slice(3)) : [];
     },
     async select(files: File[]) {
       fireEvent.change(input, { target: { files } });

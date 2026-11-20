@@ -100,7 +100,6 @@ export function KnowledgeBasePage() {
             src="/brand/bugpaw/bugpaw-sleeping.png"
             alt="BUG 守着空知识库"
           />
-          <span>KNOWLEDGE BASE</span>
           <h1>知识库</h1>
           {directoryStatus === "loading" ? <p role="status">正在读取知识库列表…</p>
             : directoryStatus === "error" ? <>
@@ -108,7 +107,7 @@ export function KnowledgeBasePage() {
                 <Button onClick={() => void reload()}>重新读取列表</Button>
               </>
             : <>
-                <p>创建一个独立知识库，再将它绑定给一个或多个 Agent。</p>
+                <p>创建知识库后可上传 TXT、Markdown、PDF 或 DOCX，检索资料并绑定给 Agent。</p>
                 <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => setCreateOpen(true)}>创建知识库</Button>
               </>}
 
@@ -151,6 +150,7 @@ function normalizeKnowledgeBase(base: KnowledgeBaseDetail): KnowledgeBaseDetail 
 function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, onError }: { base: KnowledgeBaseDetail; agents: AgentProfileDocument[]; onChanged: (base: KnowledgeBaseDetail) => void; onDeleteRequested: (base: KnowledgeBaseDetail) => void; onError: (message: string) => void }) {
   const { runApiTask } = useApiTask();
   const [query, setQuery] = useState("");
+  const [searched, setSearched] = useState("");
   const [results, setResults] = useState<KnowledgeSearchResult[]>([]);
   const [document, setDocument] = useState<KnowledgeDocumentSummary>();
   const [bindingOpen, setBindingOpen] = useState(false);
@@ -163,7 +163,10 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
     setBusy(true);
     try {
       const result = await runApiTask(() => api.searchKnowledgeBase(base.id, query.trim()), { operation: "检索知识库", expected: knowledgeExpected(onError) });
-      if (result.status === "success") setResults(result.data.results);
+      if (result.status === "success") {
+        setSearched(query.trim());
+        setResults(result.data.results);
+      }
     }
     finally { setBusy(false); }
   };
@@ -207,6 +210,15 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
           icon={<Upload aria-hidden="true" />} onFilesSelected={(files) => void upload(files)}>上传资料</FilePickerButton>
       </div>
     </header>
+    <section className="knowledge-base-search-panel" aria-label="检索知识库">
+      <header><div><span>SEARCH</span><h2>检索资料</h2></div></header>
+      <form className="knowledge-base-search-panel__form" onSubmit={(event) => { event.preventDefault(); void runSearch(); }}>
+        <SearchField label="检索知识库" value={query} placeholder="输入关键词，例如：请假流程" onChange={setQuery} />
+        <Button type="submit" loading={busy} disabled={!query.trim()}>检索</Button>
+      </form>
+      {searched && <p role="status">“{searched}”的检索结果 · {results.length} 条</p>}
+      {results.length ? <ol className="knowledge-base-search-results">{results.map((result) => <li key={result.chunkId}><button type="button" onClick={() => void openDocument(result.documentId)}><strong>{base.documents.find((item) => item.id === result.documentId)?.name ?? "资料"}</strong><p>{result.text}</p></button></li>)}</ol> : null}
+    </section>
     <section className="knowledge-base-overview" aria-label="知识库概览">
       <div><span>资料条目</span><strong>{base.documents.length}</strong><small>TXT、Markdown、PDF、DOCX</small></div>
       <div><span>已绑定 Agent</span><strong>{base.agentIds.length}</strong><small>可双向绑定</small></div>
@@ -221,14 +233,6 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
         <section><header><Users size={15} aria-hidden="true" /><span>AGENT BINDINGS</span></header><p>{base.agentIds.length ? base.agentIds.map((id) => agents.find((agent) => agent.profile.id === id)?.profile.name ?? id).join("、") : "尚未绑定 Agent"}</p><Button onClick={() => setBindingOpen(true)}>管理绑定</Button></section>
         <section><header><FileSearch size={15} aria-hidden="true" /><span>INDEX</span></header><p>使用本地 LanceDB 全文与向量索引。语义检索可在配置中心启用或关闭。</p></section>
       </aside>
-    </section>
-    <section className="knowledge-base-search-panel" aria-label="检索知识库">
-      <header><div><span>SEARCH</span><h2>检索资料</h2></div></header>
-      <form className="knowledge-base-search-panel__form" onSubmit={(event) => { event.preventDefault(); void runSearch(); }}>
-        <SearchField label="检索知识库" value={query} placeholder="输入关键词，例如：请假流程" onChange={setQuery} />
-        <Button type="submit" loading={busy} disabled={!query.trim()}>检索</Button>
-      </form>
-      {results.length ? <ol className="knowledge-base-search-results">{results.map((result) => <li key={result.chunkId}><button type="button" onClick={() => void openDocument(result.documentId)}><strong>{base.documents.find((item) => item.id === result.documentId)?.name ?? "资料"}</strong><p>{result.text}</p></button></li>)}</ol> : null}
     </section>
     {bindingOpen ? <BindingDialog base={base} agents={agents} onCancel={() => setBindingOpen(false)} onSaved={(updated) => { onChanged(updated); setBindingOpen(false); }} /> : null}
     {editOpen ? <EditKnowledgeBaseDialog base={base} onCancel={() => setEditOpen(false)} onDeleteRequested={() => onDeleteRequested(base)} onSaved={(updated) => { onChanged(updated); setEditOpen(false); }} /> : null}

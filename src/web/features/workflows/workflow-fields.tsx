@@ -1,12 +1,12 @@
 import { Button, FilePickerButton, IconButton, TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
-import { isMediaReference } from "../../../shared/media-library-contracts";
+import { type MediaFile, isMediaReference } from "../../../shared/media-library-contracts";
 import {
   workflowFieldNameErrors,
   workflowSystemFieldIndices,
 } from "./workflow-field-guards";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { WorkflowFilePicker } from "./workflow-file-picker";
 import { api } from "../../api";
 import { useApiTask } from "../../api-task-provider";
@@ -19,6 +19,9 @@ import {
   type WorkflowFile,
   type WorkflowNode,
 } from "../../../shared/workflow-contracts";
+
+/** 打开原件时才加载播放器及其样式。 */
+const AssetPreview = lazy(() => import("../../components/media-library-preview").then((module) => ({ default: module.AssetPreview })));
 
 /** JSON 编辑保留未完成文本，同时将校验结果反馈给保存按钮。 */
 export function WorkflowJson({
@@ -573,27 +576,38 @@ function WorkflowEnumValue({
 export function WorkflowSelectedFiles({
   field,
   value,
-  mediaNames,
+  mediaFiles,
+  assetSource = "本地上传",
   disabled,
   onChange,
 }: {
   field: WorkflowInputField;
   value: unknown;
-  mediaNames?: Readonly<Record<string, string>>;
+  mediaFiles?: Readonly<Record<string, MediaFile>>;
+  assetSource?: string;
   disabled: boolean;
   onChange: (value: unknown) => void;
 }) {
+  const [preview, setPreview] = useState<{ name: string; category: MediaFile["category"]; source: string }>();
   const entries = (Array.isArray(value) ? value : value ? [value] : []).filter(
     (item): item is WorkflowFile | string => isMediaReference(item) || (!!item && typeof item.assetId === "string"),
   );
   if (!entries.length) return null;
   return (
+    <>
     <ul className="wf-selected-files" aria-label={`已选择的文件 ${field.name}`}>
       {entries.map((file, index) => {
         const id = typeof file === "string" ? file : file.assetId;
-        const name = typeof file === "string" ? mediaNames?.[file] ?? "媒体库文件" : file.name;
+        const media = typeof file === "string" ? mediaFiles?.[file] : undefined;
+        const name = typeof file === "string" ? media?.name ?? "媒体库文件" : file.name;
+        const category = typeof file === "string" ? media?.category : file.mediaType?.split("/")[0];
+        const assetUrl = typeof file === "string" ? undefined : `/api/v1/workflow-files/${encodeURIComponent(file.assetId)}`;
+        const source = media ? api.mediaFileUrl(media.libraryId, media.id, "content") : assetUrl && assetUrl + "?preview=1";
         return <li key={`${id}-${index}`}>
-          <span>{name}</span>
+          <div className="wf-selected-file-label"><strong>{name}</strong><small>{typeof file === "string" ? "媒体库" : assetSource}</small></div>
+          {source && (category === "image" || category === "audio" || category === "video") ?
+            <Button type="button" aria-label={`预览 ${name}`} onClick={() => setPreview({ name, category, source })}>预览</Button>
+            : assetUrl && <a href={assetUrl} download={name}>下载</a>}
           <Button
             type="button"
             className="wf-button"
@@ -611,6 +625,10 @@ export function WorkflowSelectedFiles({
         </li>;
       })}
     </ul>
+    {preview && <Suspense fallback={<span role="status">正在打开预览…</span>}>
+      <AssetPreview {...preview} onClose={() => setPreview(undefined)} />
+    </Suspense>}
+    </>
   );
 }
 
@@ -696,6 +714,7 @@ function WorkflowMediaValue({
         }, {operation: "选择文件常量"});
       }}/>}
       <WorkflowSelectedFiles
+        assetSource={directory === "constants" ? "文件常量" : "本地上传"}
         field={field}
         value={value}
         disabled={busy}

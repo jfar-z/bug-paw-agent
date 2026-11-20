@@ -277,14 +277,15 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, prev
     {heading}
     {error ? <p className="configuration-inline-error">{error}</p> : null}
     {hasSource ? <div className="workspace-browser__listing" inert={mode === "quick" && Boolean(preview)}>
+      {!query && <nav className="workspace-breadcrumb" aria-label="当前目录"><button type="button" onClick={() => enterDirectory("")}>{rootLabel}</button>{directory.split("/").filter(Boolean).map((segment, index, all) => <button type="button" key={`${segment}-${index}`} onClick={() => enterDirectory(all.slice(0, index + 1).join("/"))}>/ {segment}</button>)}</nav>}
       <div className="workspace-resources-page__toolbar">
         <SearchField className="workspace-search" label="搜索文件名" placeholder={searchPlaceholder} value={query} onChange={setQuery} />
         {dataSource?.showHiddenToggle === false ? null : <label className="workspace-hidden-toggle"><Checkbox checked={includeHidden} onChange={(event) => setIncludeHidden(event.target.checked)} />显示隐藏文件</label>}
         <FilePickerButton label="上传" className="configuration-secondary-action" icon={<Upload aria-hidden="true" />} multiple disabled={!online} onFilesSelected={(files) => void uploadFiles(files)}>上传</FilePickerButton>
         <Button type="button" className="configuration-secondary-action" disabled={!online} onClick={openCreateDirectoryDialog}><FolderPlus size={15} aria-hidden="true" />新建文件夹</Button>
-        <Button variant="danger" disabled={!online || !selectedPaths.length} icon={<Trash2 aria-hidden />} onClick={() => setDeleteOpen(true)}>删除所选 {selectedPaths.length} 项</Button>
+        {selectedPaths.length > 0 && <Button variant="danger" disabled={!online} icon={<Trash2 aria-hidden />} onClick={() => setDeleteOpen(true)}>删除所选 {selectedPaths.length} 项</Button>}
       </div>
-      {!query && <nav className="workspace-breadcrumb" aria-label="当前目录"><button type="button" onClick={() => enterDirectory("")}>{rootLabel}</button>{directory.split("/").filter(Boolean).map((segment, index, all) => <button type="button" key={`${segment}-${index}`} onClick={() => enterDirectory(all.slice(0, index + 1).join("/"))}>/ {segment}</button>)}</nav>}
+
       <Table label={`${rootLabel}文件`} layout="scroll" className="workspace-table-wrap" style={quickScrollStyle}
         hidden={mode === "quick" && Boolean(preview)} rows={entries} rowKey={(entry) => entry.path}
         rowProps={(entry) => ({
@@ -298,9 +299,13 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, prev
             entry.kind === "directory" ? <Button variant="ghost" className="workspace-entry-name"
               aria-label={`进入 ${entry.name}`} onClick={() => enterDirectory(entry.path)}>
               <WorkspaceEntryIcon entry={entry} /><span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span>
-            </Button> : <span className="workspace-entry-name"><WorkspaceEntryIcon entry={entry} />
+            </Button> : <Button variant="ghost" className="workspace-entry-name" aria-label={`打开 ${entry.name}`}
+              onClick={(event) => {
+                previewTriggerRef.current = event.currentTarget;
+                setPreview(entry);
+              }}><WorkspaceEntryIcon entry={entry} />
               <span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span>
-            </span> },
+            </Button> },
           { id: "path", label: "路径", cell: (entry) => <code>{entry.path}</code> },
           { id: "size", label: "大小", cell: (entry) => entry.size === undefined ? "—" : formatFileSize(entry.size) },
           { id: "modified", label: "修改时间", cell: (entry) => new Date(entry.modifiedAt).toLocaleString() },

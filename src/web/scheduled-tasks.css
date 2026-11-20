@@ -8,6 +8,8 @@
 
 .scheduled-task-list-section { margin-top: 28px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); overflow: hidden; }
 
+.scheduled-task-list-section > .bp-segment { margin: 12px 16px; }
+
 .scheduled-task-list-section > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 16px 18px 14px; border-bottom: 1px solid var(--border); }
 
 .scheduled-task-list-section > header div { display: grid; gap: 4px; }

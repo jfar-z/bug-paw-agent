@@ -15,6 +15,19 @@ export function MediaPreview({ file, onClose, returnFocusSelector }: {
   onClose: () => void;
   returnFocusSelector?: string;
 }) {
+  return <AssetPreview name={file.name} category={file.category}
+    source={api.mediaFileUrl(file.libraryId, file.id, "content")}
+    returnFocusSelector={returnFocusSelector} onClose={onClose} />;
+}
+
+/** 媒体库和工作流共用预览交互，原件地址由各自的认证接口提供。 */
+export function AssetPreview({ name, category, source, onClose, returnFocusSelector }: {
+  name: string;
+  category: MediaFile["category"];
+  source: string;
+  onClose: () => void;
+  returnFocusSelector?: string;
+}) {
   const toast = useErrorToast();
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [zoom, setZoom] = useState(1);
@@ -22,8 +35,7 @@ export function MediaPreview({ file, onClose, returnFocusSelector }: {
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const stage = useRef<HTMLDivElement>(null);
   const player = useRef<HTMLMediaElement | null>(null);
-  const source = api.mediaFileUrl(file.libraryId, file.id, "content");
-  const playable = file.category !== "image";
+  const playable = category !== "image";
   const fittedRatio = Math.min(1, viewport.width / natural.width, viewport.height / natural.height);
   const ratio = zoom === 1 ? fittedRatio : zoom === 2 ? Math.max(1, fittedRatio * 2) : Math.max(2, fittedRatio * 4);
 
@@ -48,10 +60,10 @@ export function MediaPreview({ file, onClose, returnFocusSelector }: {
   function failed(media?: MediaError | null) {
     setState("error");
     const stage = media?.code === 3 || media?.code === 4 ? "解码或播放" : "读取原件";
-    toast.push(toUnexpectedErrorNotice(new Error(stage + "未完成" + (media ? "（媒体错误 " + media.code + "）" : "")), "预览 " + file.name));
+    toast.push(toUnexpectedErrorNotice(new Error(stage + "未完成" + (media ? "（媒体错误 " + media.code + "）" : "")), "预览 " + name));
   }
 
-  return <ConfigurationEditorDialog variant="confirmation" className="media-library-preview" title={file.name}
+  return <ConfigurationEditorDialog variant="confirmation" className="media-library-preview" title={name}
     description="媒体预览" busy={false} onClose={onClose} returnFocusSelector={returnFocusSelector}
     footer={<>
       {!playable && <div className="media-library-zoom" role="group" aria-label="图片缩放">
@@ -68,18 +80,18 @@ export function MediaPreview({ file, onClose, returnFocusSelector }: {
     <div className={"media-library-preview__stage" + (!playable && zoom === 1 ? " is-fitted" : "")} ref={stage} tabIndex={zoom > 1 ? 0 : undefined}
       role="region" aria-label="媒体内容">
       {state === "loading" && <p role="status">正在读取媒体…</p>}
-      {state === "error" ? <p role="alert">无法{playable ? "读取或播放" : "读取"}“{file.name}”。</p> : file.category === "image" ? (
-        <img src={source} alt={file.name} className={state === "ready" ? "is-loaded" : undefined}
+      {state === "error" ? <p role="alert">无法{playable ? "读取或播放" : "读取"}“{name}”。</p> : category === "image" ? (
+        <img src={source} alt={name} className={state === "ready" ? "is-loaded" : undefined}
           style={natural.width && viewport.width ? { width: natural.width * ratio, height: natural.height * ratio } : undefined}
           onLoad={(event) => {
             const { naturalWidth, naturalHeight } = event.currentTarget;
             setNatural({ width: naturalWidth, height: naturalHeight });
             setState("ready");
           }} onError={() => failed()} />
-      ) : file.category === "video" ? (
-        <video ref={(element) => { player.current = element; }} src={source} controls playsInline preload="metadata" aria-label={file.name}
+      ) : category === "video" ? (
+        <video ref={(element) => { player.current = element; }} src={source} controls playsInline preload="metadata" aria-label={name}
           onLoadedMetadata={() => setState("ready")} onError={(event) => failed(event.currentTarget.error)} />
-      ) : <audio ref={(element) => { player.current = element; }} src={source} controls preload="metadata" aria-label={file.name}
+      ) : <audio ref={(element) => { player.current = element; }} src={source} controls preload="metadata" aria-label={name}
         onLoadedMetadata={() => setState("ready")} onError={(event) => failed(event.currentTarget.error)} />}
     </div>
   </ConfigurationEditorDialog>;
