@@ -60,14 +60,16 @@ it("共享确认弹层自行加载布局和按钮样式，配置中心复用同�
 
 /** 文件页按路由加载资源浏览器与目录样式，不扩大首屏依赖。 */
 it("工作流文件管理具有独立懒加载和手机表格预览边界", async () => {
-  const [app, main, page, css] = await Promise.all([
-    "src/web/app.tsx", "src/web/main.tsx", "src/web/pages/workflow-files-page.tsx", "src/web/workflow-files.css",
+  const [app, main, page, css, table] = await Promise.all([
+    "src/web/app.tsx", "src/web/main.tsx", "src/web/pages/workflow-files-page.tsx", "src/web/workflow-files.css", "src/web/ui/table.css",
   ].map((path) => readFile(path, "utf8")));
   expect(app).toContain('lazy(() => import("./pages/workflow-files-page")');
   expect(page).toContain('import "../workflow-files.css"');
   expect(main).not.toContain("workflow-files.css");
   expect(app).not.toContain('import "./workflow-files.css"');
-  expect(css).toContain("overflow-x: auto");
+  expect(page).toContain('import { Table } from "../ui/table"');
+  expect(table).toContain(".bp-table--static tbody tr");
+  expect(table).toContain("overflow-wrap: anywhere");
   expect(css).toContain("max-height: none");
 });
 

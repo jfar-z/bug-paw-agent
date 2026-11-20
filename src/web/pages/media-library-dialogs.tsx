@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, TextField, Textarea } from "../ui/controls";
 import { useEffect, useId, useRef, useState } from "react";
 import { MEDIA_FORMATS, MEDIA_LIBRARY_NOTE_MAX_LENGTH, MEDIA_UPLOAD_BYTES, type MediaFile, type MediaLibrary } from "../../shared/media-library-contracts";
 import { api, type ApiClientError } from "../api";
@@ -122,7 +122,7 @@ export function MediaNameDialog(props: MediaNameDialogProps) {
       {uploading && <label>选择文件<input type="file" accept={formats.join(",")} disabled={busy} onChange={(event) => chooseFile(event.target.files?.[0])} /></label>}
       <label>{library ? "主文件名" : "媒体库名称"}
         <span className="media-library-name">
-          <input value={stem} disabled={busy || (uploading && !upload)} aria-invalid={!!error || undefined}
+          <TextField value={stem} disabled={busy || (uploading && !upload)} aria-invalid={!!error || undefined}
             aria-describedby={error ? formId + "-error" : undefined}
             onChange={(event) => { setStem(event.target.value); setError(""); }} />
           {extension && <span>{extension}</span>}
@@ -254,7 +254,7 @@ export function MediaLibraryEditDialog({ id, online, onClose, onSaved }: {
       </div>}
       {draft && <>
         <label>媒体库名称
-          <input ref={nameInput} value={draft.name} disabled={busy} aria-invalid={fieldError?.field === "name" || undefined}
+          <TextField ref={nameInput} value={draft.name} disabled={busy} aria-invalid={fieldError?.field === "name" || undefined}
             aria-describedby={fieldError?.field === "name" ? formId + "-name" : undefined}
             onChange={(event) => {
               setDraft({ ...draft, name: event.target.value });
@@ -263,7 +263,7 @@ export function MediaLibraryEditDialog({ id, online, onClose, onSaved }: {
         </label>
         {renderFieldError("name")}
         <label>媒体库备注
-          <textarea rows={4} value={draft.note} disabled={busy} aria-invalid={fieldError?.field === "note" || undefined}
+          <Textarea rows={4} value={draft.note} disabled={busy} aria-invalid={fieldError?.field === "note" || undefined}
             aria-describedby={fieldError?.field === "note" ? formId + "-note" : undefined}
             onChange={(event) => {
               setDraft({ ...draft, note: event.target.value });
@@ -362,7 +362,7 @@ export function MediaDeleteDialog({ id, online, onClose, onDeleted, onMissing, o
       {loading ? <p role="status">正在读取删除范围…</p> : scope ? <>
         <p>“{scope.name}”包含 {scope.fileCount} 个文件。</p>
         <label>输入媒体库名称以确认
-          <input value={name} disabled={busy} onChange={(event) => setName(event.target.value)} />
+          <TextField value={name} disabled={busy} onChange={(event) => setName(event.target.value)} />
         </label>
       </> : <Button type="button" className="configuration-secondary-action" onClick={() => {
         setLoading(true);

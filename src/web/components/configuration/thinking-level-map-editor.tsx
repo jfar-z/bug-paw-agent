@@ -1,3 +1,4 @@
+import { TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import type { ThinkingLevelKey } from "../../../shared/configuration-contracts";
 
@@ -18,7 +19,7 @@ export function ThinkingLevelMapEditor({ value, onChange }: ThinkingLevelMapEdit
       {levels.map((level) => (
         <div key={level}>
           <code>{level}</code>
-          <input aria-label={`${level} 映射`} disabled={value[level] === null} value={value[level] ?? ""} placeholder="沿用默认" onChange={(event) => onChange({ ...value, [level]: event.target.value || undefined })} />
+          <TextField aria-label={`${level} 映射`} disabled={value[level] === null} value={value[level] ?? ""} placeholder="沿用默认" onChange={(event) => onChange({ ...value, [level]: event.target.value || undefined })} />
           <label><Checkbox checked={value[level] === null} onChange={(event) => onChange({ ...value, [level]: event.target.checked ? null : undefined })} />不支持</label>
         </div>
       ))}

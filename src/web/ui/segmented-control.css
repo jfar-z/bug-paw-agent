@@ -1,0 +1,42 @@
+.bp-segment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bp-space-1);
+}
+.bp-segment {
+  background: var(--surface-soft);
+  border-radius: var(--bp-radius-control);
+  padding: 4px;
+}
+.bp-segment__option {
+  position: relative;
+  cursor: pointer;
+}
+.bp-segment__option input {
+  position: absolute;
+  opacity: 0;
+}
+.bp-segment__option span {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--bp-radius-control);
+}
+.bp-segment__option input:checked + span {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.bp-segment__option input:disabled + span {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.bp-segment__option input:focus-visible + span {
+  outline: 2px solid var(--focus);
+}
+@media (pointer: coarse) {
+  .bp-segment__option span {
+    min-height: 44px;
+  }
+}

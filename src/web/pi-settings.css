@@ -13,7 +13,7 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.settings-scope-actions button, .pi-settings-tabs button, .pi-settings-load-error button {
+.settings-scope-actions button, .pi-settings-load-error button {
   min-height: 44px;
   padding: 10px 16px;
   border: 1px solid var(--border);
@@ -22,12 +22,12 @@
   background: var(--surface);
   cursor: pointer;
 }
-.settings-scope-actions button[aria-pressed="true"], .pi-settings-tabs button[aria-selected="true"] {
+.settings-scope-actions button[aria-pressed="true"] {
   color: var(--fg);
   background: var(--accent-soft);
   border-color: var(--border-strong);
 }
-.settings-scope-actions button:hover, .pi-settings-tabs button:hover, .pi-settings-load-error button:hover {
+.settings-scope-actions button:hover, .pi-settings-load-error button:hover {
   background: var(--surface-hover);
 }
 .settings-scope-bar label {
@@ -57,11 +57,9 @@
 .pi-settings-load-error { margin-bottom: 24px; }
 .pi-settings-load-error button { margin: 8px 0 0 16px; }
 .pi-settings-tabs {
-  display: flex;
-  gap: 8px;
   margin-bottom: 24px;
 }
-.pi-settings-tabs button { flex: 1; font-size: 13px; }
+.pi-settings-tabs button { flex: 1; height: auto; min-height: 44px; padding-block: 6px; font-size: 13px; }
 .pi-settings-tabs small { display: block; font-size: 11px; margin-top: 4px; }
 .settings-groups { display: grid; gap: 24px; }
 .bp-section > div:last-child { display: grid; padding-inline: 24px; }
@@ -101,8 +99,7 @@
 .pi-settings-save-bar { position: sticky; bottom: 0; justify-content: space-between; gap: 16px; padding: 16px 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
 .pi-settings-save-bar strong { font-size: 12px; }
 .pi-settings-save-bar small { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
-.pi-settings-page :is(button,select,input,textarea,summary,[role="tabpanel"]):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-.pi-settings-page button:disabled { cursor: not-allowed; opacity: 0.5; }
+.pi-settings-page :is(summary,[role="tabpanel"]):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* 手机表单保持单列与可触控尺寸，长声明不挤压视口。 */
 @media (max-width: 760px) {
   .settings-scope-bar, .effective-settings { padding: 20px 16px; }

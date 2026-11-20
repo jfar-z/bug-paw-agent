@@ -6,12 +6,8 @@
 .aigc-config-heading p, .aigc-mcp-list-heading p, .aigc-mcp-endpoint p { margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
 .aigc-config-eyebrow { color: var(--fg); font: 600 10px var(--font-mono); letter-spacing: .12em; }
 .aigc-config-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.aigc-config-search { width: min(350px, 100%); }
 .aigc-config-toolbar > small { margin-left: auto; color: var(--text-secondary); font-size: 11px; }
-.aigc-config-search { display: flex; align-items: center; gap: 10px; width: min(350px, 100%); padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text-secondary); }
-.aigc-config-search input { width: 100%; min-width: 0; height: 40px; padding: 0; border: 0; background: transparent; color: var(--text-primary); font-size: 12px; }
-.aigc-config-search:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
-.aigc-config-search input:focus-visible { outline: 0; }
-.aigc-config-toolbar select { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); font-size: 12px; }
 .aigc-config-table-wrap { width: 100%; max-width: 100%; overflow: auto; contain: layout paint; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .aigc-config-table-wrap small, .aigc-config-meta { display: block; color: var(--text-secondary); overflow-wrap: anywhere; }
 .aigc-config-identity { display: flex; align-items: center; gap: 12px; }
@@ -21,9 +17,6 @@
 .aigc-access-badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 5px; background: var(--surface-soft); color: var(--text-secondary); font-size: 10px; white-space: nowrap; }
 .aigc-access-badge.is-enabled { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
 .aigc-access-badge.is-mcp { background: var(--accent-soft); color: var(--fg); }
-.aigc-config-text-action { display: inline-flex; align-items: center; gap: 4px; padding: 6px 0; border: 0; background: transparent; color: var(--fg); font-size: 11px; white-space: nowrap; }
-.aigc-config-text-action:hover { text-decoration: underline; }
-.aigc-config-text-action.is-danger { color: var(--danger); }
 .aigc-config-table-wrap > footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--panel); color: var(--text-secondary); font-size: 10px; }
 .aigc-config-connect { display: flex; align-items: center; gap: 16px; margin-top: 24px; padding: 22px 24px; border-radius: 12px; background: var(--accent-soft); }
 .aigc-config-connect > svg { color: var(--fg); flex: none; }

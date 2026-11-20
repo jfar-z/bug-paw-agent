@@ -97,7 +97,7 @@ describe("AigcWorkbenchPage 创作台", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderAigcPage({ page: "aigc-tasks" });
     expect(await screen.findByText("待运行")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "需处理" }));
+    fireEvent.click(screen.getByRole("radio", { name: "需处理" }));
     expect(screen.getByText("待运行创作")).toBeInTheDocument();
     expect(screen.getByText("参数已校验，等待 Agent 显式运行")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "取消" }));

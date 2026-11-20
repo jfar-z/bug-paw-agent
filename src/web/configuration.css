@@ -851,10 +851,6 @@ a[aria-disabled="true"] {
 
 /* 批量确认可能叠加在已归档窗口上，必须保持为当前顶层交互面。 */
 
-.session-bulk-dialog-backdrop {
-  z-index: 110;
-}
-
 .provider-rename-dialog__field {
   display: grid;
   gap: 8px;

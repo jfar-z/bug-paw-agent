@@ -313,10 +313,7 @@
 .provider-summary dd { margin: 0; overflow-wrap: anywhere; }
 .provider-empty { padding: 32px 24px; text-align: center; }
 .provider-drawer { width: min(880px, 100%); }
-.provider-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
-.provider-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid transparent; border-radius: 8px; color: var(--text-secondary); background: transparent; font-size: 13px; white-space: nowrap; }
-.provider-tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--fg); border-color: var(--border); }
-.provider-tabs small { font-size: 10px; }
+.provider-tabs { margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
 .provider-drawer .configuration-form-card { padding: 0; background: transparent; border: 0; box-shadow: none; }
 .provider-drawer .configuration-section__heading { padding-bottom: 16px; }
 .provider-drawer .configuration-section__heading h3 { font-size: 15px; }
@@ -338,9 +335,8 @@
   .provider-list-heading { align-items: stretch; flex-direction: column; padding: 20px 16px; }
   .provider-summary { flex-direction: column; align-items: stretch; padding: 20px 16px; }
   .provider-summary > .configuration-button-row { justify-content: flex-end; }
-  .provider-tabs { gap: 4px; overflow-x: auto; }
+  .provider-tabs { gap: 4px; }
   .provider-tabs button { padding: 0 8px; font-size: 12px; }
-  .provider-tabs small { font-size: 9px; }
   .provider-model-row { align-items: start; flex-direction: column; }
   .provider-model-row > .configuration-button-row { align-self: flex-end; }
   .provider-drawer .configuration-form-card label { grid-template-columns: 1fr; gap: 8px; }

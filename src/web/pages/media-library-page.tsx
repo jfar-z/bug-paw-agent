@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, IconButton } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -451,10 +451,10 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
               <label title="选择文件"><Checkbox aria-label={"选择 " + file.name} checked={selected.has(file.id)}
                 disabled={deleting || (!selected.has(file.id) && selectedFiles.length >= 5000)}
                 onChange={(event) => toggleFile(file.id, event.target.checked)} /></label>
-              <button type="button" className="icon-button" disabled={!online || deleting} aria-label={"重命名 " + file.name}
-                title="重命名" onClick={() => setDialog({ kind: "rename", file })}><Pencil size={16} aria-hidden="true" /></button>
-              <button type="button" className="icon-button" disabled={!online || deleting} aria-label={"删除 " + file.name}
-                title="删除" onClick={() => setDeleteFiles([file])}><Trash2 size={16} aria-hidden="true" /></button>
+              <IconButton disabled={!online || deleting} label={"重命名 " + file.name}
+                title="重命名" onClick={() => setDialog({ kind: "rename", file })}><Pencil size={16} aria-hidden="true" /></IconButton>
+              <IconButton danger disabled={!online || deleting} label={"删除 " + file.name}
+                title="删除" onClick={() => setDeleteFiles([file])}><Trash2 size={16} aria-hidden="true" /></IconButton>
             </div>
           </li>)}
         </ul> : <div className="media-library-file-state">

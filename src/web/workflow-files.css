@@ -1,25 +1,16 @@
 /* 文件页沿用资源管理表格、预览与主题；只补充目录和引用信息布局。 */
 .workflow-files-page { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; height: 100%; overflow: hidden; background: var(--surface); }
 .workflow-file-directories { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
-.workflow-file-directories button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-secondary); background: var(--panel); }
 .workflow-file-directories [aria-current] { color: var(--text-primary); border-color: var(--accent); background: var(--accent-soft); }
 .workflow-file-filters { display: flex; flex-wrap: wrap; gap: 8px; }
-.workflow-file-filters input, .workflow-file-filters select { width: 180px; max-width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--panel); font-size: 12px; }
+.workflow-file-filters > .bp-input { width: 180px; max-width: 100%; }
 .workflow-file-note { color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
 .workflow-file-usages { display: grid; gap: 4px; max-width: 320px; max-height: 120px; overflow: auto; white-space: normal; overflow-wrap: anywhere; }
 .workflow-file-pagination { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; font-size: 12px; }
 .workflow-files-page .workspace-entry-name > span { max-width: 260px; white-space: normal; overflow-wrap: anywhere; }
-/* 七列表格独立控制列宽，窄屏只滚动列表，不挤压页面与操作按钮。 */
-.workflow-files-page .workspace-table-wrap { min-width: 0; overflow-x: auto; }
-.workflow-files-page .workspace-table-wrap table { min-width: 1000px; table-layout: auto; }
-.workflow-files-page .workspace-table-wrap th:first-child, .workflow-files-page .workspace-table-wrap td:first-child { width: 44px; }
-.workflow-files-page .workspace-table-wrap th:last-child, .workflow-files-page .workspace-table-wrap td:last-child { width: 110px; }
 @media (max-width: 760px) {
   .workflow-files-page > .workspace-resources-page__main { min-height: 0; overflow: auto; }
-  .workflow-files-page .workspace-table-wrap th, .workflow-files-page .workspace-table-wrap td { display: table-cell; }
   .workflow-files-page:has(.workspace-file-preview) { grid-template-columns: minmax(0, 1fr); }
   .workflow-files-page:has(.workspace-file-preview) > section { display: none; }
   .workflow-files-page .workspace-file-preview { position: static; width: 100%; min-width: 0; height: 100%; max-height: none; }
-  .workflow-files-page button, .workflow-files-page select, .workflow-files-page input { min-height: 44px; }
-  .workflow-files-page input[type="checkbox"] { min-height: 0; }
 }

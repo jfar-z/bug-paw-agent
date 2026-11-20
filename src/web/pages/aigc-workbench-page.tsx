@@ -1,11 +1,13 @@
+import { SegmentedControl } from "../ui/segmented-control";
+import { Tabs } from "../ui/tabs";
 import { FormField } from "../ui/form-field";
-import { Button, Textarea, TextField } from "../ui/controls";
+import { Button, IconButton, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
-import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import type {
   AigcChannelSummary,
   AigcComfyUiInputFile,
@@ -653,13 +655,8 @@ export function AigcProviderControl<T extends string>({ options, value, onChange
           onChange={onChange}
         />
       ) : (
-        <div className="scheduled-task-segmented aigc-run-provider-tabs" role="tablist" aria-label="生成服务">
-          {options.map((option) => (
-            <button key={option.value} type="button" role="tab" aria-selected={value === option.value} disabled={disabled} className={value === option.value ? "is-active" : undefined} onClick={() => onChange(option.value)}>
-              <span>{option.label}</span><small> · {option.count}</small>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl label="生成服务" value={value} disabled={disabled} onChange={onChange}
+          options={options.map((option) => ({ id: option.value, label: `${option.label} · ${option.count}` }))} />
       )}
     </div>
   );
@@ -800,6 +797,7 @@ function AigcRunField(props: {
   onSelectPublicFile: (file: AigcPublicFileSummary) => void;
   onSelectComfyInputFile: (file: AigcComfyUiInputFile) => void;
 }) {
+  const sourcePanelId = useId();
   const {
     field,
     value,
@@ -904,64 +902,56 @@ function AigcRunField(props: {
       <div className="aigc-run-field aigc-run-field--wide aigc-media-input">
         <div className="aigc-media-input__controls">
           <span>{field.label}{field.required ? " *" : ""}</span>
-          <div className="aigc-media-source-tabs" role="tablist" aria-label={`${field.label}输入来源`}>
-            {mediaSourceOptions.filter((option) => option.value !== "comfyui_input" || allowComfyInput).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={mediaSource === option.value}
-                className={mediaSource === option.value ? "is-selected" : undefined}
-                onClick={() => onMediaSourceChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <Tabs label={`${field.label}输入来源`} panelId={sourcePanelId}
+            value={mediaSource} onChange={onMediaSourceChange}
+            items={mediaSourceOptions.filter((option) => option.value !== "comfyui_input" || allowComfyInput)
+              .map((option) => ({ id: option.value, label: option.label }))} />
+          <div role="tabpanel" id={sourcePanelId} aria-labelledby={`${sourcePanelId}-${mediaSource}`}>
+            {mediaSource === "upload" ? (
+              <label className="aigc-media-input-upload">
+                <span>本地上传</span>
+                <input type="file" accept={accept} aria-label={field.label} onChange={(event) => onFile(event.target.files?.[0])} />
+                <small className="configuration-help">{uploading ? "上传中…" : uploaded?.name ?? "上传后作为生成入参"}</small>
+              </label>
+            ) : null}
+            {mediaSource === "public" ? (
+              <label>
+                <span>BugPaw 公开目录</span>
+                <SearchSelect
+                  ariaLabel={`${field.label}公开目录`}
+                  options={availableFiles.map((file) => ({ value: file.id, label: file.name }))}
+                  value={selectedPublicId}
+                  placeholder="请选择公开目录文件"
+                  onChange={(id) => {
+                    const selectedFile = availableFiles.find((file) => file.id === id);
+                    if (selectedFile) onSelectPublicFile(selectedFile);
+                  }}
+                />
+              </label>
+            ) : null}
+            {allowComfyInput && mediaSource === "comfyui_input" ? (
+              <label>
+                <span>ComfyUI input</span>
+                <SearchSelect
+                  ariaLabel={`${field.label}ComfyUI input`}
+                  options={comfyInputFiles.map((file) => ({
+                    value: comfyInputFileKey(file),
+                    label: file.name,
+                    ...(file.subfolder ? { description: file.subfolder } : {}),
+                  }))}
+                  value={selectedComfyInput ? comfyInputFileKey(selectedComfyInput) : undefined}
+                  disabled={comfyInputLoading}
+                  placeholder={comfyInputLoading ? "正在读取 input 目录…" : "请选择 ComfyUI input 文件"}
+                  onChange={(key) => {
+                    const selectedFile = comfyInputFiles.find((file) => comfyInputFileKey(file) === key);
+                    if (selectedFile) onSelectComfyInputFile(selectedFile);
+                  }}
+                />
+              </label>
+            ) : null}
+            {picker}
+            {field.help ? <small className="configuration-help">{field.help}</small> : null}
           </div>
-          {mediaSource === "upload" ? (
-            <label className="aigc-media-input-upload">
-              <span>本地上传</span>
-              <input type="file" accept={accept} aria-label={field.label} onChange={(event) => onFile(event.target.files?.[0])} />
-              <small className="configuration-help">{uploading ? "上传中…" : uploaded?.name ?? "上传后作为生成入参"}</small>
-            </label>
-          ) : null}
-          {mediaSource === "public" ? (
-            <label>
-              <span>BugPaw 公开目录</span>
-              <SearchSelect
-                ariaLabel={`${field.label}公开目录`}
-                options={availableFiles.map((file) => ({ value: file.id, label: file.name }))}
-                value={selectedPublicId}
-                placeholder="请选择公开目录文件"
-                onChange={(id) => {
-                  const selectedFile = availableFiles.find((file) => file.id === id);
-                  if (selectedFile) onSelectPublicFile(selectedFile);
-                }}
-              />
-            </label>
-          ) : null}
-          {allowComfyInput && mediaSource === "comfyui_input" ? (
-            <label>
-              <span>ComfyUI input</span>
-              <SearchSelect
-                ariaLabel={`${field.label}ComfyUI input`}
-                options={comfyInputFiles.map((file) => ({
-                  value: comfyInputFileKey(file),
-                  label: file.name,
-                  ...(file.subfolder ? { description: file.subfolder } : {}),
-                }))}
-                value={selectedComfyInput ? comfyInputFileKey(selectedComfyInput) : undefined}
-                disabled={comfyInputLoading}
-                placeholder={comfyInputLoading ? "正在读取 input 目录…" : "请选择 ComfyUI input 文件"}
-                onChange={(key) => {
-                  const selectedFile = comfyInputFiles.find((file) => comfyInputFileKey(file) === key);
-                  if (selectedFile) onSelectComfyInputFile(selectedFile);
-                }}
-              />
-            </label>
-          ) : null}
-          {picker}
-          {field.help ? <small className="configuration-help">{field.help}</small> : null}
         </div>
         {!hasLibraryFile && <div className="aigc-media-input__preview">
           <MediaInputPreview
@@ -981,8 +971,8 @@ function AigcRunField(props: {
   return (
     <label className={multiline ? "aigc-run-field aigc-run-field--wide" : "aigc-run-field"}>
       <span>{field.label}{field.required ? " *" : ""}</span>
-      {multiline ? <textarea rows={4} placeholder={field.placeholder} aria-label={field.label} value={inputValue} onChange={(event) => onChange(event.target.value)} /> : (
-        <input
+      {multiline ? <Textarea rows={4} placeholder={field.placeholder} aria-label={field.label} value={inputValue} onChange={(event) => onChange(event.target.value)} /> : (
+        <TextField
           type={isNumber ? "number" : "text"}
           min={field.min}
           max={field.max}
@@ -1518,6 +1508,8 @@ function AigcTasksPage() {
   const [deleteTarget, setDeleteTarget] = useState<AigcTaskSummary>();
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletionPending = useRef(false);
 
   async function refresh() {
     const next = await api.getAigcTasks();
@@ -1550,18 +1542,27 @@ function AigcTasksPage() {
   }
 
   async function remove() {
-    if (!deleteTarget) return;
-    const result = await runApiTask(() => api.deleteAigcTask(deleteTarget.id), { operation: "删除 AIGC 任务", expected: aigcExpected(setMessage) });
-    if (result.status === "success") {
-      setDeleteTarget(undefined);
-      setMessage("任务及其产物已删除");
-      await refresh();
+    if (!deleteTarget || deletionPending.current) return;
+    deletionPending.current = true;
+    setDeleting(true);
+    try {
+      const result = await runApiTask(() => api.deleteAigcTask(deleteTarget.id), { operation: "删除 AIGC 任务", expected: aigcExpected(setMessage) });
+      if (result.status === "success") {
+        setDeleteTarget(undefined);
+        setMessage("任务及其产物已删除");
+        await runApiTask(refresh, { operation: "刷新已删除任务后的 AIGC 列表" });
+      }
+    } finally {
+      deletionPending.current = false;
+      setDeleting(false);
     }
   }
 
   /** 删除用户明确勾选的任务，已交付到 Agent 工作区的附件由工作区继续持有。 */
   async function removeSelected() {
-    if (!selectedIds.length || bulkDeleting) return;
+    if (!selectedIds.length || deletionPending.current) return;
+    // 单项和批量确认共用写入锁，避免重复删除。
+    deletionPending.current = true;
     setBulkDeleting(true);
     const batches = chunkTaskIds(selectedIds);
     let removedCount = 0;
@@ -1588,6 +1589,7 @@ function AigcTasksPage() {
       setMessage(`已删除 ${removedCount} 个任务及其 AIGC 产物，Agent 工作目录附件已保留`);
       await refresh();
     } finally {
+      deletionPending.current = false;
       setBulkDeleting(false);
     }
   }
@@ -1614,12 +1616,14 @@ function AigcTasksPage() {
       <header className="aigc-page-heading"><h1>任务与产物</h1><p>按创作状态查看进度、失败原因，并进入详情直接预览生成结果。</p></header>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-        <div className="scheduled-task-segmented aigc-task-filters" role="group" aria-label="任务状态筛选">
-          {([{ value: "all", label: "全部" }, { value: "active", label: "进行中" }, { value: "succeeded", label: "已完成" }, { value: "failed", label: "需处理" }] as const).map((item) => <button key={item.value} type="button" className={filter === item.value ? "is-active" : undefined} onClick={() => setFilter(item.value)}>{item.label}</button>)}
-        </div>
+        <SegmentedControl label="任务状态筛选" value={filter} onChange={setFilter} options={[
+          { id: "all", label: "全部" },
+          { id: "active", label: "进行中" },
+          { id: "succeeded", label: "已完成" },
+          { id: "failed", label: "需处理" },
+        ]} />
         <div className="aigc-task-actions" style={{ alignItems: "flex-end" }}>
           <label style={{ display: "grid", gap: 4, color: "var(--text-tertiary)", fontSize: 10 }}>创建时间<SearchSelect
-            style={{ minHeight: 40, padding: "0 10px", border: "1px solid var(--border)", borderRadius: 7, color: "var(--text-secondary)", background: "var(--surface)", fontSize: 11 }}
             ariaLabel="任务创建时间排序"
             value={sort}
             onChange={(next) => setSort(next as "asc" | "desc")}
@@ -1628,9 +1632,11 @@ function AigcTasksPage() {
               { value: "asc", label: "最早在前" },
             ]}
           /></label>
-          <button type="button" disabled={!visibleTasks.length} onClick={() => setSelectedIds(visibleTasks.map((task) => task.id))}>全选</button>
-          <button type="button" disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>取消全选</button>
-          <button type="button" className="danger-button" style={{ borderColor: "color-mix(in srgb, var(--danger) 55%, var(--border))", color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--surface))" }} disabled={!selectedIds.length} onClick={() => setBulkDeleteOpen(true)}>删除选中{selectedIds.length ? `（${selectedIds.length}）` : ""}</button>
+          <Button disabled={!document || !visibleTasks.length} onClick={() => setSelectedIds(visibleTasks.map((task) => task.id))}>全选</Button>
+          <Button disabled={!selectedIds.length} onClick={() => setSelectedIds([])}>取消全选</Button>
+          <Button variant="danger" disabled={!selectedIds.length} onClick={() => setBulkDeleteOpen(true)}>
+            删除选中{selectedIds.length ? `（${selectedIds.length}）` : ""}
+          </Button>
         </div>
       </div>
       <div className="aigc-task-list">
@@ -1639,16 +1645,16 @@ function AigcTasksPage() {
             <div><Checkbox aria-label={`选择任务 ${task.id}`} checked={selectedSet.has(task.id)} onChange={(event) => toggleSelection(task.id, event.target.checked)} /><strong>{task.interfaceName}</strong><span className={`aigc-status-badge is-${task.status}`}>{taskStatusLabel(task.status)}</span><small>{formatAigcTime(task.createdAt)}</small></div>
             <p>{task.queueReason ?? (task.error ? task.error.message : task.status === "succeeded" ? `${task.assetCount} 个产物可预览` : task.status === "running" ? "正在生成，请保持页面打开或稍后回来查看" : task.status === "prepared" ? "参数已校验，等待 Agent 显式运行" : "等待执行")}</p>
             <div className="aigc-task-actions">
-              {(task.status === "prepared" || task.status === "queued" || task.status === "running") ? <button type="button" onClick={() => void cancel(task.id)}>取消</button> : null}
-              {(task.status === "failed" || task.status === "cancelled") && !task.requiresNewTask ? <button type="button" onClick={() => void retry(task.id)}><RefreshCw size={14} />重试</button> : null}
+              {(task.status === "prepared" || task.status === "queued" || task.status === "running") ? <Button variant="ghost" onClick={() => void cancel(task.id)}>取消</Button> : null}
+              {(task.status === "failed" || task.status === "cancelled") && !task.requiresNewTask ? <Button variant="ghost" icon={<RefreshCw aria-hidden />} onClick={() => void retry(task.id)}>重试</Button> : null}
               <a href={`/aigc/tasks/${encodeURIComponent(task.id)}`} onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-task-detail", taskId: task.id }); }}>查看</a>
-              <button type="button" aria-label={`删除任务 ${task.id}`} title="删除任务" onClick={() => setDeleteTarget(task)}><Trash2 size={14} /></button>
+              <IconButton danger label={`删除任务 ${task.id}`} title="删除任务" onClick={() => setDeleteTarget(task)}><Trash2 /></IconButton>
             </div>
           </section>
         ))}
         {!visibleTasks.length ? <p className="configuration-help">当前筛选下没有任务。</p> : null}
       </div>
-      {deleteTarget ? <ConfirmDialog title="删除任务？" description={`任务 ${deleteTarget.id} 及其 ${deleteTarget.assetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
+      {deleteTarget ? <ConfirmDialog title="删除任务？" description={`任务 ${deleteTarget.id} 及其 ${deleteTarget.assetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" busy={deleting} onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
       {bulkDeleteOpen ? <ConfirmDialog title={`删除选中的 ${selectedIds.length} 个任务？`} description={`这些任务及其 ${selectedAssetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除选中" busy={bulkDeleting} onCancel={() => setBulkDeleteOpen(false)} onConfirm={() => void removeSelected()} /> : null}
     </div>
   );
@@ -1829,6 +1835,8 @@ function AigcWorkflowsPage() {
   const [fileName, setFileName] = useState("");
   const [rawText, setRawText] = useState("");
   const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
+  const importPending = useRef(false);
   const [interfaces, setInterfaces] = useState<AigcInterfaceRecord[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<AigcWorkflowSummary>();
 
@@ -1851,7 +1859,7 @@ function AigcWorkflowsPage() {
   }
 
   async function save() {
-    if (!online) return;
+    if (!online || importPending.current) return;
     setMessage("");
     let workflowJson: unknown;
     try {
@@ -1860,16 +1868,23 @@ function AigcWorkflowsPage() {
       setMessage("ComfyUI 工作流 JSON 格式无效");
       return;
     }
-    const result = await runApiTask(() => api.createAigcWorkflow({ name, fileName, workflowJson, inputMappings: [], outputMappings: [] }), {
-      operation: "导入 ComfyUI 工作流",
-      expected: aigcExpected(setMessage),
-    });
-    if (result.status !== "success") return;
-    await refresh();
-    setName("");
-    setFileName("");
-    setRawText("");
-    setMessage("已导入 ComfyUI 工作流");
+    importPending.current = true;
+    setImporting(true);
+    try {
+      const result = await runApiTask(() => api.createAigcWorkflow({ name, fileName, workflowJson, inputMappings: [], outputMappings: [] }), {
+        operation: "导入 ComfyUI 工作流",
+        expected: aigcExpected(setMessage),
+      });
+      if (result.status !== "success") return;
+      setName("");
+      setFileName("");
+      setRawText("");
+      setMessage("已导入 ComfyUI 工作流");
+      await runApiTask(refresh, { operation: "刷新导入后的 ComfyUI 工作流列表" });
+    } finally {
+      importPending.current = false;
+      setImporting(false);
+    }
   }
 
   async function remove() {
@@ -1887,10 +1902,14 @@ function AigcWorkflowsPage() {
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
         <div className="configuration-section__heading"><div><span>01</span><h2>导入工作流</h2></div></div>
-        <label><span>JSON 文件</span><input type="file" accept=".json,application/json" aria-label="ComfyUI 工作流文件" onChange={(event) => void onFile(event.target.files?.[0])} /></label>
-        <label><span>工作流名称</span><input aria-label="工作流名称" value={name} onChange={(event) => setName(event.target.value)} /></label>
-        <label><span>原始 JSON</span><textarea aria-label="ComfyUI 工作流 JSON" rows={10} spellCheck={false} value={rawText} onChange={(event) => setRawText(event.target.value)} /></label>
-        <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online} onClick={() => void save()}><Upload size={15} />导入并解析</Button></div>
+        <label><span>JSON 文件</span><input type="file" accept=".json,application/json" aria-label="ComfyUI 工作流文件" disabled={importing} onChange={(event) => void onFile(event.target.files?.[0])} /></label>
+        <FormField label="工作流名称">{(props) =>
+          <TextField {...props} disabled={importing} value={name} onChange={(event) => setName(event.target.value)} />
+        }</FormField>
+        <FormField label="ComfyUI 工作流 JSON">{(props) =>
+          <Textarea {...props} disabled={importing} rows={10} spellCheck={false} value={rawText} onChange={(event) => setRawText(event.target.value)} />
+        }</FormField>
+        <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online} loading={importing} onClick={() => void save()}><Upload size={15} />导入并解析</Button></div>
       </section>
       <div className="aigc-task-list">
         {(document?.workflows ?? []).map((workflow) => (
@@ -1900,7 +1919,7 @@ function AigcWorkflowsPage() {
             <div className="aigc-task-actions">
               {interfaces.find((item) => item.enabled && item.protocol === "comfyui" && (item.config as { workflowId?: string }).workflowId === workflow.id) ? <button type="button" onClick={() => { const item = interfaces.find((candidate) => candidate.enabled && candidate.protocol === "comfyui" && (candidate.config as { workflowId?: string }).workflowId === workflow.id); if (item) navigateTo({ page: "aigc-run", interfaceId: item.id }); }}><Play size={14} />运行</button> : <button type="button" onClick={() => navigateTo({ page: "aigc-interfaces" })}><Boxes size={14} />创建运行接口</button>}
               <a href={`/aigc/workflows/${encodeURIComponent(workflow.id)}`} onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-workflow-detail", workflowId: workflow.id }); }}>配置映射</a>
-              <button type="button" onClick={() => setDeleteTarget(workflow)}><Trash2 size={14} />删除</button>
+              <Button variant="danger" icon={<Trash2 aria-hidden />} onClick={() => setDeleteTarget(workflow)}>删除</Button>
             </div>
           </section>
         ))}

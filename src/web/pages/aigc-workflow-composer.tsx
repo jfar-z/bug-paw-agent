@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { ArrowLeft, Check, GitBranch, GripVertical, Layers3, Pencil, Plus, Search, Trash2, X } from "lucide-react";
@@ -41,7 +41,7 @@ export function AigcWorkflowComposer(props: AigcWorkflowComposerProps) {
           <div><span>01</span><h2>工作流信息</h2></div>
           <small title={workflow.fileName}>{workflow.fileName}</small>
         </div>
-        <label><span>名称</span><input aria-label="工作流名称" value={name} onChange={(event) => onNameChange(event.target.value)} /></label>
+        <label><span>名称</span><TextField aria-label="工作流名称" value={name} onChange={(event) => onNameChange(event.target.value)} /></label>
         <div className="aigc-workflow-stats">
           <span>{workflow.nodes.length} 个节点</span>
           <span>{workflow.edges.length} 条连线</span>
@@ -364,7 +364,7 @@ function InputMappingBuilder(props: {
               <div className="aigc-fieldset">
                 <div className="aigc-fieldset__heading"><strong>参数配置</strong><small>定义工作流入参对外暴露的名称和数据类型</small></div>
                 <div className="aigc-form-grid">
-                  <label><span>参数名</span><input aria-label="入参名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
+                  <label><span>参数名</span><TextField aria-label="入参名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
                   <label><span>类型</span><SearchSelect
                     ariaLabel="入参类型"
                     value={draft.type}
@@ -373,8 +373,8 @@ function InputMappingBuilder(props: {
                   /></label>
                   <DefaultValueField mapping={draft} metadata={selectedNode ? fieldMetadata(workflow, selectedNode, draft.field) : undefined} value={defaultValueDraft} error={defaultValueError} onChange={(value) => { setDefaultValueDraft(value); setDefaultValueError(""); }} />
                   <label className="configuration-check-line aigc-check-cell"><Checkbox checked={draft.required} disabled={Boolean(draft.activation)} onChange={(event) => updateDraft("required", event.target.checked)} /><span>必填</span></label>
-                  <label className="aigc-span-2"><span>说明</span><input aria-label="入参说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
-                  {draft.type === "enum" && !fieldMetadata(workflow, selectedNode, draft.field)?.enumOptions ? <label className="aigc-span-2"><span>枚举选项</span><textarea aria-label="枚举选项" rows={3} value={(draft.enumOptions ?? []).join("\n")} onChange={(event) => updateDraft("enumOptions", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} /></label> : null}
+                  <label className="aigc-span-2"><span>说明</span><TextField aria-label="入参说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
+                  {draft.type === "enum" && !fieldMetadata(workflow, selectedNode, draft.field)?.enumOptions ? <label className="aigc-span-2"><span>枚举选项</span><Textarea aria-label="枚举选项" rows={3} value={(draft.enumOptions ?? []).join("\n")} onChange={(event) => updateDraft("enumOptions", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} /></label> : null}
                 </div>
                 <label className="configuration-check-line aigc-activation-toggle">
                   <Checkbox aria-label="有值时启用分支" checked={Boolean(draft.activation)} disabled={!draft.nodeId} onChange={(event) => toggleActivation(event.target.checked)} />
@@ -435,7 +435,7 @@ function ReferenceGroupEditor({ workflow, draft, error, onChange, onCancel, onCo
         <div className="aigc-config-field aigc-span-2 aigc-reference-boundary-picker"><span>汇总节点</span>
           <div className="aigc-node-search aigc-reference-node-search">
             <Search size={14} aria-hidden="true" />
-            <input type="search" aria-label="搜索参考组汇总节点" placeholder="搜索节点标题、类型或 ID" value={boundaryQuery} onChange={(event) => setBoundaryQuery(event.target.value)} />
+            <TextField type="search" aria-label="搜索参考组汇总节点" placeholder="搜索节点标题、类型或 ID" value={boundaryQuery} onChange={(event) => setBoundaryQuery(event.target.value)} />
             <small>{filteredBoundaries.length}/{boundaries.length}</small>
           </div>
           <SearchSelect
@@ -457,8 +457,8 @@ function ReferenceGroupEditor({ workflow, draft, error, onChange, onCancel, onCo
             ...families.map((family) => ({ value: family.prefix, label: `${family.prefix} (${family.targetFields.length})` })),
           ]}
         /></label>
-        <label><span>组名称</span><input aria-label="参考组名称" value={draft.label} onChange={(event) => onChange({ label: event.target.value })} /></label>
-        <label><span>参数前缀</span><input aria-label="参考组参数前缀" value={draft.namePrefix} onChange={(event) => onChange({ namePrefix: event.target.value })} /></label>
+        <label><span>组名称</span><TextField aria-label="参考组名称" value={draft.label} onChange={(event) => onChange({ label: event.target.value })} /></label>
+        <label><span>参数前缀</span><TextField aria-label="参考组参数前缀" value={draft.namePrefix} onChange={(event) => onChange({ namePrefix: event.target.value })} /></label>
         <label><span>用户输入类型</span><SearchSelect
           ariaLabel="参考组输入类型"
           value={draft.type}
@@ -635,14 +635,14 @@ function OutputMappingBuilder(props: {
               <div className="aigc-fieldset">
                 <div className="aigc-fieldset__heading"><strong>输出配置</strong><small>定义产物名称和媒体类型</small></div>
                 <div className="aigc-form-grid">
-                  <label><span>显示名称</span><input aria-label="输出名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
+                  <label><span>显示名称</span><TextField aria-label="输出名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
                   <label><span>媒体类型</span><SearchSelect
                     ariaLabel="输出媒体类型"
                     value={draft.mediaType}
                     onChange={(next) => updateDraft("mediaType", next as AigcWorkflowOutputMapping["mediaType"])}
                     options={outputMediaTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
                   /></label>
-                  <label className="aigc-span-2"><span>说明</span><input aria-label="输出说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
+                  <label className="aigc-span-2"><span>说明</span><TextField aria-label="输出说明" value={draft.description ?? ""} onChange={(event) => updateDraft("description", event.target.value)} /></label>
                 </div>
               </div>
             </div>
@@ -716,7 +716,7 @@ function WorkflowNodeNavigator(props: WorkflowNodeNavigatorProps) {
     <div className="aigc-node-navigator">
       <div className="aigc-node-search">
         <Search size={14} aria-hidden="true" />
-        <input aria-label="搜索工作流节点" placeholder="搜索名称、类型或 ID" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <TextField aria-label="搜索工作流节点" placeholder="搜索名称、类型或 ID" value={query} onChange={(event) => setQuery(event.target.value)} />
         {browseNodeId ? (
           <button type="button" className="aigc-node-list-return" title="返回节点列表" onClick={returnToNodeList}>
             <ArrowLeft size={13} aria-hidden="true" />节点列表
@@ -1043,7 +1043,7 @@ function DefaultValueField(props: {
           ]}
         />
       ) : (
-        <input type="text" inputMode={mapping.type === "int" || mapping.type === "double" ? "decimal" : undefined} aria-label="入参默认值" aria-invalid={error ? "true" : undefined} placeholder={metadata?.placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+        <TextField type="text" inputMode={mapping.type === "int" || mapping.type === "double" ? "decimal" : undefined} aria-label="入参默认值" aria-invalid={error ? "true" : undefined} placeholder={metadata?.placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
       )}
       {error ? <small className="aigc-field-error" role="alert">{error}</small> : metadataRangeText(metadata) ? <small>{metadataRangeText(metadata)}</small> : null}
     </label>

@@ -1,5 +1,5 @@
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button } from "../ui/controls";
+import { SearchField, Button, TextField, Textarea } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
@@ -387,7 +387,7 @@ function Editor({ id }: { id: string }) {
         <div className="wf-editor-title">
           <label className="wf-field">
             工作流名称
-            <input
+            <TextField
               maxLength={100}
               aria-label="工作流名称"
               value={draft.name}
@@ -445,7 +445,7 @@ function Editor({ id }: { id: string }) {
       <div className="wf-definition-bar">
         <label className="wf-field wf-description">
           工作流说明
-          <textarea
+          <Textarea
             rows={2}
             maxLength={4000}
             aria-label="工作流说明"

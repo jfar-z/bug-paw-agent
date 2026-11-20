@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, TextField } from "../ui/controls";
 import { ArrowUpRight, Folder, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
@@ -169,7 +169,7 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
           <div className="configuration-create-panel__fields">
             <div>
               <label htmlFor="new-agent-name">Agent 名称</label>
-              <input id="new-agent-name" autoFocus value={name} onChange={(event) => updateName(event.target.value)} maxLength={80} />
+              <TextField id="new-agent-name" autoFocus value={name} onChange={(event) => updateName(event.target.value)} maxLength={80} />
             </div>
             <fieldset className="agent-directory-field">
               <legend>工作目录</legend>
@@ -177,7 +177,7 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
                 <button type="button" className={directoryMode === "automatic" ? "is-active" : undefined} aria-pressed={directoryMode === "automatic"} onClick={() => setDirectoryMode("automatic")}>自动分配</button>
                 <button type="button" className={directoryMode === "custom" ? "is-active" : undefined} aria-pressed={directoryMode === "custom"} onClick={enableCustomDirectory}>使用自定义目录</button>
               </div>
-              {directoryMode === "automatic" ? <p>系统将创建独立目录：<code>/data/workspace/agents/&lt;自动生成的 Agent ID&gt;</code></p> : <div className="agent-directory-field__input"><span aria-hidden="true">/data/</span><input id="new-agent-cwd" aria-label="工作目录" value={cwd} onChange={(event) => { setCwd(event.target.value); setDirectoryFollowsName(false); }} placeholder="例如 projects/research" /></div>}
+              {directoryMode === "automatic" ? <p>系统将创建独立目录：<code>/data/workspace/agents/&lt;自动生成的 Agent ID&gt;</code></p> : <div className="agent-directory-field__input"><span aria-hidden="true">/data/</span><TextField id="new-agent-cwd" aria-label="工作目录" value={cwd} onChange={(event) => { setCwd(event.target.value); setDirectoryFollowsName(false); }} placeholder="例如 projects/research" /></div>}
               <small>{directoryMode === "automatic" ? "无需填写，系统会使用不会与其他 Agent 冲突的目录。" : "只需填写 /data/ 后的路径；目录不存在时自动创建。"}</small>
             </fieldset>
           </div>

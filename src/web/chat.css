@@ -3124,31 +3124,7 @@ img.message-avatar {
   }
 }
 
-.session-refresh-button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  background: transparent;
-}
-
-.session-refresh-button:hover:not(:disabled) {
-  border-color: var(--border);
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.session-refresh-button:disabled {
-  cursor: wait;
-  opacity: 0.62;
-}
-
-.session-refresh-button .is-spinning {
-  animation: session-loading-spin 720ms linear infinite;
-}
+.session-selection-toolbar > .bp-button { flex: 1; }
 
 .configuration-dialog-backdrop.session-search-dialog__backdrop {
   z-index: 90;

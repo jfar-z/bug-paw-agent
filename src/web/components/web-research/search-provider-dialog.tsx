@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { Button, NumberField, TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
 import { ChevronDown, ChevronUp, ExternalLink, Trash2, X } from "lucide-react";
@@ -182,8 +182,8 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
           onChange={(next) => selectTemplate(next)}
           options={templates.map((template) => ({ value: template.id, label: template.name }))}
         /></label> : null}
-        <label><span>实例名称</span><input aria-label="实例名称" autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
-        {draft.connectionMode === "custom" ? <label><span>SearXNG 地址</span><input aria-label="SearXNG 地址" placeholder="https://search.example.com" value={draft.baseUrl ?? ""} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></label> : null}
+        <label><span>实例名称</span><TextField aria-label="实例名称" autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
+        {draft.connectionMode === "custom" ? <label><span>SearXNG 地址</span><TextField aria-label="SearXNG 地址" placeholder="https://search.example.com" value={draft.baseUrl ?? ""} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></label> : null}
         {needsCredential ? <label>
           <span>API Key<small>{configured && credential.action !== "remove" ? "已保存；小眼睛按需读取" : "尚未配置"}</small></span>
           <span className="api-key-field">
@@ -196,7 +196,7 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
 
         <Button type="button" className="configuration-secondary-action" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((current) => !current)}>{advancedOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}{advancedOpen ? "收起高级设置" : "展开高级设置"}</Button>
         {advancedOpen ? <div>
-          <label><span>请求超时（毫秒）</span><input aria-label="请求超时（毫秒）" type="number" min={1000} max={60000} value={draft.timeoutMs} onChange={(event) => setDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
+          <label><span>请求超时（毫秒）</span><NumberField aria-label="请求超时（毫秒）" min={1000} max={60000} value={draft.timeoutMs} onChange={(event) => setDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
           <label><span>联网出口</span><SearchSelect
             ariaLabel="联网出口"
             value={draft.egressProfileId ?? "direct"}

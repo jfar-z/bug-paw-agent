@@ -77,7 +77,7 @@
   font-size: 13px;
 }
 
-.aigc-task-row span {
+.aigc-task-row > div:first-child > span {
   padding: 3px 7px;
   border-radius: 999px;
   color: var(--text-secondary);
@@ -102,7 +102,7 @@
 }
 
 .aigc-task-actions a,
-.aigc-task-actions button {
+.aigc-task-actions button:not(.bp-button) {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
@@ -118,7 +118,7 @@
 }
 
 .aigc-task-actions a:hover,
-.aigc-task-actions button:hover,
+.aigc-task-actions button:not(.bp-button):hover,
 .aigc-asset-card figcaption a:hover {
   border-color: var(--border-strong);
   color: var(--text-primary);
@@ -299,12 +299,6 @@
   font-size: 11px;
 }
 
-.aigc-run-provider-tabs {
-  display: grid;
-  width: 100%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .aigc-run-readiness {
   display: grid;
   min-height: 42px;
@@ -452,33 +446,6 @@
 
 .aigc-run-field.aigc-media-input {
   gap: 7px;
-}
-
-.aigc-media-source-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--panel);
-}
-
-.aigc-media-source-tabs button {
-  min-height: 30px;
-  padding: 4px 7px;
-  border: 0;
-  border-radius: 5px;
-  color: var(--text-secondary);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.aigc-media-source-tabs button.is-selected {
-  color: var(--text-primary);
-  background: var(--surface-soft);
-  box-shadow: 0 0 0 1px var(--border) inset;
 }
 
 .aigc-media-input-upload {
@@ -680,10 +647,6 @@ audio.aigc-media-input-preview {
 
 .aigc-warning-copy {
   color: var(--danger);
-}
-
-.aigc-task-filters button {
-  min-height: 40px;
 }
 
 .aigc-status-badge.is-succeeded {
@@ -965,12 +928,6 @@ audio.aigc-media-input-preview {
   .aigc-run-parameter-scroll > .configuration-help,
   .aigc-run-empty {
     grid-column: auto;
-  }
-
-  .aigc-task-actions a,
-  .aigc-task-actions button,
-  .aigc-task-filters button {
-    min-height: 44px;
   }
 
   .aigc-entity-row {

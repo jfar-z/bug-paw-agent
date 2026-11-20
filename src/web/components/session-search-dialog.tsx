@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, TextField } from "../ui/controls";
 import { Archive, LoaderCircle, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -107,7 +107,7 @@ export function SessionSearchDialog(props: SessionSearchDialogProps) {
         </header>
         <div className="session-search-dialog__field">
           <Search size={17} aria-hidden="true" />
-          <input
+          <TextField
             ref={inputRef}
             type="text"
             role="searchbox"

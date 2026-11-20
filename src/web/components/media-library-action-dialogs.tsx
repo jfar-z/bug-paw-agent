@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, TextField } from "../ui/controls";
 import { Radio } from "../ui/choice";
 import { Eye } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -145,7 +145,7 @@ export function SaveMediaDialog({ target, onClose }: { target: SaveTarget; onClo
     </>}>
     {!saved && <form id={formId} className="media-action-dialog__body" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <LibraryChoice {...libraries} libraryId={libraryId} disabled={busy} onChange={(id) => { setLibraryId(id); setConflict(""); }} />
-      <label>文件名<input value={name} disabled={busy} onChange={(event) => { setName(event.target.value); setConflict(""); }} /></label>
+      <label>文件名<TextField value={name} disabled={busy} onChange={(event) => { setName(event.target.value); setConflict(""); }} /></label>
       {extension && <small>保留扩展名 {extension}</small>}
       {conflict && <p role="alert">{conflict}，请改名或换库。</p>}
     </form>}

@@ -4,28 +4,37 @@ import "./tabs.css";
 
 export function Tabs<T extends string>({
   panelId,
+  tabIdPrefix,
+  className = "",
+  disabled,
   label,
   items,
   value,
   onChange,
 }: {
   label: string;
-  panelId?: string;
-  items: readonly { id: T; label: string; panel?: ReactNode }[];
+  panelId?: string | ((value: T) => string);
+  tabIdPrefix?: string;
+  className?: string;
+  disabled?: boolean;
+  items: readonly { id: T; label: ReactNode; panel?: ReactNode }[];
   value: T;
   onChange: (value: T) => void;
 }) {
   const id = useId();
+  // 页面可以保留既有面板与挂载顺序，同时共享键盘切换。
+  const tabId = (item: T) => (tabIdPrefix ?? (typeof panelId === "string" ? panelId : id + "-tab")) + "-" + item;
   return (
     <div>
-      <div className="bp-tabs" role="tablist" aria-label={label}>
+      <div className={`bp-tabs ${className}`} role="tablist" aria-label={label}>
         {items.map((item, index) => (
           <Button
             key={item.id}
             size="sm"
             role="tab"
-            id={panelId ? panelId + "-" + item.id : id + "-tab-" + index}
-            aria-controls={panelId ?? id + "-panel-" + index}
+            id={tabId(item.id)}
+            disabled={disabled}
+            aria-controls={typeof panelId === "function" ? panelId(item.id) : panelId ?? id + "-panel-" + index}
             tabIndex={value === item.id ? 0 : -1}
             aria-selected={value === item.id}
             onClick={() => onChange(item.id)}
@@ -41,13 +50,7 @@ export function Tabs<T extends string>({
               if (target !== undefined) {
                 e.preventDefault();
                 onChange(items[target].id);
-                document
-                  .getElementById(
-                    panelId
-                      ? panelId + "-" + items[target].id
-                      : id + "-tab-" + target,
-                  )
-                  ?.focus();
+                document.getElementById(tabId(items[target].id))?.focus();
               }
             }}
           >
@@ -62,7 +65,7 @@ export function Tabs<T extends string>({
             role="tabpanel"
             className="bp-tabs__panel"
             id={id + "-panel-" + index}
-            aria-labelledby={id + "-tab-" + index}
+            aria-labelledby={tabId(item.id)}
             hidden={value !== item.id}
           >
             {item.panel}

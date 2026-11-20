@@ -1,5 +1,7 @@
+import { Table } from "../ui/table";
+import { ConfirmDialog } from "../ui/dialog";
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button } from "../ui/controls";
+import { SearchField, Button, IconButton, TextField } from "../ui/controls";
 import { Eye, File, FileAudio, FileImage, FileText, FileVideo, Folder, FolderPlus, MoveRight, Pencil, Trash2, Upload, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import type { WorkspaceEntry, WorkspaceTextPreview } from "../../shared/contracts";
@@ -52,6 +54,8 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
   const [preview, setPreview] = useState<WorkspaceEntry>();
   const [highlightedPath, setHighlightedPath] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deletionPending = useRef(false);
   const [moveEntry, setMoveEntry] = useState<WorkspaceEntry>();
   const [moveTargetDirectory, setMoveTargetDirectory] = useState("");
   const [moveConfirmationOpen, setMoveConfirmationOpen] = useState(false);
@@ -205,12 +209,21 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
     if (result.status === "success") await refreshEntries();
   };
   const deleteSelected = async () => {
-    const result = await runApiTask(() => dataSource?.deleteEntries(selectedPaths) ?? api.deleteWorkspaceEntries(agentId, selectedPaths), { operation: "删除文件", expected: workspaceExpected(setError) });
-    if (result.status === "success") {
-      setSelectedPaths([]);
-      setPreview(undefined);
-      setDeleteOpen(false);
-      await refreshEntries();
+    if (!online || !selectedPaths.length || deletionPending.current) return;
+    // 确认过程中保留所选路径，防止重复提交。
+    deletionPending.current = true;
+    setDeleting(true);
+    try {
+      const result = await runApiTask(() => dataSource?.deleteEntries(selectedPaths) ?? api.deleteWorkspaceEntries(agentId, selectedPaths), { operation: "删除文件", expected: workspaceExpected(setError) });
+      if (result.status === "success") {
+        setSelectedPaths([]);
+        setPreview(undefined);
+        setDeleteOpen(false);
+        await refreshEntries();
+      }
+    } finally {
+      deletionPending.current = false;
+      setDeleting(false);
     }
   };
   const handleDirectoryRowClick = (event: MouseEvent<HTMLTableRowElement>, entry: WorkspaceEntry) => {
@@ -229,20 +242,53 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
         {dataSource?.showHiddenToggle === false ? null : <label className="workspace-hidden-toggle"><Checkbox checked={includeHidden} onChange={(event) => setIncludeHidden(event.target.checked)} />显示隐藏文件</label>}
         <label className="configuration-secondary-action workspace-upload" aria-disabled={!online}><Upload size={15} aria-hidden="true" />上传<input type="file" multiple disabled={!online} onChange={(event) => void uploadFiles(event.target.files)} /></label>
         <Button type="button" className="configuration-secondary-action" disabled={!online} onClick={openCreateDirectoryDialog}><FolderPlus size={15} aria-hidden="true" />新建文件夹</Button>
-        <button type="button" className="workspace-danger-button" disabled={!online || !selectedPaths.length} onClick={() => setDeleteOpen(true)}><Trash2 size={15} aria-hidden="true" />删除所选 {selectedPaths.length} 项</button>
+        <Button variant="danger" disabled={!online || !selectedPaths.length} icon={<Trash2 aria-hidden />} onClick={() => setDeleteOpen(true)}>删除所选 {selectedPaths.length} 项</Button>
       </div>
       {!query && <nav className="workspace-breadcrumb" aria-label="当前目录"><button type="button" onClick={() => enterDirectory("")}>{rootLabel}</button>{directory.split("/").filter(Boolean).map((segment, index, all) => <button type="button" key={`${segment}-${index}`} onClick={() => enterDirectory(all.slice(0, index + 1).join("/"))}>/ {segment}</button>)}</nav>}
-      <div className="workspace-table-wrap" style={quickScrollStyle} hidden={mode === "quick" && Boolean(preview)}><table><thead><tr><th className="workspace-entry-select" scope="col" style={{ position: "sticky", left: 0, zIndex: 4, background: "var(--panel)", boxShadow: "1px 0 var(--border)" }}>选择</th><th scope="col">名称</th><th scope="col">路径</th><th scope="col">大小</th><th scope="col">修改时间</th><th className="workspace-entry-actions-cell" scope="col" style={{ position: "sticky", right: 0, zIndex: 4, background: "var(--panel)", boxShadow: "-1px 0 var(--border)" }}>操作</th></tr></thead><tbody>{entries.map((entry) => <tr key={entry.path} className={entry.path === highlightedPath ? "is-reference-target" : undefined} onClick={(event) => handleDirectoryRowClick(event, entry)}><td className="workspace-entry-select" style={{ position: "sticky", left: 0, zIndex: 2, background: "var(--surface)", boxShadow: "1px 0 var(--border)" }}><Checkbox aria-label={`选择 ${entry.name}`} checked={selectedPaths.includes(entry.path)} onChange={() => toggleSelection(entry.path)} /></td><td className="workspace-entry-name-cell">{entry.kind === "directory" ? <button type="button" className="workspace-entry-name" aria-label={`进入 ${entry.name}`} onClick={() => enterDirectory(entry.path)}><WorkspaceEntryIcon entry={entry} /><span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span></button> : <span className="workspace-entry-name"><WorkspaceEntryIcon entry={entry} /><span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span></span>}</td><td><code>{entry.path}</code></td><td>{entry.size === undefined ? "—" : formatFileSize(entry.size)}</td><td>{new Date(entry.modifiedAt).toLocaleString("zh-CN")}</td><td className="workspace-entry-actions-cell" style={{ position: "sticky", right: 0, zIndex: 2, background: "var(--surface)", boxShadow: "-1px 0 var(--border)" }}><div className="workspace-entry-actions" style={{ display: "flex", width: "100%", justifyContent: "flex-end" }}>{entry.kind === "file" ? <><button type="button" aria-label={`预览 ${entry.name}`} title="预览" onClick={() => setPreview(entry)}><Eye size={15} aria-hidden="true" /></button><a href={dataSource?.fileUrl(entry, true) ?? workspaceFileUrl(agentId, entry.path, true)} download={entry.name}>下载</a></> : null}<button type="button" aria-label={`重命名 ${entry.name}`} disabled={!online} onClick={() => openRenameDialog(entry)}><Pencil size={15} aria-hidden="true" /></button><button type="button" aria-label={`移动 ${entry.name}`} disabled={!online} onClick={() => openMoveDialog(entry)}><MoveRight size={15} aria-hidden="true" /></button></div></td></tr>)}</tbody></table></div>
+      <Table label={`${rootLabel}文件`} layout="scroll" className="workspace-table-wrap" style={quickScrollStyle}
+        hidden={mode === "quick" && Boolean(preview)} rows={entries} rowKey={(entry) => entry.path}
+        rowProps={(entry) => ({
+          className: entry.path === highlightedPath ? "is-reference-target" : undefined,
+          onClick: (event) => handleDirectoryRowClick(event, entry),
+        })}
+        columns={[
+          { id: "select", label: "选择", className: "workspace-entry-select", cell: (entry) =>
+            <Checkbox aria-label={`选择 ${entry.name}`} checked={selectedPaths.includes(entry.path)} onChange={() => toggleSelection(entry.path)} /> },
+          { id: "name", label: "名称", className: "workspace-entry-name-cell", cell: (entry) =>
+            entry.kind === "directory" ? <Button variant="ghost" className="workspace-entry-name"
+              aria-label={`进入 ${entry.name}`} onClick={() => enterDirectory(entry.path)}>
+              <WorkspaceEntryIcon entry={entry} /><span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span>
+            </Button> : <span className="workspace-entry-name"><WorkspaceEntryIcon entry={entry} />
+              <span className="workspace-entry-name__label" title={entry.name}>{entry.name}</span>
+            </span> },
+          { id: "path", label: "路径", cell: (entry) => <code>{entry.path}</code> },
+          { id: "size", label: "大小", cell: (entry) => entry.size === undefined ? "—" : formatFileSize(entry.size) },
+          { id: "modified", label: "修改时间", cell: (entry) => new Date(entry.modifiedAt).toLocaleString() },
+          { id: "actions", label: "操作", className: "workspace-entry-actions-cell", cell: (entry) =>
+            <div className="workspace-entry-actions">
+              {entry.kind === "file" && <>
+                <IconButton size="sm" label={`预览 ${entry.name}`} onClick={() => setPreview(entry)}><Eye /></IconButton>
+                <a href={dataSource?.fileUrl(entry, true) ?? workspaceFileUrl(agentId, entry.path, true)} download={entry.name}>下载</a>
+              </>}
+              <IconButton size="sm" label={`重命名 ${entry.name}`} disabled={!online} onClick={() => openRenameDialog(entry)}><Pencil /></IconButton>
+              <IconButton size="sm" label={`移动 ${entry.name}`} disabled={!online} onClick={() => openMoveDialog(entry)}><MoveRight /></IconButton>
+            </div> },
+        ]} />
       {mode === "quick" && preview ? <WorkspaceFilePreview agentId={agentId} entry={preview} mode="overlay" onClose={() => setPreview(undefined)} fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} /> : null}
     </> : null}
   </section>;
 
   return <>{main}
     {mode === "page" && preview ? <WorkspaceFilePreview agentId={agentId} entry={preview} mode="side" onClose={() => setPreview(undefined)} fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} /> : null}
-    {renameEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-rename-title"><h2 id="workspace-rename-title">重命名文件</h2><p>修改“{renameEntry.name}”的名称。</p><label className="workspace-dialog__field" htmlFor="workspace-rename-value">新名称<input id="workspace-rename-value" aria-label="新名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setRenameEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !renameValue.trim() || renameValue.trim() === renameEntry.name} onClick={() => void confirmRenameEntry()}>确认重命名</Button></footer></section></div> : null}
-    {createDirectoryOpen ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-create-directory-title"><h2 id="workspace-create-directory-title">新建文件夹</h2><p>将在当前目录中创建新的文件夹。</p><label className="workspace-dialog__field" htmlFor="workspace-directory-name">文件夹名称<input id="workspace-directory-name" aria-label="文件夹名称" value={directoryName} placeholder="例如 drafts" onChange={(event) => setDirectoryName(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setCreateDirectoryOpen(false)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !directoryName.trim()} onClick={() => void confirmCreateDirectory()}>确认新建</Button></footer></section></div> : null}
-    {moveEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-move-title"><h2 id="workspace-move-title">移动文件</h2><p>将“{moveEntry.name}”移动到指定目录。</p>{moveConfirmationOpen ? <><p>目录“{moveTargetDirectory.trim()}”不存在。</p><small>确认后将创建该目录及其缺失的父目录，再移动文件。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveConfirmationOpen(false)}>返回修改</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(true)}>创建并移动</Button></footer></> : <><label className="workspace-dialog__field" htmlFor="workspace-move-target">目标目录<input id="workspace-move-target" aria-label="目标目录" value={moveTargetDirectory} placeholder="例如 docs/archive" onChange={(event) => setMoveTargetDirectory(event.target.value)} autoFocus /></label><small>留空表示移动到工作目录根部。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(false)}>确认移动</Button></footer></>}</section></div> : null}
-    {deleteOpen ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-delete-title"><h2 id="workspace-delete-title">永久删除文件</h2><p>{selectedPaths.length} 个项目将被永久删除，无法恢复。</p><footer><button type="button" onClick={() => setDeleteOpen(false)}>取消</button><button type="button" className="workspace-danger-button" onClick={() => void deleteSelected()}>永久删除</button></footer></section></div> : null}
+    {renameEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-rename-title"><h2 id="workspace-rename-title">重命名文件</h2><p>修改“{renameEntry.name}”的名称。</p><label className="workspace-dialog__field" htmlFor="workspace-rename-value">新名称<TextField id="workspace-rename-value" aria-label="新名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setRenameEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !renameValue.trim() || renameValue.trim() === renameEntry.name} onClick={() => void confirmRenameEntry()}>确认重命名</Button></footer></section></div> : null}
+    {createDirectoryOpen ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-create-directory-title"><h2 id="workspace-create-directory-title">新建文件夹</h2><p>将在当前目录中创建新的文件夹。</p><label className="workspace-dialog__field" htmlFor="workspace-directory-name">文件夹名称<TextField id="workspace-directory-name" aria-label="文件夹名称" value={directoryName} placeholder="例如 drafts" onChange={(event) => setDirectoryName(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setCreateDirectoryOpen(false)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !directoryName.trim()} onClick={() => void confirmCreateDirectory()}>确认新建</Button></footer></section></div> : null}
+    {moveEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-move-title"><h2 id="workspace-move-title">移动文件</h2><p>将“{moveEntry.name}”移动到指定目录。</p>{moveConfirmationOpen ? <><p>目录“{moveTargetDirectory.trim()}”不存在。</p><small>确认后将创建该目录及其缺失的父目录，再移动文件。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveConfirmationOpen(false)}>返回修改</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(true)}>创建并移动</Button></footer></> : <><label className="workspace-dialog__field" htmlFor="workspace-move-target">目标目录<TextField id="workspace-move-target" aria-label="目标目录" value={moveTargetDirectory} placeholder="例如 docs/archive" onChange={(event) => setMoveTargetDirectory(event.target.value)} autoFocus /></label><small>留空表示移动到工作目录根部。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(false)}>确认移动</Button></footer></>}</section></div> : null}
+    {deleteOpen && <ConfirmDialog title="永久删除文件"
+      description={`${selectedPaths.length} 个项目将被永久删除，无法恢复。`}
+      busy={deleting} confirmDisabled={!online} confirmLabel="永久删除"
+      onCancel={() => setDeleteOpen(false)} onConfirm={() => void deleteSelected()}>
+      {error && <p role="alert">{error}</p>}
+    </ConfirmDialog>}
   </>;
 }
 

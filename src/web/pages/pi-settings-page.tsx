@@ -1,4 +1,5 @@
-import { Button } from "../ui/controls";
+import { Tabs } from "../ui/tabs";
+import { Button, TextField, Textarea, NumberField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { Check, Save, ShieldAlert } from "lucide-react";
@@ -371,8 +372,9 @@ export function PiSettingsPage() {
         ...(field.kind === "boolean" ? [ { value: "true", label: "开启" }, { value: "false", label: "关闭" } ] : (field.options?.map((option) => ({ value: option, label: option })) ?? [])),
       ]}
     />;
-    if (field.kind === "json") return <textarea aria-label={`${field.label} JSON`} disabled={disabled} spellCheck={false} rows={6} value={rawInputs[field.path] ?? (value === undefined ? "" : JSON.stringify(value, null, 2))} onChange={(event) => { const raw = event.target.value; setRawInputs((current) => ({ ...current, [field.path]: raw })); setNotice(""); }} />;
-    return <input aria-label={field.label} disabled={disabled} type={field.kind === "number" ? "number" : "text"} value={rawInputs[field.path] ?? displayValue(value, field.kind)} onChange={(event) => {
+    if (field.kind === "json") return <Textarea aria-label={`${field.label} JSON`} disabled={disabled} spellCheck={false} rows={6} value={rawInputs[field.path] ?? (value === undefined ? "" : JSON.stringify(value, null, 2))} onChange={(event) => { const raw = event.target.value; setRawInputs((current) => ({ ...current, [field.path]: raw })); setNotice(""); }} />;
+    const Field = field.kind === "number" ? NumberField : TextField;
+    return <Field aria-label={field.label} disabled={disabled} value={rawInputs[field.path] ?? displayValue(value, field.kind)} onChange={(event) => {
       if (field.kind === "number") { const raw = event.target.value; setRawInputs((current) => ({ ...current, [field.path]: raw })); setNotice(""); }
       else update(field.path, field.kind === "csv" ? event.target.value.split(",").map((item) => item.trim()).filter(Boolean) : event.target.value);
     }} />;
@@ -476,7 +478,7 @@ export function PiSettingsPage() {
       </>}><div className="conflict-differences"><div className="conflict-difference conflict-difference--heading"><strong>字段</strong><strong>本地修改</strong><strong>磁盘值</strong></div>{conflict.differences.map((difference) => <div className="conflict-difference" key={difference.field}><code>{difference.field}</code><span>{inheritedLabel(difference.local)}</span><span>{inheritedLabel(difference.disk)}</span></div>)}</div>{error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}</ConfigurationEditorDialog> : null}
       <header className="configuration-page__heading"><span className="configuration-eyebrow">RUNTIME SETTINGS</span><h1>运行设置</h1><p>管理默认模型和运行策略，按需为 Agent 设置独立覆盖。</p></header>
       <section className="settings-scope-bar" aria-label="设置作用域">
-        <div className="settings-scope-actions"><button type="button" aria-pressed={scope === "global"} disabled={saving} onClick={() => { if (scope !== "global") guard.request(() => setScope("global")); }}>全局设置</button><button type="button" aria-pressed={scope === "agent"} disabled={saving} onClick={() => { if (scope !== "agent") guard.request(() => setScope("agent")); }}>Agent 覆盖</button></div>
+        <div className="settings-scope-actions"><Button aria-pressed={scope === "global"} disabled={saving} onClick={() => { if (scope !== "global") guard.request(() => setScope("global")); }}>全局设置</Button><Button aria-pressed={scope === "agent"} disabled={saving} onClick={() => { if (scope !== "agent") guard.request(() => setScope("agent")); }}>Agent 覆盖</Button></div>
         {scope === "agent" && agents.length > 0 ? <label>当前 Agent<SearchSelect
           ariaLabel="选择 Agent"
           value={agentId}
@@ -495,13 +497,9 @@ export function PiSettingsPage() {
         : scope === "agent" && agents.length === 0 ? <div className="configuration-state"><h2>还没有 Agent</h2><p>先创建 Agent，再设置独立运行覆盖。</p><button type="button" onClick={() => navigateTo({ page: "agents" })}>前往 Agents</button></div>
         : !document ? <div className="configuration-state"><p>{loadState === "error" ? "运行设置未能加载，错误详情已通过通知展示。" : "正在加载设置…"}</p>{loadState === "error" ? <button type="button" onClick={() => setSettingsReload((value) => value + 1)}>重新加载运行设置</button> : null}</div> : <>
         {modelState === "error" ? <div className="pi-settings-load-error" role="alert">模型目录未能加载；保留当前配置的模型，错误详情已通过通知展示。<button type="button" disabled={saving} onClick={() => setModelReload((value) => value + 1)}>重新加载模型目录</button></div> : null}
-        <div className="pi-settings-tabs" role="tablist" aria-label="运行设置分类">{categories.map((item, index) => <button type="button" key={item.id} id={`pi-settings-tab-${item.id}`} role="tab" aria-controls={`pi-settings-panel-${item.id}`} aria-selected={category === item.id} tabIndex={category === item.id ? 0 : -1} disabled={saving} onClick={() => setCategory(item.id)} onKeyDown={(event) => {
-          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-          event.preventDefault();
-          const next = event.key === "Home" ? categories[0] : event.key === "End" ? categories[2] : categories[(index + (event.key === "ArrowRight" ? 1 : 2)) % categories.length];
-          setCategory(next.id);
-          window.document.getElementById(`pi-settings-tab-${next.id}`)?.focus();
-        }}>{item.label}<small>{categorySummary(item.id)}</small></button>)}</div>
+        <Tabs className="pi-settings-tabs" label="运行设置分类" tabIdPrefix="pi-settings-tab"
+          panelId={(id) => `pi-settings-panel-${id}`} value={category} disabled={saving} onChange={setCategory}
+          items={categories.map((item) => ({ id: item.id, label: <>{item.label}<small>{categorySummary(item.id)}</small></> }))} />
         {categories.map((item) => <section key={item.id} role="tabpanel" tabIndex={0} hidden={category !== item.id} id={`pi-settings-panel-${item.id}`} aria-labelledby={`pi-settings-tab-${item.id}`}>
           <fieldset className="configuration-interaction-fields" disabled={saving || (scope === "agent" && directoryState !== "ready")}><div className="settings-groups">{groups.filter((group) => group.category === item.id).map((group) => <Section key={group.title} index={groups.indexOf(group) + 1} title={group.title} description={group.description}>
             {group.title === "模型与推理" ? renderDefaultModel() : null}

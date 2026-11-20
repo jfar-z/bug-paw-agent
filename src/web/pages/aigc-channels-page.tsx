@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, NumberField, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { Pencil, Plus, Save, TestTube2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -188,11 +188,11 @@ export function AigcChannelsPage() {
       footer={<><span className="configuration-editing-state">{dirty ? "有未保存的修改" : editor === "protocol" ? "选择一种协议继续" : selected ? "当前没有未保存的修改" : "新建草稿"}</span><div>{!selected && editor === "connection" ? <Button type="button" className="configuration-secondary-action" disabled={Boolean(busy)} onClick={() => guard.request(() => { closeEditor(); setMessage(""); setEditor("protocol"); })}>重新选协议</Button> : null}<Button type="button" className="configuration-secondary-action" disabled={Boolean(busy)} onClick={() => guard.request(closeEditor)}>取消</Button>{editor === "connection" ? <Button variant="primary" type="button" className="configuration-primary-action" disabled={!writable} onClick={() => void (async () => { if (await save()) closeEditor(); })()}><Save size={16} />{busy === "saving" ? "保存中…" : selected ? "保存更改" : "创建渠道"}</Button> : null}</div></>}>
       {editor === "protocol" ? <section className="aigc-channel-protocols"><h3>选择接入协议</h3>{templates.map((template) => <button type="button" key={template.id} className="aigc-channel-protocol" aria-label={`新建 ${template.name} 渠道`} disabled={!writable} onClick={() => createDraft(template)}><strong>{template.name}</strong><span>{template.type}</span><small>{channelProtocolDescription(template.type)}</small></button>)}</section> : <>
         <fieldset className="configuration-interaction-fields" disabled={Boolean(busy)}><h3>连接参数与凭证</h3><div className="aigc-channel-fields">
-          <label><span>协议</span><input aria-label="AIGC 渠道协议" value={draft.type} readOnly /></label>
+          <label><span>协议</span><TextField aria-label="AIGC 渠道协议" value={draft.type} readOnly /></label>
           <p className="configuration-help">{channelProtocolDescription(draft.type)}。协议由新建时确定，编辑阶段不可切换；如需更换请新建渠道。</p>
-          <label><span>渠道名称</span><input aria-label="AIGC 渠道名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
-          <label><span>Base URL</span><input aria-label="AIGC Base URL" placeholder={selectedTemplate?.defaultBaseUrl} value={draft.baseUrl} onChange={(event) => updateDraft("baseUrl", event.target.value)} /></label>
-          <label><span>请求超时（毫秒）{draft.type === "comfyui" ? <small>留空表示不限制</small> : null}</span><input type="number" min={1000} max={300000} step={1000} aria-label="AIGC 请求超时" value={draft.timeoutMs ?? ""} onChange={(event) => updateDraft("timeoutMs", event.target.value === "" ? undefined : Number(event.target.value))} /></label>
+          <label><span>渠道名称</span><TextField aria-label="AIGC 渠道名称" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
+          <label><span>Base URL</span><TextField aria-label="AIGC Base URL" placeholder={selectedTemplate?.defaultBaseUrl} value={draft.baseUrl} onChange={(event) => updateDraft("baseUrl", event.target.value)} /></label>
+          <label><span>请求超时（毫秒）{draft.type === "comfyui" ? <small>留空表示不限制</small> : null}</span><NumberField min={1000} max={300000} step={1000} aria-label="AIGC 请求超时" value={draft.timeoutMs ?? ""} onChange={(event) => updateDraft("timeoutMs", event.target.value === "" ? undefined : Number(event.target.value))} /></label>
           <label className="aigc-channel-check"><Checkbox checked={draft.enabled} onChange={(event) => updateDraft("enabled", event.target.checked)} /><span>允许接口引用该渠道</span></label>
           <p className="configuration-help">{draft.type === "comfyui" ? "ComfyUI 通常在内网匿名运行；如上游启用了认证，可在这里填写 API Key。" : "OpenAI 与 Grok 渠道必须配置 API Key，密钥仅保存在服务端。"}</p>
           <label><span>API Key<small>{selected?.hasApiKey ? "留空则保留已配置密钥" : "仅保存到服务端"}</small></span><SecretInput aria-label="AIGC API Key" autoComplete="new-password" value={apiKey} visible={apiKeyVisible} onVisibilityChange={() => void toggleApiKeyVisibility()} onChange={(event) => { setApiKey(event.target.value); setTestResult(""); }} /></label>

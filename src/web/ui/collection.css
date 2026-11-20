@@ -1,6 +1,5 @@
 .bp-group,
-.bp-save-bar,
-.bp-segment {
+.bp-save-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -12,46 +11,6 @@
   background: var(--panel);
   padding: var(--bp-space-2);
   justify-content: flex-end;
-}
-.bp-segment {
-  background: var(--surface-soft);
-  border-radius: var(--bp-radius-control);
-  padding: 4px;
-}
-.bp-segment__option {
-  position: relative;
-  cursor: pointer;
-}
-.bp-segment__option input {
-  position: absolute;
-  opacity: 0;
-}
-.bp-segment__option span {
-  display: grid;
-  place-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: var(--bp-radius-control);
-}
-.bp-segment__option input:checked + span {
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-}
-.bp-segment__option input:focus-visible + span {
-  outline: 2px solid var(--focus);
-}
-.bp-table {
-  overflow: auto;
-}
-.bp-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.bp-table td,
-.bp-table th {
-  padding: 8px;
-  text-align: start;
-  border-bottom: 1px solid var(--border);
 }
 .bp-popover {
   position: fixed;
@@ -66,42 +25,4 @@
   color: var(--text-primary);
   background: var(--surface);
   box-shadow: var(--shadow-float);
-}
-@media (pointer: coarse) {
-  .bp-segment__option span {
-    min-height: 44px;
-  }
-}
-@media (max-width: 600px) {
-  .bp-table--static table,
-  .bp-table--static tbody {
-    display: block;
-  }
-  .bp-table--static thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  .bp-table--static tbody tr {
-    display: grid;
-    margin-block: 8px;
-    padding: 4px;
-    border: 1px solid var(--border);
-    border-radius: var(--bp-radius-panel);
-  }
-  .bp-table--static tbody td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-width: 0;
-    gap: 8px;
-    overflow-wrap: anywhere;
-  }
-  .bp-table--static tbody td::before {
-    content: attr(data-label) / "";
-    color: var(--text-secondary);
-    flex: none;
-  }
 }

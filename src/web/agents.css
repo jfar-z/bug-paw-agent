@@ -222,42 +222,7 @@
   font-size: 12px;
 }
 
-.agent-tabs {
-  display: flex;
-  gap: 24px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.agent-tabs button {
-  position: relative;
-  min-height: 44px;
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
-  color: var(--text-tertiary);
-  background: transparent;
-  font-size: 11px;
-}
-
-.agent-tabs button.is-active {
-  color: var(--text-primary);
-}
-
-.agent-tabs button.is-active::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--accent);
-  content: "";
-}
-
-.agent-tabs button:disabled {
-  cursor: not-allowed;
-}
+.agent-tabs { padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
 .agent-detail-grid {
   display: grid;

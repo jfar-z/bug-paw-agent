@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Button } from "./controls";
 import "./collection.css";
 export { SearchField } from "./controls";
+export { Table } from "./table";
+export { SegmentedControl } from "./segmented-control";
 
 type Option = { id: string; label: string };
 
@@ -33,112 +35,6 @@ export function FilterChips({
           {label}
         </Button>
       ))}
-    </div>
-  );
-}
-/** 原生单选组提供方向键切换，并将选项类型传递给调用方。 */
-export function SegmentedControl<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: readonly { id: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  const name = useId();
-  return (
-    <div role="radiogroup" aria-label={label} className="bp-segment">
-      {options.map((option) => (
-        <label key={option.id} className="bp-segment__option">
-          <input
-            type="radio"
-            name={name}
-            checked={value === option.id}
-            onChange={() => onChange(option.id)}
-          />
-          <span>{option.label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-/** 调用方提供可排序的列与行，不在组件内部改变业务排序规则。 */
-export function Table<T>({
-  label,
-  columns,
-  rows,
-  rowKey,
-  sort,
-  onSort,
-}: {
-  label: string;
-  columns: readonly {
-    id: string;
-    label: string;
-    cell: (row: T) => ReactNode;
-    width?: string;
-    sortable?: boolean;
-  }[];
-  rows: readonly T[];
-  rowKey: (row: T) => string;
-  sort?: { column: string; ascending: boolean };
-  onSort?: (id: string) => void;
-}) {
-  return (
-    <div className={onSort ? "bp-table" : "bp-table bp-table--static"}>
-      {/* 窄屏静态表格按行堆叠，显式保留表格语义。 */}
-      <table role="table" aria-label={label}>
-        <thead role="rowgroup">
-          <tr role="row">
-            {columns.map((c) => (
-              <th
-                scope="col"
-                role="columnheader"
-                key={c.id}
-                style={{ width: c.width }}
-                aria-sort={
-                  sort?.column === c.id
-                    ? sort.ascending
-                      ? "ascending"
-                      : "descending"
-                    : undefined
-                }
-              >
-                {c.sortable && onSort ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onSort(c.id)}
-                  >
-                    {c.label}
-                    {sort?.column === c.id
-                      ? sort.ascending
-                        ? " ↑"
-                        : " ↓"
-                      : ""}
-                  </Button>
-                ) : (
-                  c.label
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody role="rowgroup">
-          {rows.map((row) => (
-            <tr role="row" key={rowKey(row)}>
-              {columns.map((c) => (
-                <td role="cell" key={c.id} data-label={c.label}>
-                  {c.cell(row)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

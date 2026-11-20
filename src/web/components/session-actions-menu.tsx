@@ -1,3 +1,4 @@
+import { TextField } from "../ui/controls";
 import { Archive, ListChecks, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -151,7 +152,7 @@ export function SessionActionsMenu({ session, disabled, openRequestId, onPinChan
           }}
         >
           {renaming ? (
-            <input
+            <TextField
               autoFocus
               aria-label="重命名会话"
               value={name}

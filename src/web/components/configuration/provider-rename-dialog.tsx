@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { Button, TextField } from "../../ui/controls";
 import { ConfigurationEditorDialog } from "./configuration-editor-dialog";
 import { useId, useState } from "react";
 
@@ -28,7 +28,7 @@ export function ProviderRenameDialog({ currentId, busy, error, onCancel, onConfi
     <form id={formId} onSubmit={(event) => { event.preventDefault(); if (!busy && isValid && normalizedId !== currentId) onConfirm(normalizedId); }}>
         <label className="provider-rename-dialog__field" htmlFor="provider-rename-id">
           新的 Provider ID
-          <input id="provider-rename-id" aria-label="新的 Provider ID" autoFocus value={targetId} onChange={(event) => setTargetId(event.target.value)} />
+          <TextField id="provider-rename-id" aria-label="新的 Provider ID" autoFocus value={targetId} onChange={(event) => setTargetId(event.target.value)} />
         </label>
         <small className="provider-rename-dialog__help" role={targetId.trim() && !isValid ? "alert" : undefined}>
           {targetId.trim() && !isValid ? "ID 只能使用字母、数字、点、下划线或连字符，且不能以符号开头或结尾。" : "仅支持字母、数字、点、下划线和连字符。"}

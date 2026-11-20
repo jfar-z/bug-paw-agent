@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, Textarea, TextField } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
 import { Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -188,10 +188,10 @@ export function TtsPage() {
       <fieldset className="configuration-interaction-fields" disabled={saving}>
         <h3>接口与语音</h3><p className="configuration-help">设置连接地址与默认语音参数。</p>
         <div className="tts-editor-fields">
-          <label><span>配置名称</span><input aria-label="配置名称" value={draft.name} onChange={(event) => update("name", event.target.value)} /></label>
-          <label><span>API Base URL</span><input aria-label="API Base URL" placeholder="https://example.com/v1" value={draft.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} /></label>
-          <label><span>模型</span><input aria-label="TTS 模型" value={draft.model} onChange={(event) => update("model", event.target.value)} /></label>
-          <label><span>音色</span><input aria-label="音色" value={draft.voice} onChange={(event) => update("voice", event.target.value)} /></label>
+          <label><span>配置名称</span><TextField aria-label="配置名称" value={draft.name} onChange={(event) => update("name", event.target.value)} /></label>
+          <label><span>API Base URL</span><TextField aria-label="API Base URL" placeholder="https://example.com/v1" value={draft.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} /></label>
+          <label><span>模型</span><TextField aria-label="TTS 模型" value={draft.model} onChange={(event) => update("model", event.target.value)} /></label>
+          <label><span>音色</span><TextField aria-label="音色" value={draft.voice} onChange={(event) => update("voice", event.target.value)} /></label>
           <label><span>音频格式</span><SearchSelect
             ariaLabel="音频格式"
             value={draft.responseFormat}
@@ -206,7 +206,7 @@ export function TtsPage() {
           <label><span>API Key<small>{selected?.hasApiKey ? "留空则保留已配置密钥" : "仅保存到服务端"}</small></span><SecretInput aria-label="TTS API Key" autoComplete="new-password" value={draft.apiKey} visible={apiKeyVisible} onVisibilityChange={() => void toggleApiKeyVisibility()} onChange={(event) => update("apiKey", event.target.value)} /></label>
         </div>
         <p className="configuration-help">本应用当前仅对 PCM 启用边接收边播放。需要低延时时请选择 PCM，并确认上游接口支持 24 kHz、16 位小端单声道 PCM 的分块流式响应。</p>
-        <details open={parametersOpen} onToggle={(event) => setParametersOpen(event.currentTarget.open)}><summary>高级请求参数 <small>{parameterSummary}</small></summary><label className="tts-parameters"><span>自定义请求参数（JSON）<small>模型级参数会覆盖上方默认字段</small></span><textarea aria-label="TTS 自定义请求参数" rows={7} spellCheck={false} value={customParametersText} onChange={(event) => setCustomParametersText(event.target.value)} /></label>
+        <details open={parametersOpen} onToggle={(event) => setParametersOpen(event.currentTarget.open)}><summary>高级请求参数 <small>{parameterSummary}</small></summary><label className="tts-parameters"><span>自定义请求参数（JSON）<small>模型级参数会覆盖上方默认字段</small></span><Textarea aria-label="TTS 自定义请求参数" rows={7} spellCheck={false} value={customParametersText} onChange={(event) => setCustomParametersText(event.target.value)} /></label>
           <p className="configuration-help">仅填写请求体参数，例如 <code>instructions</code> 或 <code>response_format</code>。不能覆盖 <code>input</code>，也不要填写 API Key、账号或身份信息。</p></details>
       </fieldset>
       {selected ? <section className="tts-danger-zone"><div><h3>删除配置</h3><p className="configuration-help">删除后无法恢复；被 Agent 使用的配置不能删除。</p></div><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={!writable} onClick={() => { setMessage(""); setDeleteOpen(true); }}><Trash2 size={15} />删除配置</Button></section> : null}
