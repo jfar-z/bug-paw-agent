@@ -3,7 +3,7 @@ import { Tabs } from "../ui/tabs";
 import { FormField } from "../ui/form-field";
 import { Button, FilePickerButton, IconButton, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
-import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
+import { isMediaReference, mediaReference, type MediaFile } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
 import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
@@ -53,6 +53,8 @@ import { navigateTo, NAVIGATION_BEFORE_EVENT, type AppRoute } from "../router";
 import "../configuration.css";
 import "../aigc.css";
 import "../aigc-run-reference-groups.css";
+
+const MediaPreview = lazy(() => import("../components/media-library-preview").then((module) => ({ default: module.MediaPreview })));
 
 const AigcInterfacesPage = lazy(async () => {
   const module = await import("./aigc-interfaces-page");
@@ -814,7 +816,8 @@ function AigcRunField(props: {
     onSelectPublicFile,
     onSelectComfyInputFile,
   } = props;
-  const [mediaNames, setMediaNames] = useState<Record<string, string>>({});
+  const [mediaFiles, setMediaFiles] = useState<Record<string, MediaFile>>({});
+  const [previewFile, setPreviewFile] = useState<MediaFile>();
   if (field.type === "bool") {
     return (
       <label className="configuration-check-line aigc-run-field aigc-run-field--bool">
@@ -846,20 +849,23 @@ function AigcRunField(props: {
         disabled={disabled || full}
         onSelect={(file) => {
           const reference = mediaReference(file.libraryId, file.id);
-          setMediaNames((current) => ({ ...current, [reference]: file.name }));
+          setMediaFiles((current) => ({ ...current, [reference]: file }));
           // 多文件字段按选择顺序追加，也保留此前从其他来源选入的文件。
           onChange(field.maxMediaFiles ? [...entries, reference] : reference);
         }} />
     );
     const selection = entries.length > 0 && <ul className="aigc-media-selection" aria-label={`已选择的文件 ${field.label}`}>
         {entries.map((entry, index) => {
-          const name = isMediaReference(entry) ? mediaNames[entry] ?? "媒体库文件"
+          const file = isMediaReference(entry) ? mediaFiles[entry] : undefined;
+          const name = isMediaReference(entry) ? file?.name ?? "媒体库文件"
             : typeof entry === "object" && "name" in entry ? entry.name : String(entry);
           const source = isMediaReference(entry) ? "媒体库"
             : typeof entry === "object" && "filename" in entry ? "ComfyUI input"
             : typeof entry === "object" && ("url" in entry || ("source" in entry && entry.source === "public")) ? "公开目录"
             : "本地上传";
-          return <li key={index}><span>{source} · {name}</span><Button type="button" className="configuration-secondary-action"
+          return <li key={index}><span>{source} · {name}</span>
+            {file && <Button type="button" aria-label={`预览 ${name}`} onClick={() => setPreviewFile(file)}>预览</Button>}
+            <Button type="button" className="configuration-secondary-action"
             disabled={disabled} aria-label={`移除 ${name}`}
             onClick={() => {
               const remaining = entries.filter((_, current) => current !== index);
@@ -928,6 +934,10 @@ function AigcRunField(props: {
             {field.help ? <small className="configuration-help">{field.help}</small> : null}
           </div>
           {selection}
+          {/* 预览按需读取受保护的原件，运行参数仍使用媒体库引用。 */}
+          {previewFile && <Suspense fallback={<span role="status">正在打开预览…</span>}>
+            <MediaPreview file={previewFile} onClose={() => setPreviewFile(undefined)} />
+          </Suspense>}
         </div>
         {entries.some((entry) => !isMediaReference(entry)) && <div className="aigc-media-input__preview">
           {entries.filter((entry) => !isMediaReference(entry)).map((entry, index) => <MediaInputPreview key={index}
