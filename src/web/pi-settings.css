@@ -38,7 +38,7 @@
   color: var(--text-secondary);
 }
 .settings-scope-bar select { max-width: 360px; }
-.settings-scope-bar select, .pi-settings-page .settings-section :is(input:not([type="checkbox"]),select,textarea) {
+.settings-scope-bar select, .pi-settings-page .bp-section :is(input:not([type="checkbox"]),select,textarea) {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -64,11 +64,11 @@
 .pi-settings-tabs button { flex: 1; font-size: 13px; }
 .pi-settings-tabs small { display: block; font-size: 11px; margin-top: 4px; }
 .settings-groups { display: grid; gap: 24px; }
-.settings-section > div:last-child { display: grid; padding-inline: 24px; }
-.settings-section .configuration-section__heading { padding-inline: 24px; }
-.settings-section .configuration-section__heading > small { max-width: 240px; font-size: 12px; text-align: right; }
-.settings-section label small:has(svg) { display: flex; align-items: flex-start; gap: 8px; }
-.settings-section label small svg { flex: 0 0 auto; color: var(--danger); }
+.bp-section > div:last-child { display: grid; padding-inline: 24px; }
+.bp-section .bp-section__heading { padding-inline: 24px; }
+.bp-section .bp-section__heading > small { max-width: 240px; font-size: 12px; text-align: right; }
+.bp-section label small:has(svg) { display: flex; align-items: flex-start; gap: 8px; }
+.bp-section label small svg { flex: 0 0 auto; color: var(--danger); }
 .pi-setting-inheritance {
   margin: 0;
   padding: 20px 0;
@@ -88,7 +88,7 @@
 .pi-setting-inheritance__switch input { width: 18px; height: 18px; margin: 0; }
 .pi-setting-inheritance p, .pi-setting-inheritance > small { font-size: 12px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
 .pi-setting-inheritance > small { display: block; margin-top: 8px; }
-.settings-section textarea { font-family: var(--font-mono); line-height: 1.8; resize: vertical; }
+.bp-section textarea { font-family: var(--font-mono); line-height: 1.8; resize: vertical; }
 .effective-settings { margin-top: 24px; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
 .effective-settings summary { min-height: 44px; cursor: pointer; font-size: 13px; }
 .effective-settings summary small { display: block; margin: 8px 0; font-size: 12px; color: var(--text-secondary); }
@@ -111,7 +111,7 @@
   .pi-settings-tabs { gap: 4px; }
   .pi-settings-tabs button { padding: 8px 4px; font-size: 12px; }
   .pi-settings-tabs small { font-size: 10px; }
-  .settings-section > div:last-child, .settings-section .configuration-section__heading { padding-inline: 16px; }
+  .bp-section > div:last-child, .bp-section .bp-section__heading { padding-inline: 16px; }
   .pi-settings-sources > div { grid-template-columns: 1fr; gap: 8px; }
   .pi-settings-save-bar { flex-wrap: wrap; padding: 16px; }
   .pi-settings-save-bar button { width: 100%; justify-content: center; min-height: 44px; }

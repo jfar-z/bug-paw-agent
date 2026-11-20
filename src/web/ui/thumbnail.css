@@ -1,4 +1,4 @@
-.media-library-thumbnail {
+.bp-thumbnail {
   display: grid;
   position: relative;
   place-items: center;
@@ -7,7 +7,7 @@
   background: var(--surface-soft);
 }
 
-.media-library-thumbnail img {
+.bp-thumbnail img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -16,4 +16,4 @@
   visibility: hidden;
 }
 
-.media-library-thumbnail img.is-loaded { visibility: visible; }
+.bp-thumbnail img.is-loaded { visibility: visible; }

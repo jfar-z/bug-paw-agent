@@ -10,8 +10,8 @@ import type {
 import { api } from "../../api";
 import { useApiTask } from "../../api-task-provider";
 import { webResearchExpected } from "../../web-research-error-policy";
-import { ConfirmationDialog } from "../configuration/confirmation-dialog";
-import { SecretInput } from "../secret-input";
+import { ConfirmDialog } from "../../ui/dialog";
+import { SecretInput } from "../../ui/secret-input";
 
 /** 直连搜索服务的官方 API Key 获取入口。 */
 const API_KEY_PORTALS = {
@@ -200,7 +200,7 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
         </footer>
       </form>
     </div>
-    {deleteOpen ? <ConfirmationDialog title="删除搜索渠道" description={`将删除“${draft.name}”及其已保存凭证。`} confirmLabel="确认删除" busy={busy} onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
+    {deleteOpen ? <ConfirmDialog title="删除搜索渠道" description={`将删除“${draft.name}”及其已保存凭证。`} confirmLabel="确认删除" busy={busy} onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
   </>;
 }
 

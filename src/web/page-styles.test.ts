@@ -105,8 +105,8 @@ it("媒体库按路由加载缩略图和预览样式", async () => {
 it("媒体操作弹层按需加载样式", async () => {
   const [actions, dialogs, main, preview, thumbnail, previewCss, thumbnailCss] = await Promise.all([
     "src/web/components/media-library-actions.tsx", "src/web/components/media-library-action-dialogs.tsx",
-    "src/web/main.tsx", "src/web/components/media-library-preview.tsx", "src/web/components/media-thumbnail.tsx",
-    "src/web/components/media-library-preview.css", "src/web/components/media-thumbnail.css",
+    "src/web/main.tsx", "src/web/components/media-library-preview.tsx", "src/web/ui/thumbnail.tsx",
+    "src/web/components/media-library-preview.css", "src/web/ui/thumbnail.css",
   ].map((path) => readFile(path, "utf8")));
   expect(actions).toContain('lazy(() => import("./media-library-action-dialogs")');
   expect(dialogs).toContain('import "./media-library-action-dialogs.css"');
@@ -114,8 +114,21 @@ it("媒体操作弹层按需加载样式", async () => {
   expect(dialogs).toContain('from "./media-library-preview"');
   expect(dialogs).toContain('from "./media-thumbnail"');
   expect(preview).toContain('import "./media-library-preview.css"');
-  expect(thumbnail).toContain('import "./media-thumbnail.css"');
+  expect(thumbnail).toContain('import "./thumbnail.css"');
   expect(previewCss).toContain(".media-library-preview__stage");
-  expect(thumbnailCss).toContain(".media-library-thumbnail img");
+  expect(thumbnailCss).toContain(".bp-thumbnail img");
   expect(main).not.toMatch(/media-(library-action-dialogs|library-preview|thumbnail)\.css/);
+});
+
+/** 只使用页签或确认按钮的页面无需加载展示控件及继承开关样式。 */
+it("页签和继承开关的样式跟随各自组件加载", async () => {
+  const [tabs, field, controls, styles] = await Promise.all(
+    ["ui/tabs.tsx", "ui/form-field.tsx", "ui/controls.tsx", "ui/tabs.css"]
+      .map(path => readFile("src/web/" + path, "utf8")),
+  );
+  expect(tabs).toContain('import "./tabs.css"');
+  expect(styles).toContain(".bp-tabs");
+  expect(styles).not.toContain(".bp-badge");
+  expect(field).toContain('from "./choice"');
+  expect(controls).not.toContain('from "./choice"');
 });

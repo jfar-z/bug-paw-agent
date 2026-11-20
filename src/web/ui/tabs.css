@@ -1,0 +1,13 @@
+.bp-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--bp-space-2);
+}
+.bp-tabs [aria-selected="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.bp-tabs__panel {
+  padding: var(--bp-space-3) 0;
+}

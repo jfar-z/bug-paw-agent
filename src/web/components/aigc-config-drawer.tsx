@@ -1,28 +1,7 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ConfirmationDialog } from "./configuration/confirmation-dialog";
 
-/** 二次确认与抽屉同属 body 弹层，避免页面的层叠上下文遮挡确认按钮。 */
-export function AigcConfigConfirmation(props: ComponentProps<typeof ConfirmationDialog>) {
-  const root = useRef<HTMLDivElement>(null);
-  const cancel = useRef(props.onCancel);
-  cancel.current = () => { if (!props.busy) props.onCancel(); };
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    root.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    function keydown(event: KeyboardEvent) {
-      const controls = [...(root.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
-      if (event.key === "Escape") { event.preventDefault(); cancel.current(); }
-      if (event.key !== "Tab" || !controls.length) return;
-      if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
-    }
-    document.addEventListener("keydown", keydown);
-    return () => { document.removeEventListener("keydown", keydown); if (previous?.isConnected) previous.focus(); };
-  }, []);
-  return createPortal(<div ref={root}><ConfirmationDialog {...props} /></div>, document.body);
-}
 
 /** 配置抽屉约束键盘焦点，关闭后恢复触发按钮，并支持未保存确认。 */
 export function AigcConfigDrawer({ title, eyebrow, description, busy = false, onClose, children, footer }: {
@@ -46,7 +25,7 @@ export function AigcConfigDrawer({ title, eyebrow, description, busy = false, on
     root.current?.focus();
     function keydown(event: KeyboardEvent) {
       // 后出现的二次确认对话框独立处理焦点，避免两个弹层争抢 Tab。
-      if (document.querySelector(".configuration-dialog-backdrop")) return;
+      if (document.querySelector(".configuration-dialog-backdrop, dialog[open]")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         close.current();

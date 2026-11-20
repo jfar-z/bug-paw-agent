@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { unexpectedErrorDedupeKey } from "./api-error-policy";
-import { ErrorToastViewport } from "./components/error-toast-viewport";
+import { Toast } from "./ui/toast";
 import type { ErrorToastController, ErrorToastInput, ErrorToastItem } from "./error-toast-types";
 import { subscribeGlobalErrors } from "./global-error-events";
 
@@ -119,7 +119,7 @@ export function ErrorToastProvider({ children }: { children: ReactNode }) {
   return (
     <ErrorToastContext.Provider value={controller}>
       {children}
-      <ErrorToastViewport
+      <Toast
         items={items.slice(0, MAX_VISIBLE_TOASTS)}
         announcement={announcement}
         onDismiss={dismiss}

@@ -1337,7 +1337,7 @@ p {
   background: var(--surface);
 }
 
-.secondary-sidebar-header {
+.bp-sidebar-header {
   display: flex;
   min-height: 48px;
   align-items: flex-start;
@@ -1345,13 +1345,13 @@ p {
   padding: 2px 8px;
 }
 
-.secondary-sidebar-header__heading {
+.bp-sidebar-header__heading {
   display: grid;
   min-width: 0;
   gap: 3px;
 }
 
-.secondary-sidebar-header__eyebrow {
+.bp-sidebar-header__eyebrow {
   color: var(--fg);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1359,7 +1359,7 @@ p {
   letter-spacing: 0.09em;
 }
 
-.secondary-sidebar-header__title {
+.bp-sidebar-header__title {
   overflow: hidden;
   color: inherit;
   font-size: 17px;
@@ -1369,7 +1369,7 @@ p {
   white-space: nowrap;
 }
 
-.secondary-sidebar-header__actions {
+.bp-sidebar-header__actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;

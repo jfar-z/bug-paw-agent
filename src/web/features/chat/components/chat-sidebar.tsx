@@ -6,7 +6,7 @@ import { sortSessionsPinnedFirst } from "../../../../shared/session-sort";
 import type { SessionSummary } from "../../../api";
 import type { IdentityPreview } from "../chat-types";
 import { SessionActionsMenu } from "../../../components/session-actions-menu";
-import { SecondarySidebarHeader } from "../../../components/secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../../../ui/sidebar-header";
 import { UserAvatar } from "./user-avatar";
 
 interface ChatSidebarProps {

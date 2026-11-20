@@ -1,0 +1,22 @@
+/* 统一规格由生产主题提供颜色，各组件仅依赖语义令牌。 */
+:root {
+  --bp-control-height-md: 40px;
+  --bp-control-height-sm: 32px;
+  --bp-touch-target: 44px;
+  --bp-radius-control: 10px;
+  --bp-radius-panel: 12px;
+  --bp-radius-pill: 999px;
+  --bp-space-1: 4px;
+  --bp-space-2: 8px;
+  --bp-space-3: 12px;
+  --bp-space-4: 16px;
+  --bp-space-6: 24px;
+  --bp-icon-md: 20px;
+  --bp-icon-sm: 16px;
+  --bp-transition: 160ms ease;
+}
+
+/* 危险文字独立提高对比度，沿用现有主题的边框和填充。 */
+:root[data-theme="bug"] { --bp-danger-text: #98474e; }
+:root[data-theme="light"] { --bp-danger-text:color-mix(in srgb,var(--danger) 76%,var(--text-primary)); }
+:root[data-theme="dark"] { --bp-danger-text:color-mix(in srgb,var(--danger) 84%,var(--text-primary)); }

@@ -4,7 +4,7 @@ import type { SetupRequest } from "../api";
 import type { ThemePreference } from "../theme";
 import { ProductMark } from "../components/product-mark";
 import { ThemeSwitcher } from "../components/theme-switcher";
-import { SecretInput } from "../components/secret-input";
+import { SecretInput } from "../ui/secret-input";
 import { useApiTask } from "../api-task-provider";
 
 interface SetupPageProps {

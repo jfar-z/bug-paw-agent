@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useApiTask } from "../../api-task-provider";
-import { NAVIGATION_BEFORE_EVENT, navigateTo, type AppRoute, type NavigationBeforeEvent } from "../../router";
+import { useEffect, useRef, useState } from "react";
+import {Dialog} from "./dialog";
+import {Button} from "./controls";
+import { useApiTask } from "../api-task-provider";
+import { NAVIGATION_BEFORE_EVENT, navigateTo, type AppRoute, type NavigationBeforeEvent } from "../router";
 
 interface UnsavedChangesOptions {
   /** 草稿是否偏离最近一次保存的值，包含凭证及高级参数。 */
@@ -92,29 +93,10 @@ function UnsavedChangesDialog({ label, error, busy, canSave, discardOnly, onCanc
   label: string; error: string; busy: boolean; canSave: boolean; discardOnly: boolean;
   onCancel: () => void; onDiscard: () => void; onSave: () => void;
 }) {
-  const id = useId();
-  const root = useRef<HTMLElement>(null);
-  const current = useRef({ busy, onCancel });
-  current.current = { busy, onCancel };
-  useEffect(() => {
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    root.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); if (!current.current.busy) current.current.onCancel(); }
-      if (event.key !== "Tab") return;
-      const controls = [...(root.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
-      if (!controls.length) { event.preventDefault(); return; }
-      if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
-    };
-    document.addEventListener("keydown", keydown);
-    return () => { document.removeEventListener("keydown", keydown); document.body.style.overflow = overflow; if (trigger?.isConnected) trigger.focus(); };
-  }, []);
-  return createPortal(<div className="configuration-dialog-backdrop" role="presentation"><section ref={root} tabIndex={-1} className="configuration-dialog provider-rename-dialog" role="dialog" aria-modal="true" aria-labelledby={id} aria-describedby={`${id}-description`} aria-busy={busy}>
-    <header><div><h2 id={id}>{discardOnly ? (label.includes("安装") ? "还有未提交的安装输入" : "还有未提交的输入") : "还有未保存的修改"}</h2><p id={`${id}-description`}>{discardOnly ? `“${label}”尚未提交；放弃输入不会执行操作。` : `“${label}”尚未保存。切换前，请选择如何处理当前修改。`}</p></div></header>
-    {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
-    <footer><button type="button" className="configuration-secondary-action" disabled={busy} onClick={onCancel}>继续编辑</button><button type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={busy} onClick={onDiscard}>放弃并切换</button>{!discardOnly ? <button type="button" className="configuration-primary-action" disabled={busy || !canSave} onClick={onSave}>{busy ? "保存中…" : "保存并切换"}</button> : null}</footer>
-  </section></div>, document.body);
+  const title=discardOnly ? (label.includes("安装") ? "还有未提交的安装输入" : "还有未提交的输入") : "还有未保存的修改";
+  return <Dialog title={title} busy={busy} onClose={onCancel} footer={<>
+    <Button data-initial-focus disabled={busy} onClick={onCancel}>继续编辑</Button>
+    <Button variant="danger" disabled={busy} onClick={onDiscard}>放弃并切换</Button>
+    {!discardOnly && <Button variant="primary" disabled={busy || !canSave} onClick={onSave}>{busy ? "保存中…" : "保存并切换"}</Button>}
+  </>}><p>{discardOnly ? `“${label}”尚未提交；放弃输入不会执行操作。` : `“${label}”尚未保存。切换前，请选择如何处理当前修改。`}</p>{error && <p role="alert">{error}</p>}</Dialog>;
 }

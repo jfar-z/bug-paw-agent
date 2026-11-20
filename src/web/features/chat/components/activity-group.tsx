@@ -2,7 +2,7 @@ import type { ActivityBlock } from "../activity-groups";
 import { toolActivityCopy } from "../tool-activity-copy";
 import { LiveToolCard } from "../../../components/live-tool-card";
 import { ThinkingCard } from "../../../components/thinking-card";
-import { CollapsibleRegion } from "../../../components/collapsible-region";
+import { Collapse } from "../../../ui/collapse";
 
 export interface ActivityGroupProps {
   id: string;
@@ -38,13 +38,13 @@ export function ActivityGroup({
       <strong>{summary}</strong>
       <span className="activity-group__meta">{activityGroupMeta(blocks)}</span>
     </button>
-    <CollapsibleRegion expanded={expanded} className="activity-group__collapse">
+    <Collapse expanded={expanded} className="activity-group__collapse">
       <div className="activity-rail">
         {blocks.map((block) => block.type === "thinking"
           ? <ThinkingCard key={block.id} thinking={block} />
           : <LiveToolCard key={block.id} tool={block} onLinkActivate={onLinkActivate} />)}
       </div>
-    </CollapsibleRegion>
+    </Collapse>
   </section>;
 }
 

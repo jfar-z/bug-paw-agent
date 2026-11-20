@@ -23,3 +23,9 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     }),
   });
 }
+
+// JSDOM 尚未实现原生模态层。测试桩仅维护 open 状态，焦点和遮罩另由浏览器验证。
+if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+}

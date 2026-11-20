@@ -5,7 +5,7 @@ import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
 import { useOnlineStatus } from "../use-online-status";
 import { ConfigurationEditorDialog } from "./configuration/configuration-editor-dialog";
-import { ConfigurationSelect } from "./configuration/configuration-select";
+import { SearchSelect } from "../ui/search-select";
 import { MediaLibraryCatalogStatus, useMediaLibraries, type Catalog, type SaveTarget } from "./media-library-actions";
 import { MediaPreview } from "./media-library-preview";
 import { MediaThumbnail } from "./media-thumbnail";
@@ -18,7 +18,7 @@ function LibraryChoice({ catalog, retry, libraryId, disabled, onChange }: Return
   onChange: (id: string) => void;
 }) {
   if (catalog.status !== "ready" || !catalog.items.length) return <MediaLibraryCatalogStatus catalog={catalog} retry={retry} />;
-  return <ConfigurationSelect ariaLabel="目标媒体库" placeholder="选择媒体库" value={libraryId}
+  return <SearchSelect ariaLabel="目标媒体库" placeholder="选择媒体库" value={libraryId}
     disabled={disabled} options={catalog.items.map((library) => ({ value: library.id, label: library.name }))} onChange={onChange} />;
 }
 

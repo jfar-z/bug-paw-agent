@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { useId, useState, type CSSProperties } from "react";
 import type { ModelConfigDocument, ProviderTemplate } from "../../../shared/configuration-contracts";
 import { ConfigurationEditorDialog } from "./configuration-editor-dialog";
-import { useUnsavedChanges } from "./unsaved-changes";
+import { useUnsavedChanges } from "../../ui/unsaved-changes";
 import { useErrorToast } from "../../error-toast-provider";
 import { toUnexpectedErrorNotice } from "../../api-error-policy";
 import { api, type ApiClientError } from "../../api";

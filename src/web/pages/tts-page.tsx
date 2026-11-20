@@ -4,9 +4,9 @@ import type { TtsProfileInput, TtsProfileSummary } from "../../shared/tts-contra
 import { api } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
 import { ConfigurationEditorDialog as TtsDialog } from "../components/configuration/configuration-editor-dialog";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
 import "../configuration-interactions.css";
-import { SecretInput } from "../components/secret-input";
+import { SecretInput } from "../ui/secret-input";
 import { formatTtsCustomParameters, parseTtsCustomParametersText } from "../tts-custom-parameters-form";
 import { useOnlineStatus } from "../use-online-status";
 import "../configuration.css";

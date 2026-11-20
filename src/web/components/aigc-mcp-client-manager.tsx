@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "../ui/dialog";
 import { Copy, KeyRound, Plus, Search, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AigcChannelSummary, AigcInterfaceRecord, AigcMcpClient, AigcMcpOperation } from "../../shared/aigc-contracts";
@@ -5,7 +6,7 @@ import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
 import { navigateTo, NAVIGATION_BEFORE_EVENT, type AppRoute } from "../router";
 import { useOnlineStatus } from "../use-online-status";
-import { AigcConfigDrawer, AigcConfigConfirmation as ConfirmationDialog } from "./aigc-config-drawer";
+import { AigcConfigDrawer } from "./aigc-config-drawer";
 
 /** 允许操作使用业务名称展示，协议值仅用于请求。 */
 const OPERATION_LABELS: Record<AigcMcpOperation, string> = {
@@ -128,8 +129,8 @@ export function AigcMcpClientManager({ interfaces, channels, visible, createRequ
       <section className="aigc-config-form-section"><h3>可访问接口 <small>已选择 {interfaceIds.length} 个</small></h3><label className="aigc-config-search"><Search size={16} /><input aria-label="搜索授权接口" placeholder="搜索接口名称" value={query} onChange={(event) => setQuery(event.target.value)} /></label><div className="aigc-mcp-choices">{choices.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())).map((item) => { const selectedId = interfaceIds.includes(item.id); const channel = channels.find((candidate) => candidate.id === item.channelId); return <label key={item.id}><input type="checkbox" aria-label={`授权 ${item.name}`} disabled={busy || !item.mcpPublishEnabled && !selectedId} checked={selectedId} onChange={(event) => setInterfaceIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><div><strong>{item.name}</strong><small>{channel?.name ?? "无可用渠道"}{!item.enabled || !channel?.enabled ? " · 当前不可调用" : ""}</small></div><span className={item.mcpPublishEnabled ? "aigc-access-badge is-mcp" : "aigc-access-badge"}>{item.mcpPublishEnabled ? "已开放" : "未开放 MCP"}</span></label>; })}</div><p className="configuration-help">未开放 MCP 的接口需先在接口配置中开启；历史授权可取消勾选并移除。</p></section>
       <section className="aigc-config-form-section"><h3>允许操作</h3><div className="aigc-mcp-operations">{ALL_OPERATIONS.map((operation) => <label key={operation}><input type="checkbox" checked={operations.includes(operation)} disabled={busy} onChange={(event) => setOperations((current) => event.target.checked ? [...current, operation] : current.filter((item) => item !== operation))} /><span>{OPERATION_LABELS[operation]}<small>{operation}</small></span></label>)}</div></section>
     </AigcConfigDrawer> : null}
-    {discard ? <ConfirmationDialog title="放弃未保存授权？" description="当前 MCP 授权修改尚未保存。" confirmLabel="放弃修改" destructive={false} onCancel={() => setDiscard(false)} onConfirm={() => { setDiscard(false); setOpen(false); }} /> : null}
-    {pendingRoute ? <ConfirmationDialog title="离开并放弃授权修改？" description="当前 MCP 授权修改尚未保存。" confirmLabel="离开页面" destructive={false} onCancel={() => setPendingRoute(undefined)} onConfirm={() => { allowNavigation.current = true; navigateTo(pendingRoute); setPendingRoute(undefined); window.queueMicrotask(() => { allowNavigation.current = false; }); }} /> : null}
-    {revokeTarget ? <ConfirmationDialog title={`撤销“${revokeTarget.name}”？`} description="撤销后该客户端无法继续调用 MCP 或下载产物。" confirmLabel="撤销 Key" busy={busy} onCancel={() => setRevokeTarget(undefined)} onConfirm={() => void revoke()} /> : null}
+    {discard ? <ConfirmDialog title="放弃未保存授权？" description="当前 MCP 授权修改尚未保存。" confirmLabel="放弃修改" destructive={false} onCancel={() => setDiscard(false)} onConfirm={() => { setDiscard(false); setOpen(false); }} /> : null}
+    {pendingRoute ? <ConfirmDialog title="离开并放弃授权修改？" description="当前 MCP 授权修改尚未保存。" confirmLabel="离开页面" destructive={false} onCancel={() => setPendingRoute(undefined)} onConfirm={() => { allowNavigation.current = true; navigateTo(pendingRoute); setPendingRoute(undefined); window.queueMicrotask(() => { allowNavigation.current = false; }); }} /> : null}
+    {revokeTarget ? <ConfirmDialog title={`撤销“${revokeTarget.name}”？`} description="撤销后该客户端无法继续调用 MCP 或下载产物。" confirmLabel="撤销 Key" busy={busy} onCancel={() => setRevokeTarget(undefined)} onConfirm={() => void revoke()} /> : null}
   </section>;
 }

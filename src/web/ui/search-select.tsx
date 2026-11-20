@@ -1,18 +1,26 @@
 import { Check, ChevronDown, Search } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import "./configuration-select.css";
+import {
+  useEffect,
+  useLayoutEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import "./search-select.css";
 
-type ConfigurationSelectValue = string | number | boolean;
+type SearchSelectValue = string | number | boolean;
 
-export interface ConfigurationSelectOption<T extends ConfigurationSelectValue> {
+export interface SearchSelectOption<T extends SearchSelectValue> {
   value: T;
   label: string;
   description?: string;
 }
 
-interface ConfigurationSelectProps<T extends ConfigurationSelectValue> {
+interface SearchSelectProps<T extends SearchSelectValue> {
   ariaLabel: string;
-  options: readonly ConfigurationSelectOption<T>[];
+  options: readonly SearchSelectOption<T>[];
   value?: T;
   placeholder?: string;
   disabled?: boolean;
@@ -22,25 +30,58 @@ interface ConfigurationSelectProps<T extends ConfigurationSelectValue> {
 /**
  * 为配置页提供可搜索、可键盘操作且不依赖浏览器原生样式的选择控件。
  */
-export function ConfigurationSelect<T extends ConfigurationSelectValue>({
+export function SearchSelect<T extends SearchSelectValue>({
   ariaLabel,
   options,
   value,
   placeholder = "请选择",
   disabled = false,
   onChange,
-}: ConfigurationSelectProps<T>) {
+}: SearchSelectProps<T>) {
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const popup = popupRef.current,
+      trigger = rootRef.current;
+    if (!open || !popup || !trigger) return;
+    const position = () => {
+      const rect = trigger.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom;
+      popup.dataset.above = String(
+        below < popup.offsetHeight + 8 && rect.top > below,
+      );
+      popup.style.translate =
+        Math.min(0, window.innerWidth - 8 - rect.left - popup.offsetWidth) +
+        "px 0";
+    };
+    position();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(position);
+    observer?.observe(popup);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("scroll", position, true);
+      window.removeEventListener("resize", position);
+    };
+  }, [open]);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const selected = options.find((option) => Object.is(option.value, value));
   const filteredOptions = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return options;
-    return options.filter((option) => `${option.label} ${option.description ?? ""}`.toLocaleLowerCase().includes(normalized));
+    return options.filter((option) =>
+      `${option.label} ${option.description ?? ""}`
+        .toLocaleLowerCase()
+        .includes(normalized),
+    );
   }, [options, query]);
 
   useEffect(() => {
@@ -64,9 +105,10 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
     setActiveIndex(0);
   }, [query]);
 
-  function choose(option: ConfigurationSelectOption<T>) {
+  function choose(option: SearchSelectOption<T>) {
     onChange(option.value);
     closeMenu();
+    rootRef.current?.querySelector("button")?.focus();
   }
 
   function closeMenu() {
@@ -82,7 +124,9 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
       rootRef.current?.querySelector("button")?.focus();
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveIndex((current) => Math.min(current + 1, Math.max(filteredOptions.length - 1, 0)));
+      setActiveIndex((current) =>
+        Math.min(current + 1, Math.max(filteredOptions.length - 1, 0)),
+      );
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((current) => Math.max(current - 1, 0));
@@ -93,10 +137,10 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
   }
 
   return (
-    <div className="configuration-select" ref={rootRef}>
+    <div className="bp-select" ref={rootRef}>
       <button
         type="button"
-        className="configuration-select__trigger"
+        className="bp-select__trigger"
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -108,14 +152,16 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
             setOpen(true);
           }
         }}
-        onClick={() => open ? closeMenu() : setOpen(true)}
+        onClick={() => (open ? closeMenu() : setOpen(true))}
       >
-        <span className={selected ? undefined : "is-placeholder"}>{selected?.label ?? placeholder}</span>
+        <span className={selected ? undefined : "is-placeholder"}>
+          {selected?.label ?? placeholder}
+        </span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="configuration-select__popover">
-          <label className="configuration-select__search">
+        <div className="bp-select__popover" ref={popupRef}>
+          <label className="bp-select__search">
             <Search size={14} aria-hidden="true" />
             <span className="visually-hidden">筛选{ariaLabel}</span>
             <input
@@ -126,7 +172,12 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
               onKeyDown={handleSearchKeyDown}
             />
           </label>
-          <div id={listboxId} className="configuration-select__options" role="listbox" aria-label={ariaLabel}>
+          <div
+            id={listboxId}
+            className="bp-select__options"
+            role="listbox"
+            aria-label={ariaLabel}
+          >
             {filteredOptions.map((option, index) => (
               <button
                 key={optionKey(option.value)}
@@ -137,8 +188,15 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
                 onPointerMove={() => setActiveIndex(index)}
                 onClick={() => choose(option)}
               >
-                <span><strong>{option.label}</strong>{option.description ? <small>{option.description}</small> : null}</span>
-                {Object.is(option.value, value) ? <Check size={15} aria-hidden="true" /> : null}
+                <span>
+                  <strong>{option.label}</strong>
+                  {option.description ? (
+                    <small>{option.description}</small>
+                  ) : null}
+                </span>
+                {Object.is(option.value, value) ? (
+                  <Check size={15} aria-hidden="true" />
+                ) : null}
               </button>
             ))}
             {!filteredOptions.length ? <p>没有匹配项</p> : null}
@@ -149,6 +207,6 @@ export function ConfigurationSelect<T extends ConfigurationSelectValue>({
   );
 }
 
-function optionKey(value: ConfigurationSelectValue): string {
+function optionKey(value: SearchSelectValue): string {
   return `${typeof value}:${String(value)}`;
 }

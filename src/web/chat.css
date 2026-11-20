@@ -155,7 +155,7 @@
 .activity-group,
 .activity-group__summary strong,
 .activity-item__action,
-.collapsible-region__inner,
+.bp-collapse__inner,
 .live-tool-card__detail {
   min-width: 0;
 }
@@ -193,7 +193,7 @@
   white-space: nowrap;
 }
 
-.collapsible-region__inner {
+.bp-collapse__inner {
   min-height: 0;
   overflow: hidden;
 }

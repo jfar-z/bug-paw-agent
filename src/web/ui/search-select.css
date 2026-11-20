@@ -1,41 +1,35 @@
 /* 可搜索配置选择器由使用它的懒加载页面独立承担样式成本。 */
-.configuration-select {
+.bp-select {
   position: relative;
   min-width: 0;
 }
 
-.configuration-select__trigger {
+.bp-select__trigger {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: var(--bp-control-height-md, 40px);
   align-items: center;
   justify-content: space-between;
   padding: 0 11px 0 12px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--bp-radius-control, 10px);
   color: var(--text-primary);
-  background: var(--surface-soft);
+  background: var(--surface);
   text-align: left;
 }
 
-.configuration-select__trigger[aria-expanded="true"] {
+.bp-select__trigger[aria-expanded="true"] {
   border-color: var(--border-strong);
 }
 
-.configuration-select__trigger > span,
-.configuration-select__options :where(strong, small) {
+.bp-select__trigger > span,
+.bp-select__options :where(strong, small) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.aigc-run-control .configuration-select__trigger,
-.aigc-run-field .configuration-select__trigger {
-  min-height: 38px;
-  border-radius: 6px;
-}
-
-.configuration-select__popover {
+.bp-select__popover {
   position: absolute;
   z-index: 30;
   top: calc(100% + 5px);
@@ -48,21 +42,21 @@
   box-shadow: var(--shadow-float);
 }
 
-.configuration-select__search,
-.configuration-select__options > button {
+.bp-select__search,
+.bp-select__options > button {
   display: flex;
   align-items: center;
   gap: 7px;
 }
 
-.configuration-select__search {
+.bp-select__search {
   min-height: 34px;
   padding: 0 9px;
   border-bottom: 1px solid var(--border);
   color: var(--text-tertiary);
 }
 
-.configuration-select__search input {
+.bp-select__search input {
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -72,13 +66,13 @@
   background: transparent;
 }
 
-.configuration-select__options {
+.bp-select__options {
   max-height: 252px;
   padding-top: 5px;
   overflow-y: auto;
 }
 
-.configuration-select__options > button {
+.bp-select__options > button {
   width: 100%;
   min-height: 38px;
   justify-content: space-between;
@@ -90,27 +84,33 @@
   text-align: left;
 }
 
-.configuration-select__options > button:hover,
-.configuration-select__options > button.is-active,
-.configuration-select__options > button[aria-selected="true"] {
+.bp-select__options > button:hover,
+.bp-select__options > button.is-active,
+.bp-select__options > button[aria-selected="true"] {
   color: var(--text-primary);
   background: var(--surface-hover);
 }
 
-.configuration-select__options > button > span {
+.bp-select__options > button > span {
   display: grid;
   min-width: 0;
 }
 
-.configuration-select__options strong {
+.bp-select__options strong {
   font-size: 11px;
 }
 
-.configuration-select__options :where(small, p) {
+.bp-select__options :where(small, p) {
   color: var(--text-tertiary);
   font-size: 10px;
 }
 
-.configuration-select__options > p {
+.bp-select__options > p {
   margin: 10px 8px;
 }
+.bp-select__popover[data-above="true"] {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+@media(pointer:coarse){.bp-select__trigger,.bp-select__options > button{min-height:44px}}

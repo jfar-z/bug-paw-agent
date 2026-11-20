@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api, type DiagnosticsReport } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { ConfirmationDialog } from "../components/configuration/confirmation-dialog";
+import { ConfirmDialog } from "../ui/dialog";
 import { ConfigurationEffectNotice, configurationRefreshGeneration, confirmConfigurationRefresh } from "../components/configuration/configuration-effect-notice";
 import "../configuration.css";
 
@@ -73,7 +73,7 @@ export function DiagnosticsPage({ reloadPage = () => window.location.reload() }:
       <section className="configuration-form-card"><h2><Server size={18} aria-hidden="true" />持久化挂载</h2><div className="diagnostics-list">{report.mounts.length ? report.mounts.map((mount) => <div key={`${mount.source}:${mount.target}`}>{mount.writable ? <CheckCircle2 size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}<span><strong>{mount.source} → {mount.target}</strong><small>{mount.writable ? "可写" : "只读"}</small></span></div>) : <p>未检测到对应挂载。</p>}</div></section>
       <section className="configuration-form-card"><h2><Activity size={18} aria-hidden="true" />检查结果</h2><div className="diagnostics-list">{report.diagnostics.length ? report.diagnostics.map((item, index) => <div className={`is-${item.severity}`} key={`${item.code}-${index}`}>{item.severity === "error" || item.severity === "warning" ? <AlertTriangle size={18} aria-hidden="true" /> : <CheckCircle2 size={18} aria-hidden="true" />}<span><strong>{item.message}</strong><small>{item.code}{item.field ? ` · ${item.field}` : ""}</small></span></div>) : <div><CheckCircle2 size={18} aria-hidden="true" /><span><strong>未发现配置问题</strong><small>所有只读检查均通过</small></span></div>}</div></section>
     </> : null}
-    {refreshConfirmationOpen ? <ConfirmationDialog title="确认刷新核心配置" description="这会立即停止所有正在生成的对话，并重新加载核心运行配置。" confirmLabel="继续刷新" busy={refreshingRuntime} onCancel={() => setRefreshConfirmationOpen(false)} onConfirm={() => void refreshPiRuntime()} /> : null}
+    {refreshConfirmationOpen ? <ConfirmDialog title="确认刷新核心配置" description="这会立即停止所有正在生成的对话，并重新加载核心运行配置。" confirmLabel="继续刷新" busy={refreshingRuntime} onCancel={() => setRefreshConfirmationOpen(false)} onConfirm={() => void refreshPiRuntime()} /> : null}
   </div>;
 }
 

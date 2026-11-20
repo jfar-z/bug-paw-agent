@@ -22,7 +22,7 @@
   gap: 6px;
 }
 
-.media-action-dialog__body .configuration-select__popover {
+.media-action-dialog__body .bp-select__popover {
   position: static;
 }
 

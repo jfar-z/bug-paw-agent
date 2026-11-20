@@ -1,7 +1,7 @@
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { X } from "lucide-react";
 import { AgentAvatar } from "./agent-avatar";
-import { SecondarySidebarHeader } from "./secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
 
 export const WORKSPACE_AGENT_NAVIGATION_TOGGLE_EVENT = "pi-agent:toggle-workspace-agent-navigation";
 

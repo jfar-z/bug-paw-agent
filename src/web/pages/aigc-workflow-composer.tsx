@@ -12,7 +12,7 @@ import type {
   ComfyUiNode,
 } from "../../shared/aigc-contracts";
 import { commonReferenceInputFields, referenceInputFamilies, traceReferenceInputBranches } from "../../shared/aigc-reference-input-groups";
-import { ConfirmationDialog } from "../components/configuration/confirmation-dialog";
+import { ConfirmDialog } from "../ui/dialog";
 import "../aigc-workflow-composer.css";
 
 interface AigcWorkflowComposerProps {
@@ -385,8 +385,8 @@ function InputMappingBuilder(props: {
         </div>
       ) : null}
       {groupDraft ? <ReferenceGroupEditor workflow={workflow} draft={groupDraft} error={groupError} onChange={updateGroupDraft} onCancel={() => setGroupDraft(undefined)} onCommit={commitGroup} /> : null}
-      {deleteTarget ? <ConfirmationDialog title={`删除入参“${deleteTarget.name}”？`} description="删除后该参数将不再写入 ComfyUI 节点；关联的条件分支配置也会一并删除。" confirmLabel="删除入参" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => { onChange(mappings.filter((item) => item.id !== deleteTarget.id)); setDeleteTarget(undefined); }} /> : null}
-      {deleteGroupTarget ? <ConfirmationDialog title={`删除参考组“${deleteGroupTarget.label}”？`} description="删除后该组及其底层入参映射会一并移除。" confirmLabel="删除参考组" onCancel={() => setDeleteGroupTarget(undefined)} onConfirm={() => { const ids = new Set(deleteGroupTarget.mappingIds); onChange(mappings.filter((item) => !ids.has(item.id))); onGroupsChange(groups.filter((item) => item.id !== deleteGroupTarget.id)); setDeleteGroupTarget(undefined); }} /> : null}
+      {deleteTarget ? <ConfirmDialog title={`删除入参“${deleteTarget.name}”？`} description="删除后该参数将不再写入 ComfyUI 节点；关联的条件分支配置也会一并删除。" confirmLabel="删除入参" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => { onChange(mappings.filter((item) => item.id !== deleteTarget.id)); setDeleteTarget(undefined); }} /> : null}
+      {deleteGroupTarget ? <ConfirmDialog title={`删除参考组“${deleteGroupTarget.label}”？`} description="删除后该组及其底层入参映射会一并移除。" confirmLabel="删除参考组" onCancel={() => setDeleteGroupTarget(undefined)} onConfirm={() => { const ids = new Set(deleteGroupTarget.mappingIds); onChange(mappings.filter((item) => !ids.has(item.id))); onGroupsChange(groups.filter((item) => item.id !== deleteGroupTarget.id)); setDeleteGroupTarget(undefined); }} /> : null}
     </section>
   );
 }
@@ -622,7 +622,7 @@ function OutputMappingBuilder(props: {
           </div>
         </div>
       ) : null}
-      {deleteTarget ? <ConfirmationDialog title={`删除输出“${deleteTarget.name}”？`} description="删除后工作台将不再从该节点提取对应产物；保存工作流前仍可取消本次编辑。" confirmLabel="删除输出" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => { onChange(mappings.filter((item) => item.id !== deleteTarget.id)); setDeleteTarget(undefined); }} /> : null}
+      {deleteTarget ? <ConfirmDialog title={`删除输出“${deleteTarget.name}”？`} description="删除后工作台将不再从该节点提取对应产物；保存工作流前仍可取消本次编辑。" confirmLabel="删除输出" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => { onChange(mappings.filter((item) => item.id !== deleteTarget.id)); setDeleteTarget(undefined); }} /> : null}
     </section>
   );
 }

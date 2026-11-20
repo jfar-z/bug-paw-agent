@@ -3,7 +3,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiTaskProvider } from "./api-task-provider";
 import { ErrorToastProvider } from "./error-toast-provider";
-import { useUnsavedChanges } from "./components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "./ui/unsaved-changes";
 import { navigateTo, parseRoute, routePath, useBrowserRoute } from "./router";
 
 /** 用真实 History API 与配置守卫验证路由恢复，不模拟路由实现。 */

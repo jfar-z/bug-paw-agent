@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { ThinkingBlock } from "../conversation-timeline";
 import { useStreamingTextReveal } from "../use-streaming-text-reveal";
 import { activityStatusStyle } from "./activity-status-style";
-import { CollapsibleRegion } from "./collapsible-region";
+import { Collapse } from "../ui/collapse";
 
 interface ThinkingCardProps {
   thinking: ThinkingBlock;
@@ -48,7 +48,7 @@ export function ThinkingCard({ thinking }: ThinkingCardProps) {
           <span>{thinking.streaming ? "思考中" : "已完成"}</span>
         </span>
       </button>
-      <CollapsibleRegion expanded={expanded} className="thinking-card__collapse">
+      <Collapse expanded={expanded} className="thinking-card__collapse">
         <pre ref={contentRef} className={`thinking-card__content${isRevealing ? " is-text-revealing" : ""}`}>
           {stableText}
           {isRevealing && revealText ? (
@@ -57,7 +57,7 @@ export function ThinkingCard({ thinking }: ThinkingCardProps) {
             </span>
           ) : revealText}
         </pre>
-      </CollapsibleRegion>
+      </Collapse>
     </section>
   );
 }

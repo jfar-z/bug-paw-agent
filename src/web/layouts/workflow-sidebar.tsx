@@ -1,5 +1,5 @@
 import { Workflow, Play, History, FolderOpen, SlidersHorizontal, X } from "lucide-react";
-import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
 
 /** 复用现有二级导航容器，保证三主题、宽度和移动抽屉行为一致。 */

@@ -1,0 +1,17 @@
+.bp-key-value {
+  display: grid;
+  min-width: 0;
+  gap: var(--bp-space-2);
+}
+.bp-key-value__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bp-space-2);
+}
+.bp-key-value__row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--bp-space-2);
+}

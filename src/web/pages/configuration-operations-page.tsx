@@ -7,8 +7,8 @@ import { useErrorToast } from "../error-toast-provider";
 import { toUnexpectedErrorNotice } from "../api-error-policy";
 import { useOnlineStatus } from "../use-online-status";
 import { ConfigurationEffectNotice, recordConfigurationSave, configurationRefreshGeneration, confirmConfigurationRefresh } from "../components/configuration/configuration-effect-notice";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
-import { ConfigurationTabs } from "../components/configuration/configuration-tabs";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
+import { Tabs } from "../ui/tabs";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
 import "../configuration.css";
 import "../configuration-maintenance.css";
@@ -117,7 +117,7 @@ export function ConfigurationOperationsPage() {
   return <main className="configuration-page configuration-maintenance-page configuration-operations-page"><header className="configuration-page__heading"><span className="configuration-eyebrow">IMPORT · EXPORT · HISTORY</span><h1>导入与变更</h1><p>先审阅，再应用；安全导出不是完整生产数据备份。</p></header><ConfigurationEffectNotice configKey="operations" />
     {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}{message ? <p className="configuration-inline-message" role="status">{message}</p> : null}
     {!online ? <p className="configuration-save-notice">离线只读，导入、导出与恢复暂停。</p> : null}
-    <ConfigurationTabs value={category} onChange={setCategory} items={[{ value: "import", label: "导入配置" }, { value: "export", label: "安全导出" }, { value: "history", label: "变更历史" }]} />
+    <Tabs label="配置页面分区" panelId="configuration-maintenance-panel" value={category} onChange={setCategory} items={[{ id: "import", label: "导入配置" }, { id: "export", label: "安全导出" }, { id: "history", label: "变更历史" }]} />
     <div role="tabpanel" id="configuration-maintenance-panel" aria-labelledby={`configuration-maintenance-panel-${category}`}>
     {category === "import" ? <><div className="maintenance-steps"><span className={!preview && !applied ? "is-active" : undefined}>01 输入</span><span className={preview ? "is-active" : undefined}>02 服务端预览</span><span className={applied ? "is-active" : undefined}>03 应用结果</span></div><section className="configuration-form-card"><h2><Upload size={18} />输入配置</h2><p>导入仅处理 models/settings，不恢复 Agent 档案、凭证、知识库或其他应用数据。</p><label className="configuration-field"><span>UTF-8 JSON 文件（最多 1 MiB）</span><input aria-label="配置 JSON 文件" type="file" accept=".json,application/json" disabled={!online || busy} onChange={(event) => { void readFile(event.target.files?.[0]); event.target.value = ""; }} /></label><label className="configuration-field"><span>配置包或标准模型配置</span><textarea aria-label="配置 JSON 内容" value={source} onChange={(event) => changeSource(event.target.value)} disabled={busy || !online} rows={8} spellCheck={false} placeholder="粘贴 JSON 内容" /></label><button type="button" className="configuration-primary-action" onClick={() => void createPreview()} disabled={!source.trim() || busy || !online}>生成预览</button></section>
       {preview ? <section className="configuration-form-card"><h2>文件级变更预览</h2><p>预览显示整份文件的应用范围，不是字段级差异。修改输入后预览失效，应用时再次校验版本。</p><div className="import-preview"><PreviewGroup label="新增" values={preview.added} /><PreviewGroup label="变更" values={preview.changed} /><PreviewGroup label="冲突" values={preview.conflicts} /><PreviewGroup label="无效" values={preview.invalid.map((item) => `${item.file}：${item.message}`)} /></div><button type="button" className="configuration-primary-action" disabled={preview.invalid.length > 0 || preview.conflicts.length > 0 || busy || !online} onClick={() => setConfirmation("import")}>确认并应用</button></section> : null}

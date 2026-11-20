@@ -9,9 +9,9 @@ import { useErrorToast } from "../error-toast-provider";
 import { toUnexpectedErrorNotice } from "../api-error-policy";
 import { navigateTo } from "../router";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
-import { SettingsSection } from "../components/configuration/settings-section";
+import { Section } from "../ui/section";
 import { useOnlineStatus } from "../use-online-status";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
 import { ConfigurationEffectNotice, recordConfigurationSave } from "../components/configuration/configuration-effect-notice";
 import "../configuration.css";
 import "../pi-settings.css";
@@ -476,7 +476,7 @@ export function PiSettingsPage() {
           window.document.getElementById(`pi-settings-tab-${next.id}`)?.focus();
         }}>{item.label}<small>{categorySummary(item.id)}</small></button>)}</div>
         {categories.map((item) => <section key={item.id} role="tabpanel" tabIndex={0} hidden={category !== item.id} id={`pi-settings-panel-${item.id}`} aria-labelledby={`pi-settings-tab-${item.id}`}>
-          <fieldset className="configuration-interaction-fields" disabled={saving || (scope === "agent" && directoryState !== "ready")}><div className="settings-groups">{groups.filter((group) => group.category === item.id).map((group) => <SettingsSection key={group.title} index={groups.indexOf(group) + 1} title={group.title} description={group.description}>
+          <fieldset className="configuration-interaction-fields" disabled={saving || (scope === "agent" && directoryState !== "ready")}><div className="settings-groups">{groups.filter((group) => group.category === item.id).map((group) => <Section key={group.title} index={groups.indexOf(group) + 1} title={group.title} description={group.description}>
             {group.title === "模型与推理" ? renderDefaultModel() : null}
             {group.fields.map((field) => {
               const ownValue = getPath(draft, field.path);
@@ -485,7 +485,7 @@ export function PiSettingsPage() {
               if (scope === "agent" && !field.globalOnly) return <div key={field.path}>{inheritedField(field.label, field.path, ownValue !== undefined, control(field, ownValue === undefined ? inheritedValue : ownValue, ownValue === undefined), help)}</div>;
               return <label key={field.path}><span>{field.label}<small>{field.risk ? <><ShieldAlert size={12} aria-hidden="true" />{field.risk}</> : field.unit ? `单位：${field.unit}` : ownValue === undefined ? "未声明 · 核心默认值" : "全局声明"}</small></span>{control(field, scope === "agent" ? inheritedValue : ownValue, scope === "agent" && field.globalOnly)}</label>;
             })}
-          </SettingsSection>)}</div></fieldset>
+          </Section>)}</div></fieldset>
         </section>)}
         <details className="effective-settings"><summary><strong>已保存配置与来源</strong><small>声明合并结果，不代表运行中快照</small></summary>
           <p>{dirty ? "当前有未保存草稿，下列摘要与 JSON 未包含这些修改。" : "仅展示已保存声明；未声明的核心默认值不在此推测。"}</p>

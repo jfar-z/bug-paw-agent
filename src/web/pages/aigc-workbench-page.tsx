@@ -39,8 +39,8 @@ import { AIGC_TASK_BULK_DELETE_LIMIT } from "../../shared/aigc-contracts";
 import { createDefaultOpenAiParameters, resolveOpenAiParameterDefinitions } from "../../shared/aigc-openai-parameters";
 import { aigcComfyUiInputContentUrl, aigcInputAssetUrl, aigcTaskAssetUrl, api } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { ConfirmationDialog } from "../components/configuration/confirmation-dialog";
-import { ConfigurationSelect } from "../components/configuration/configuration-select";
+import { ConfirmDialog } from "../ui/dialog";
+import { SearchSelect } from "../ui/search-select";
 import { useErrorToast } from "../error-toast-provider";
 import { useOnlineStatus } from "../use-online-status";
 import { navigateTo, NAVIGATION_BEFORE_EVENT, type AppRoute } from "../router";
@@ -636,7 +636,7 @@ export function AigcProviderControl<T extends string>({ options, value, onChange
     <div className="aigc-run-control">
       <span>渠道</span>
       {options.length > 3 ? (
-        <ConfigurationSelect
+        <SearchSelect
           ariaLabel="渠道"
           options={options.map((option) => ({ value: option.value, label: option.label, description: `${option.count} 个接口` }))}
           value={value}
@@ -823,7 +823,7 @@ function AigcRunField(props: {
     return (
       <div className="aigc-run-field">
         <span>{field.label}{field.required ? " *" : ""}</span>
-        <ConfigurationSelect
+        <SearchSelect
           ariaLabel={field.label}
           options={(field.options ?? []).map((option) => ({ value: option, label: String(option) }))}
           value={typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined}
@@ -866,7 +866,7 @@ function AigcRunField(props: {
         <div className="configuration-field-row aigc-run-field aigc-run-field--wide">
           <label>
             <span>{field.label}{field.required ? " *" : ""}</span>
-            <ConfigurationSelect
+            <SearchSelect
               ariaLabel={`${field.label}公共文件`}
               options={availableFiles.map((file) => ({ value: file.url, label: file.name }))}
               value={selectedUrl}
@@ -919,7 +919,7 @@ function AigcRunField(props: {
           {mediaSource === "public" ? (
             <label>
               <span>BugPaw 公开目录</span>
-              <ConfigurationSelect
+              <SearchSelect
                 ariaLabel={`${field.label}公开目录`}
                 options={availableFiles.map((file) => ({ value: file.id, label: file.name }))}
                 value={selectedPublicId}
@@ -934,7 +934,7 @@ function AigcRunField(props: {
           {allowComfyInput && mediaSource === "comfyui_input" ? (
             <label>
               <span>ComfyUI input</span>
-              <ConfigurationSelect
+              <SearchSelect
                 ariaLabel={`${field.label}ComfyUI input`}
                 options={comfyInputFiles.map((file) => ({
                   value: comfyInputFileKey(file),
@@ -1453,7 +1453,7 @@ function AigcInterfaceDetail({ interfaceId }: { interfaceId: string }) {
         <label className="configuration-check-line"><input type="checkbox" checked={draft.mcpPublishEnabled} onChange={(event) => setDraft({ ...draft, mcpPublishEnabled: event.target.checked })} /><span>开放给外部 MCP</span></label>
         <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" onClick={() => void save()}><Save size={16} />保存接口</button></div>
       </section>
-      {navigationGuard.pendingRoute ? <ConfirmationDialog title="离开并放弃修改？" description="接口详情仍有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
+      {navigationGuard.pendingRoute ? <ConfirmDialog title="离开并放弃修改？" description="接口详情仍有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
     </div>
   );
 }
@@ -1590,8 +1590,8 @@ function AigcTasksPage() {
         ))}
         {!visibleTasks.length ? <p className="configuration-help">当前筛选下没有任务。</p> : null}
       </div>
-      {deleteTarget ? <ConfirmationDialog title="删除任务？" description={`任务 ${deleteTarget.id} 及其 ${deleteTarget.assetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
-      {bulkDeleteOpen ? <ConfirmationDialog title={`删除选中的 ${selectedIds.length} 个任务？`} description={`这些任务及其 ${selectedAssetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除选中" busy={bulkDeleting} onCancel={() => setBulkDeleteOpen(false)} onConfirm={() => void removeSelected()} /> : null}
+      {deleteTarget ? <ConfirmDialog title="删除任务？" description={`任务 ${deleteTarget.id} 及其 ${deleteTarget.assetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
+      {bulkDeleteOpen ? <ConfirmDialog title={`删除选中的 ${selectedIds.length} 个任务？`} description={`这些任务及其 ${selectedAssetCount} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除选中" busy={bulkDeleting} onCancel={() => setBulkDeleteOpen(false)} onConfirm={() => void removeSelected()} /> : null}
     </div>
   );
 }
@@ -1757,7 +1757,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
       </section>
       <AigcTaskDiagnostics task={task} />
       {previewAsset ? <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${previewAsset.name} 大图预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={() => setPreviewAsset(undefined)}><X size={20} /></button><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(task.id, previewAsset.id)} alt={previewAsset.name} /></div></div> : null}
-      {deleteOpen ? <ConfirmationDialog title="删除任务？" description={`任务 ${task.id} 及其 ${task.assets.length} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
+      {deleteOpen ? <ConfirmDialog title="删除任务？" description={`任务 ${task.id} 及其 ${task.assets.length} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
     </div>
   );
 }
@@ -1848,7 +1848,7 @@ function AigcWorkflowsPage() {
         ))}
         {!document?.workflows.length ? <p className="configuration-help">尚未导入工作流。</p> : null}
       </div>
-      {deleteTarget ? <ConfirmationDialog title={`删除工作流“${deleteTarget.name}”？`} description={`删除后无法恢复。${interfaces.filter((item) => item.protocol === "comfyui" && (item.config as { workflowId?: string }).workflowId === deleteTarget.id).length} 个接口正在引用它，相关创作入口将无法运行。`} confirmLabel="删除工作流" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
+      {deleteTarget ? <ConfirmDialog title={`删除工作流“${deleteTarget.name}”？`} description={`删除后无法恢复。${interfaces.filter((item) => item.protocol === "comfyui" && (item.config as { workflowId?: string }).workflowId === deleteTarget.id).length} 个接口正在引用它，相关创作入口将无法运行。`} confirmLabel="删除工作流" onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
     </div>
   );
 }
@@ -1981,7 +1981,7 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
     <div className="aigc-workbench-page">
       <header className="aigc-page-heading"><h1>工作流详情</h1><p>{detail?.fileName ?? workflowId}</p></header>
       <div className="aigc-workflow-sync-bar">
-        <div className="aigc-config-field"><span>ComfyUI 渠道</span><ConfigurationSelect
+        <div className="aigc-config-field"><span>ComfyUI 渠道</span><SearchSelect
           ariaLabel="节点定义同步渠道"
           options={channels.map((channel) => ({ value: channel.id, label: channel.name }))}
           value={channelId || undefined}
@@ -2013,7 +2013,7 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
       <div className="configuration-save-bar">
         <button type="button" className="configuration-primary-action" disabled={!detail || !isDirty || checkingReplacement || replacing || Boolean(replacement)} onClick={() => void save()}><Save size={15} />{isDirty ? "保存映射" : "已保存"}</button>
       </div>
-      {replacement ? <ConfirmationDialog
+      {replacement ? <ConfirmDialog
         title={`替换为“${replacement.fileName}”？`}
         description={replacement.preview.removedMappings.length
           ? `检测到 ${replacement.preview.removedMappings.length} 项映射或参数组无法保留。继续替换会移除下列配置，无法撤回；取消将保留原工作流和全部映射。`
@@ -2030,8 +2030,8 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
             <p>节点 {item.nodeId} · {item.field}</p><p>{item.reason}</p>
           </li>)}
         </ul> : null}
-      </ConfirmationDialog> : null}
-      {navigationGuard.pendingRoute ? <ConfirmationDialog title="离开并放弃修改？" description="工作流映射仍有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
+      </ConfirmDialog> : null}
+      {navigationGuard.pendingRoute ? <ConfirmDialog title="离开并放弃修改？" description="工作流映射仍有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
     </div>
   );
 }

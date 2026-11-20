@@ -5,7 +5,7 @@ import { api, ApiClientError, type ResourceCatalog, type ResourceCatalogItem } f
 import { useApiTask } from "../api-task-provider";
 import { TaskLog, type ResourceTaskStatus } from "../components/configuration/task-log";
 import { ConfigurationEditorDialog as ResourceDialog } from "../components/configuration/configuration-editor-dialog";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
 import { ConfigurationEffectNotice, recordConfigurationSave } from "../components/configuration/configuration-effect-notice";
 import { useOnlineStatus } from "../use-online-status";
 import "../configuration.css";

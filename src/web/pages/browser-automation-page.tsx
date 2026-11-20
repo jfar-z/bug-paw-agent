@@ -6,9 +6,9 @@ import { toUnexpectedErrorNotice } from "../api-error-policy";
 import { useErrorToast } from "../error-toast-provider";
 import { useApiTask } from "../api-task-provider";
 import { useOnlineStatus } from "../use-online-status";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
-import { ConfigurationTabs } from "../components/configuration/configuration-tabs";
+import { Tabs } from "../ui/tabs";
 import { recordConfigurationSave } from "../components/configuration/configuration-effect-notice";
 import "../configuration.css";
 import "../configuration-maintenance.css";
@@ -125,7 +125,7 @@ export function BrowserAutomationPage() {
       {testResult ? <p className={testResult.ok ? "configuration-save-notice" : "configuration-inline-error"} role={testResult.ok ? "status" : "alert"}>{testResult.message}</p> : null}
       <label className="configuration-capability-toggle"><span>启用浏览器执行<small>启用后仍需 Agent 工具权限；保存停用会停止资源池并影响浏览器任务。</small></span><input aria-label="启用浏览器执行" type="checkbox" checked={draft.enabled} disabled={!writable || busy} onChange={(event) => event.target.checked || !document.config.enabled ? patch({ enabled: event.target.checked }) : setConfirm("disable")} /></label>
     </section>
-    <ConfigurationTabs value={category} onChange={setCategory} items={[{ value: "range", label: "浏览范围" }, { value: "permissions", label: "交互权限" }, { value: "advanced", label: "高级限制" }]} />
+    <Tabs label="配置页面分区" panelId="configuration-maintenance-panel" value={category} onChange={setCategory} items={[{ id: "range", label: "浏览范围" }, { id: "permissions", label: "交互权限" }, { id: "advanced", label: "高级限制" }]} />
     <fieldset role="tabpanel" id="configuration-maintenance-panel" aria-labelledby={`configuration-maintenance-panel-${category}`} className="maintenance-fieldset" disabled={!writable || busy}>
       {category === "range" ? <><BrowserSettingsSection index={1} title="公开浏览范围" description="固定 HTTPS；空清单允许全部公网站点"><p className="configuration-help"><strong>{draft.publicBrowsing.allowedDomains.length ? draft.publicBrowsing.allowedDomains.join("、") : "所有公网 HTTPS 站点"}</strong><br />私网、回环、链路本地、云元数据和重绑定地址始终由受控出口拒绝。</p><NumberField label="导航超时（秒）" value={draft.publicBrowsing.navigationTimeoutMs / 1000} min={10} max={120} onChange={(value) => patch({ publicBrowsing: { ...draft.publicBrowsing, navigationTimeoutMs: value * 1000 } })} /><NumberField label="单 Run 打开上限" value={draft.publicBrowsing.maxPagesPerRun} min={1} max={100} onChange={(value) => patch({ publicBrowsing: { ...draft.publicBrowsing, maxPagesPerRun: value } })} /></BrowserSettingsSection><BrowserSettingsSection index={2} title="本地静态页面" description="预览当前 Agent 工作区 HTML"><PermissionSwitches value={draft.localPreview} onChange={(localPreview) => patch({ localPreview })} /><p className="configuration-help">不挂载整个工作区，不使用 file://；拒绝路径穿越和符号链接。</p></BrowserSettingsSection></> : null}
       {category === "permissions" ? <section className="configuration-form-card"><div className="maintenance-row"><h2>受信任 UI Origin</h2><button type="button" className="configuration-primary-action" data-origin-create onClick={() => openOrigin(-1)}><Plus size={16} />添加 Origin</button></div><p className="maintenance-muted">编辑只加入页面草稿，保存整页后生效。</p>{draft.trustedOrigins.length ? draft.trustedOrigins.map((item, index) => <article key={item.origin} className="maintenance-item"><div className="maintenance-row"><code>{item.origin}</code><div className="maintenance-item-actions"><button type="button" className="configuration-secondary-action" onClick={() => openOrigin(index)}>编辑权限</button><button type="button" className="configuration-secondary-action configuration-secondary-action--danger" aria-label={`移出 ${item.origin}`} onClick={() => patch({ trustedOrigins: draft.trustedOrigins.filter((_, candidate) => candidate !== index) })}><Trash2 size={15} />移出草稿</button></div></div><p>{permissionSummary(item)}</p></article>) : <p>尚未信任任何 UI Origin；公开网页只能只读浏览。</p>}</section> : null}

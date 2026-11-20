@@ -21,6 +21,6 @@ describe("Provider 页面样式边界", () => {
     expect(css).not.toMatch(/#[\da-f]{3,8}\b|rgba?\(/i);
     expect(css).toContain("@media (max-width: 760px)");
     const budget = JSON.parse(await readFile("config/bundle-budget.json", "utf8"));
-    expect(budget.css.routes["src/web/pages/providers-page.tsx"].gzipBytes).toBe(6656);
+    expect(budget.css.routes["src/web/pages/providers-page.tsx"].gzipBytes).toBe(7296);
   });
 });

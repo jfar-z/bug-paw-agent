@@ -2,7 +2,7 @@ import { Check, ChevronDown, ChevronUp, CircleAlert, Copy, X } from "lucide-reac
 import { useState, type FocusEvent } from "react";
 import type { ErrorToastItem } from "../error-toast-types";
 
-interface ErrorToastViewportProps {
+interface ToastProps {
   items: ErrorToastItem[];
   announcement?: { id: string; text: string };
   onDismiss: (id: string) => void;
@@ -11,7 +11,7 @@ interface ErrorToastViewportProps {
 }
 
 /** 渲染全局非阻塞错误卡片，不参与错误分类和队列决策。 */
-export function ErrorToastViewport(props: ErrorToastViewportProps) {
+export function Toast(props: ToastProps) {
   return (
     <div className="error-toast-layer">
       <div className="visually-hidden" role="alert">
@@ -31,7 +31,7 @@ function ErrorToastCard({
   onDismiss,
   onExpandedChange,
   onPauseChange,
-}: Omit<ErrorToastViewportProps, "items" | "announcement"> & { item: ErrorToastItem }) {
+}: Omit<ToastProps, "items" | "announcement"> & { item: ErrorToastItem }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const detailsId = `error-toast-details-${item.id}`;
   const leaveFocus = (event: FocusEvent<HTMLElement>) => {

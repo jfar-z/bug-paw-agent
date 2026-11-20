@@ -5,13 +5,13 @@ import { api, type ApiClientError, type DiscoveredModel, type ModelConnectionTes
 import { useErrorToast } from "../error-toast-provider";
 import { toUnexpectedErrorNotice } from "../api-error-policy";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { KeyValueEditor, type KeyValueRow } from "../components/configuration/key-value-editor";
+import { KeyValueEditor, type KeyValueRow } from "../ui/key-value-editor";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
 import { ProviderCreateDialog } from "../components/configuration/provider-create-dialog";
 import { ProviderRenameDialog } from "../components/configuration/provider-rename-dialog";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
 import { ConfigurationEffectNotice, recordConfigurationSave } from "../components/configuration/configuration-effect-notice";
-import { SecretInput } from "../components/secret-input";
+import { SecretInput } from "../ui/secret-input";
 import { ThinkingLevelMapEditor } from "../components/configuration/thinking-level-map-editor";
 import { getThinkingProtocolPreview, thinkingProtocolOptions } from "../components/configuration/thinking-protocol-preview";
 import { useOnlineStatus } from "../use-online-status";
@@ -711,7 +711,7 @@ export function ProvidersPage() {
             <label><span>Base URL</span><input value={draft.baseUrl ?? ""} onChange={(event) => setDraft({ ...draft, baseUrl: event.target.value })} /></label>
             <label><span>API 协议</span><select value={draft.api ?? "openai-completions"} onChange={(event) => setDraft({ ...draft, api: event.target.value })}><option value="openai-completions">OpenAI Completions</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option><option value="google-generative-ai">Google Generative AI</option></select></label>
             <label><span>认证 Header</span><input type="checkbox" checked={draft.authHeader !== false} onChange={(event) => setDraft({ ...draft, authHeader: event.target.checked })} /></label>
-            <details className="provider-advanced"><summary>高级连接 Headers</summary><KeyValueEditor label="Headers" rows={headers} onChange={setHeaders} /></details>
+            <details className="provider-advanced"><summary>高级连接 Headers</summary><KeyValueEditor keyPlaceholder="Header 名称" emptyLabel="没有自定义 Header。" label="Headers" rows={headers} onChange={setHeaders} /></details>
             <section className="provider-credential"><h3>独立凭证</h3><p className="configuration-help">只保存 API Key；留空不替换。连接参数和模型使用底部保存按钮。</p><label><span>API Key<small>留空不会修改现有凭证</small></span><SecretInput aria-label="API Key" autoComplete="new-password" value={apiKey} visible={apiKeyVisible} onVisibilityChange={() => void toggleApiKeyVisibility()} onChange={(event) => setApiKey(event.target.value)} placeholder={credential ? "输入新 Key 以替换" : "输入 API Key"} /></label>
             <div className="configuration-button-row"><button type="button" disabled={!savedProvider || !credentialDirty || busy !== false || !online} onClick={() => void saveCredential()}>保存凭证</button>{credential ? <button type="button" className="danger-link" disabled={!online || busy !== false} onClick={() => { setError(""); setDeleteTarget("credential"); }}>删除凭证</button> : null}<small>{savedProvider ? (credential ? "已配置 · 点击小眼睛查看" : "未配置") : "请先创建 Provider"}</small></div>
             </section>

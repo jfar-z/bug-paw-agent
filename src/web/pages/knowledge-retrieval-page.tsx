@@ -5,10 +5,10 @@ import { api, ApiClientError } from "../api";
 import { useApiTask } from "../api-task-provider";
 import { useErrorToast } from "../error-toast-provider";
 import { toUnexpectedErrorNotice } from "../api-error-policy";
-import { SecretInput } from "../components/secret-input";
+import { SecretInput } from "../ui/secret-input";
 import { useOnlineStatus } from "../use-online-status";
-import { useUnsavedChanges } from "../components/configuration/unsaved-changes";
-import { ConfigurationTabs } from "../components/configuration/configuration-tabs";
+import { useUnsavedChanges } from "../ui/unsaved-changes";
+import { Tabs } from "../ui/tabs";
 import { ConfigurationEditorDialog } from "../components/configuration/configuration-editor-dialog";
 import "../configuration.css";
 import "../configuration-maintenance.css";
@@ -107,7 +107,7 @@ export function KnowledgeRetrievalPage() {
     {cached || !online ? <p className="configuration-save-notice" role="status">离线只读 · 显示上次保存的脱敏配置，不能保存或重建。</p> : null}
     {conflict || loadState === "error" ? <section className="configuration-inline-error" role="alert"><p>{conflict ? "版本冲突，修改保留；重新读取将放弃当前草稿。" : "配置读取未完成，旧配置仅供查看。"}</p><button type="button" disabled={!online || busy} onClick={() => guard.request(() => setReload((v) => v + 1))}>重新读取配置</button></section> : null}
     <section className="configuration-form-card"><small>已保存配置</small><h2>{document.config ? `${document.config.isManaged ? "内置服务" : "外部兼容服务"} · ${document.config.enabled ? "启用" : "关闭"}` : "尚未配置服务"}</h2><p className="maintenance-muted">服务模式是配置事实，不代表连接健康或索引已最新。</p></section>
-    <ConfigurationTabs value={category} onChange={setCategory} items={[{ value: "connection", label: "连接配置" }, { value: "index", label: "索引维护" }]} />
+    <Tabs label="配置页面分区" panelId="configuration-maintenance-panel" value={category} onChange={setCategory} items={[{ id: "connection", label: "连接配置" }, { id: "index", label: "索引维护" }]} />
     <div role="tabpanel" id="configuration-maintenance-panel" aria-labelledby={`configuration-maintenance-panel-${category}`}>
     {category === "connection" ? <><section className="configuration-form-card"><fieldset className="maintenance-fieldset" disabled={!writable || busy}><label><span>服务模式</span><select aria-label="服务模式" value={draft.mode} onChange={(event) => { const mode = event.target.value as "managed" | "external"; update("mode", mode); setBatch(mode === "managed" ? String(document.managed?.maxBatchSize ?? 4) : "32"); setVisible(false); setRevealed(""); }}><option value="managed" disabled={!document.managed?.available && !document.config?.isManaged}>内置服务{document.managed?.available === false ? "（当前部署未提供）" : ""}</option><option value="external">外部 OpenAI 兼容服务</option></select></label>
       <label className="configuration-capability-toggle"><span>启用语义检索<small>启用时上传建立全文与向量索引；重新启用后需要重建已有资料。</small></span><input type="checkbox" aria-label="启用语义检索" checked={draft.enabled} onChange={(event) => update("enabled", event.target.checked)} /></label>

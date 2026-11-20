@@ -1,0 +1,70 @@
+@import "./tokens.css";
+.bp-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bp-space-2);
+  min-height: var(--bp-control-height-md);
+  cursor: pointer;
+}
+.bp-choice__input {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: inherit;
+}
+.bp-choice__input:checked,
+.bp-choice__input:indeterminate {
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+}
+.bp-choice__input[type="checkbox"]:not([role="switch"]):checked:after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border: solid var(--primary-text);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+.bp-choice__input:indeterminate:after {
+  content: "−";
+  color: var(--primary-text);
+}
+.bp-choice__input[type="radio"] {
+  border-radius: 50%;
+}
+.bp-choice__input[type="radio"]:checked:after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--primary-text);
+  border-radius: 50%;
+}
+.bp-choice__input[role="switch"] {
+  width: 36px;
+  height: 22px;
+  border-radius: var(--bp-radius-pill);
+  justify-content: start;
+  padding: 2px;
+}
+.bp-choice__input[role="switch"]:after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+.bp-choice__input[role="switch"]:checked {
+  justify-content: end;
+}
+.bp-choice__input[role="switch"]:checked:after {
+  background: var(--primary-text);
+}
+@media (pointer: coarse) {
+  .bp-choice { min-height: var(--bp-touch-target); }
+}

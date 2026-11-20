@@ -1,0 +1,103 @@
+.bp-group,
+.bp-save-bar,
+.bp-segment {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--bp-space-1);
+}
+.bp-save-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  padding: var(--bp-space-2);
+  justify-content: flex-end;
+}
+.bp-segment {
+  background: var(--surface-soft);
+  border-radius: var(--bp-radius-control);
+  padding: 4px;
+}
+.bp-segment__option {
+  position: relative;
+  cursor: pointer;
+}
+.bp-segment__option input {
+  position: absolute;
+  opacity: 0;
+}
+.bp-segment__option span {
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--bp-radius-control);
+}
+.bp-segment__option input:checked + span {
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.bp-segment__option input:focus-visible + span {
+  outline: 2px solid var(--focus);
+}
+.bp-search {
+  position: relative;
+}
+.bp-search .bp-input {
+  padding-right: 44px;
+}
+.bp-search .bp-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.bp-table {
+  overflow: auto;
+}
+.bp-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bp-table td,
+.bp-table th {
+  padding: 8px;
+  text-align: start;
+  border-bottom: 1px solid var(--border);
+}
+.bp-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  max-width: calc(100vw - 16px);
+  max-height: 65dvh;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--bp-radius-panel);
+  color: var(--text-primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+@media (pointer: coarse) {
+  .bp-segment__option span {
+    min-height: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .bp-table tbody tr {
+    display: grid;
+    margin-block: 8px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--bp-radius-panel);
+  }
+  .bp-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .bp-table tbody td::before {
+    content: attr(data-label);
+    color: var(--text-secondary);
+  }
+}

@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import { Fragment } from "react";
 import { configurationGroups } from "../configuration-navigation";
 import type { AppRoute } from "../router";

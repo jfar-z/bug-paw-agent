@@ -7,7 +7,7 @@ import { useApiTask } from "../api-task-provider";
 import { MediaPreview } from "../components/media-library-preview";
 import { MediaFileDeleteDialog } from "../components/media-file-delete-dialog";
 import { MediaThumbnail } from "../components/media-thumbnail";
-import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import { useErrorToast } from "../error-toast-provider";
 import { useMediaNavigation } from "../layouts/workbench-shell";
 import { navigateTo } from "../router";

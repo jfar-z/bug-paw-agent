@@ -416,7 +416,7 @@ textarea:focus-visible {
 .question-composer,
 .question-timeline-card,
 .configuration-section,
-.settings-section,
+.bp-section,
 .knowledge-base-overview,
 .knowledge-base-documents,
 .knowledge-base-side-panel,
@@ -515,7 +515,7 @@ textarea:focus-visible {
 }
 
 /* AIGC 二级侧栏的标题与状态说明固定使用深色面板前景，避免继承内容区文字令牌。 */
-:root[data-theme="bug"] .aigc-workbench-sidebar .secondary-sidebar-header__eyebrow,
+:root[data-theme="bug"] .aigc-workbench-sidebar .bp-sidebar-header__eyebrow,
 :root[data-theme="bug"] .aigc-workbench-sidebar__footer {
   color: #fff8ee;
 }
@@ -620,7 +620,7 @@ textarea:focus-visible {
 :root[data-theme="bug"] .form-frame,
 :root[data-theme="bug"] .composer,
 :root[data-theme="bug"] .configuration-section,
-:root[data-theme="bug"] .settings-section,
+:root[data-theme="bug"] .bp-section,
 :root[data-theme="bug"] .knowledge-base-overview,
 :root[data-theme="bug"] .knowledge-base-documents,
 :root[data-theme="bug"] .knowledge-base-side-panel,
@@ -638,8 +638,8 @@ textarea:focus-visible {
 
 :root[data-theme="bug"] .icon-button,
 :root[data-theme="bug"] .theme-segment button,
-:root[data-theme="bug"] input,
-:root[data-theme="bug"] textarea,
+:root[data-theme="bug"] input:not(:where(.bp-input, .bp-choice__input)),
+:root[data-theme="bug"] textarea:not(:where(.bp-input)),
 :root[data-theme="bug"] select,
 :root[data-theme="bug"] .session-row,
 :root[data-theme="bug"] .session-nav > button,

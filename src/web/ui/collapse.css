@@ -1,0 +1,4 @@
+.bp-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 160ms ease,opacity 160ms ease}
+.bp-collapse.is-expanded{grid-template-rows:1fr;opacity:1}
+.bp-collapse__inner{overflow:hidden;min-height:0}
+@media(prefers-reduced-motion:reduce){.bp-collapse{transition:none}}

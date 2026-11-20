@@ -6,10 +6,10 @@ import type { AvatarCropArea } from "../../shared/avatar-contracts";
 import { BUILTIN_TOOL_CATALOG, CAPABILITY_TOOL_CATALOG, DEFAULT_AGENT_TOOL_NAMES, SYSTEM_TOOL_CATALOG } from "../../shared/tool-catalog";
 import { api, type ModelSummary, type ResourceCatalog } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { DangerDialog } from "../components/configuration/danger-dialog";
+import { ConfirmDialog } from "../ui/dialog";
 import { AvatarCropDialog } from "../components/avatar/avatar-crop-dialog";
 import { validateAvatarFile } from "../components/avatar/avatar-file";
-import { InheritedField } from "../components/configuration/inherited-field";
+import { FormField } from "../ui/form-field";
 import type { AppRoute } from "../router";
 import { formatTtsCustomParameters, parseTtsCustomParametersText } from "../tts-custom-parameters-form";
 import { useOnlineStatus } from "../use-online-status";
@@ -330,17 +330,13 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
 
       {activeTab === "runtime" ? (
         <section className="configuration-form-card configuration-single-column">
-          <InheritedField label="默认模型" inherited={!agent.defaultModel} inheritedValue={inheritedModelLabel} onInheritedChange={(inherited) => updateProfile({ defaultModel: inherited ? undefined : globalDefaultModel ?? models[0] ? { provider: (globalDefaultModel ?? models[0]).provider, id: (globalDefaultModel ?? models[0]).id } : undefined })}>
-            <select aria-label="Agent 默认模型" value={agent.defaultModel ? `${agent.defaultModel.provider}:${agent.defaultModel.id}` : ""} onChange={(event) => { const [provider, ...id] = event.target.value.split(":"); updateProfile({ defaultModel: { provider, id: id.join(":") } }); }}>
+          <FormField label="默认模型" inherit={{ active:!agent.defaultModel, value:inheritedModelLabel, onChange:(inherited) => updateProfile({ defaultModel: inherited ? undefined : globalDefaultModel ?? models[0] ? { provider: (globalDefaultModel ?? models[0]).provider, id: (globalDefaultModel ?? models[0]).id } : undefined }) }}>{(bindings) => <select {...bindings} aria-label="Agent 默认模型" value={agent.defaultModel ? `${agent.defaultModel.provider}:${agent.defaultModel.id}` : ""} onChange={(event) => { const [provider, ...id] = event.target.value.split(":"); updateProfile({ defaultModel: { provider, id: id.join(":") } }); }}>
               <option value="" disabled>{inheritedModelLabel}</option>
               {models.map((model) => <option key={`${model.provider}:${model.id}`} value={`${model.provider}:${model.id}`}>{model.provider} / {model.name}</option>)}
-            </select>
-          </InheritedField>
-          <InheritedField label="思考级别" inherited={!agent.defaultThinkingLevel} inheritedValue="模型或全局默认值" onInheritedChange={(inherited) => updateProfile({ defaultThinkingLevel: inherited ? undefined : "medium" })}>
-            <select aria-label="Agent 思考级别" value={agent.defaultThinkingLevel ?? "medium"} onChange={(event) => updateProfile({ defaultThinkingLevel: event.target.value as AgentProfile["defaultThinkingLevel"] })}>
+            </select>}</FormField>
+          <FormField label="思考级别" inherit={{ active:!agent.defaultThinkingLevel, value:"模型或全局默认值", onChange:(inherited) => updateProfile({ defaultThinkingLevel: inherited ? undefined : "medium" }) }}>{(bindings) => <select {...bindings} aria-label="Agent 思考级别" value={agent.defaultThinkingLevel ?? "medium"} onChange={(event) => updateProfile({ defaultThinkingLevel: event.target.value as AgentProfile["defaultThinkingLevel"] })}>
               {thinkingLevels.map((level) => <option key={level} value={level}>{level}</option>)}
-            </select>
-          </InheritedField>
+            </select>}</FormField>
           <section className="configuration-form-card configuration-single-column">
             <h2>标题生成</h2>
             <p className="configuration-help">同 Agent 会跟随会话实际模型；系统默认使用 Pi 全局默认模型。启用思考后，标题会继承此 Agent 的思考级别。</p>
@@ -402,12 +398,12 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
       {activeTab !== "effective" && activeTab !== "resources" ? <div className="configuration-save-bar"><button type="button" className="configuration-primary-action" onClick={save} disabled={saving || document?.revision === "fallback" || !online}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : "保存更改"}</button></div> : null}
 
       {deleteOpen ? (
-        <DangerDialog title="删除 Agent" confirmText="永久删除 Agent" expectedText={agent.name} onCancel={() => setDeleteOpen(false)} onConfirm={removeAgent}>
+        <ConfirmDialog title="删除 Agent" confirmLabel="永久删除 Agent" requireText={agent.name} onCancel={() => setDeleteOpen(false)} onConfirm={removeAgent}>
           <p>Profile 将被删除。工作目录会移动到回收区，不会直接擦除。</p>
           <dl className="delete-impact"><div><dt>Sessions</dt><dd>{deletePreview?.sessions.count ?? "…"}</dd></div><div><dt>工作目录文件</dt><dd>{deletePreview?.workspace.files ?? "…"}</dd></div><div><dt>占用空间</dt><dd>{deletePreview ? `${deletePreview.workspace.bytes} B` : "…"}</dd></div></dl>
           <label><input type="checkbox" checked={removeSessions} onChange={(event) => setRemoveSessions(event.target.checked)} />同时删除关联 Sessions</label>
           <label><input type="checkbox" checked={removeWorkspace} onChange={(event) => setRemoveWorkspace(event.target.checked)} />同时移除工作目录</label>
-        </DangerDialog>
+        </ConfirmDialog>
       ) : null}
       {bootsharpOpen ? <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog" role="dialog" aria-modal="true" aria-labelledby="bootsharp-title"><header><div><span>INITIALIZATION</span><h2 id="bootsharp-title">修改 BOOTSHARP</h2></div><button type="button" className="icon-button" aria-label="关闭 BOOTSHARP 编辑" onClick={() => setBootsharpOpen(false)}><X size={18} /></button></header><p>此提示仅在文件非空时引导首次协作；清空后将不再注入新会话。</p><label className="configuration-field"><span>BOOTSHARP 内容</span><textarea aria-label="BOOTSHARP 内容" rows={16} value={bootsharp} onChange={(event) => setBootsharp(event.target.value)} /></label><footer><button type="button" className="secondary-button" onClick={() => setBootsharpOpen(false)}>取消</button><button type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void saveBootsharp()}>{saving ? "保存中…" : "保存 BOOTSHARP"}</button></footer></section></div> : null}
       {avatarFile ? <AvatarCropDialog

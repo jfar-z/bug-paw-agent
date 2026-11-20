@@ -1,12 +1,13 @@
+import { ConfirmDialog } from "../ui/dialog";
 import { ArrowUpRight, Boxes, Plus, Save, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AigcChannelSummary, AigcInterfaceInput, AigcInterfaceProtocol, AigcInterfaceCapability, AigcInterfaceRecord, AigcOpenAiInterfaceConfig } from "../../shared/aigc-contracts";
 import { createDefaultOpenAiParameters } from "../../shared/aigc-openai-parameters";
 import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
-import { AigcConfigDrawer, AigcConfigConfirmation as ConfirmationDialog } from "../components/aigc-config-drawer";
+import { AigcConfigDrawer } from "../components/aigc-config-drawer";
 import { AigcMcpClientManager } from "../components/aigc-mcp-client-manager";
-import { ConfigurationSelect } from "../components/configuration/configuration-select";
+import { SearchSelect } from "../ui/search-select";
 import { useOnlineStatus } from "../use-online-status";
 import { OpenAiParameterEditor, useAigcUnsavedNavigation, emptyInterface, defaultCapability, capabilityOptions, capabilityLabel, interfaceProtocolName, interfaceProtocolDescription, aigcExpected } from "./aigc-workbench-page";
 import "../configuration.css";
@@ -211,7 +212,7 @@ export function AigcInterfacesPage() {
             <label><span>能力</span><select aria-label="AIGC 接口能力" value={draft.capability} onChange={(event) => setDraft({ ...draft, capability: event.target.value as AigcInterfaceCapability })}>
               {capabilityOptions(draft.protocol).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select></label>
-            <div className="aigc-config-field"><span>渠道</span><ConfigurationSelect
+            <div className="aigc-config-field"><span>渠道</span><SearchSelect
               ariaLabel="AIGC 渠道"
               options={channels.filter((channel) => channel.type === draft.protocol).map((channel) => ({ value: channel.id, label: channel.name, description: channel.enabled ? "已启用" : "已停用" }))}
               value={draft.channelId || undefined}
@@ -257,9 +258,9 @@ export function AigcInterfacesPage() {
         </div>
         </fieldset>
       </AigcConfigDrawer> : null}
-      {pendingAction ? <ConfirmationDialog title="放弃未保存修改？" description="当前接口表单还有未保存内容。继续后，这些修改将丢失。" confirmLabel="放弃修改" destructive={false} onCancel={() => setPendingAction(undefined)} onConfirm={() => { const action = pendingAction; setPendingAction(undefined); action(); }} /> : null}
-      {navigationGuard.pendingRoute ? <ConfirmationDialog title="离开并放弃修改？" description="当前接口表单还有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
-      {deleteTarget ? <ConfirmationDialog title={`删除接口“${deleteTarget.name}”？`} description="删除后无法恢复，引用该接口的创作入口将立即失效，历史任务仍会保留。" confirmLabel="删除接口" busy={busy} onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
+      {pendingAction ? <ConfirmDialog title="放弃未保存修改？" description="当前接口表单还有未保存内容。继续后，这些修改将丢失。" confirmLabel="放弃修改" destructive={false} onCancel={() => setPendingAction(undefined)} onConfirm={() => { const action = pendingAction; setPendingAction(undefined); action(); }} /> : null}
+      {navigationGuard.pendingRoute ? <ConfirmDialog title="离开并放弃修改？" description="当前接口表单还有未保存内容。离开页面后，这些修改将丢失。" confirmLabel="离开页面" destructive={false} onCancel={navigationGuard.cancel} onConfirm={navigationGuard.confirm} /> : null}
+      {deleteTarget ? <ConfirmDialog title={`删除接口“${deleteTarget.name}”？`} description="删除后无法恢复，引用该接口的创作入口将立即失效，历史任务仍会保留。" confirmLabel="删除接口" busy={busy} onCancel={() => setDeleteTarget(undefined)} onConfirm={() => void remove()} /> : null}
     </div>
   );
 }

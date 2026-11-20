@@ -10,8 +10,7 @@
   gap: 32px;
 }
 
-.provider-form > .configuration-section__heading button,
-.key-value-editor header button {
+.provider-form > .configuration-section__heading button {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -36,7 +35,6 @@
   justify-self: start;
 }
 
-.key-value-editor,
 .thinking-map {
   display: grid;
   gap: 8px;
@@ -44,7 +42,6 @@
   border-top: 1px solid var(--border);
 }
 
-.key-value-editor header,
 .thinking-map header {
   display: flex;
   align-items: center;
@@ -52,31 +49,14 @@
   gap: 12px;
 }
 
-.key-value-editor header strong,
 .thinking-map header strong {
   font-size: 11px;
 }
 
-.key-value-editor > p,
 .thinking-map header small {
   margin: 0;
   color: var(--text-tertiary);
   font-size: 11px;
-}
-
-.key-value-editor > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr) 36px;
-  gap: 8px;
-}
-
-.key-value-editor > div button {
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--danger);
-  background: transparent;
 }
 
 .model-chip-list {
@@ -365,5 +345,4 @@
   .provider-model-row > .configuration-button-row { align-self: flex-end; }
   .provider-drawer .configuration-form-card label { grid-template-columns: 1fr; gap: 8px; }
   .provider-drawer .configuration-editor-drawer__footer button { padding: 0 12px; font-size: 12px; }
-  .key-value-editor > div { grid-template-columns: minmax(0, .4fr) minmax(0, 1fr) 36px; }
 }

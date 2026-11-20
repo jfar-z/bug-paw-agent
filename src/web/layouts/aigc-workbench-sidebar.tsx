@@ -1,5 +1,5 @@
 import { Activity, Boxes, FolderOpen, GalleryHorizontalEnd, GitFork, LayoutDashboard, Scissors, WandSparkles, X } from "lucide-react";
-import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
 
 export const AIGC_NAVIGATION_TOGGLE_EVENT = "pi-agent:toggle-aigc-navigation";

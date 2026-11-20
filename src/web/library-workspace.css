@@ -12,7 +12,7 @@
 
 .knowledge-base-navigation { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; padding: 0 10px 12px; border-right: 1px solid var(--border); background: var(--surface-soft); }
 
-.knowledge-base-navigation > .secondary-sidebar-header { padding: 22px 12px 17px; }
+.knowledge-base-navigation > .bp-sidebar-header { padding: 22px 12px 17px; }
 
 .knowledge-base-navigation nav { display: grid; align-content: start; gap: 3px; overflow: auto; }
 

@@ -4,7 +4,7 @@ import { formatToolValue, type ToolBlock } from "../conversation-timeline";
 import { toolActivityCopy, toolStatusCopy, toolTargetPath } from "../features/chat/tool-activity-copy";
 import { dataFileLinkMediaKind } from "../workspace-links";
 import { activityStatusStyle } from "./activity-status-style";
-import { CollapsibleRegion } from "./collapsible-region";
+import { Collapse } from "../ui/collapse";
 
 interface LiveToolCardProps {
   tool: ToolBlock;
@@ -61,7 +61,7 @@ export function LiveToolCard({ tool, onLinkActivate }: LiveToolCardProps) {
         </div>
       </div>
 
-      <CollapsibleRegion expanded={expanded} className="live-tool-card__collapse">
+      <Collapse expanded={expanded} className="live-tool-card__collapse">
         <div className="live-tool-card__details">
           {tool.status === "parameterizing"
             ? <ToolParameterProgress tool={tool} />
@@ -71,7 +71,7 @@ export function LiveToolCard({ tool, onLinkActivate }: LiveToolCardProps) {
             </>}
           {hasToolDetailValue(tool.details) && <ToolDetail title="详情" value={tool.details} />}
         </div>
-      </CollapsibleRegion>
+      </Collapse>
     </section>
   );
 }

@@ -4,8 +4,8 @@ import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { api, type KnowledgeBaseDetail, type KnowledgeDocumentChunk, type KnowledgeDocumentSummary, type KnowledgeSearchResult } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
 import { MarkdownContent } from "../components/markdown-content";
-import { SecondarySidebarHeader } from "../components/secondary-sidebar-header";
-import { ConfirmationDialog } from "../components/configuration/confirmation-dialog";
+import { SecondarySidebarHeader } from "../ui/sidebar-header";
+import { ConfirmDialog } from "../ui/dialog";
 
 import { KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT } from "../router";
 import "../configuration.css";
@@ -195,7 +195,7 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
     {bindingOpen ? <BindingDialog base={base} agents={agents} onCancel={() => setBindingOpen(false)} onSaved={(updated) => { onChanged(updated); setBindingOpen(false); }} /> : null}
     {editOpen ? <EditKnowledgeBaseDialog base={base} onCancel={() => setEditOpen(false)} onDeleteRequested={() => { setEditOpen(false); onDeleteRequested(base); }} onSaved={(updated) => { onChanged(updated); setEditOpen(false); }} /> : null}
     {document ? <DocumentDialog document={document} onClose={() => setDocument(undefined)} /> : null}
-    {documentToDelete ? <ConfirmationDialog title="删除资料" description={`确定删除“${documentToDelete.name}”吗？这会同时删除其检索索引。`} confirmLabel="删除资料" busy={busy} onCancel={() => setDocumentToDelete(undefined)} onConfirm={() => void removeDocument()} /> : null}
+    {documentToDelete ? <ConfirmDialog title="删除资料" description={`确定删除“${documentToDelete.name}”吗？这会同时删除其检索索引。`} confirmLabel="删除资料" busy={busy} onCancel={() => setDocumentToDelete(undefined)} onConfirm={() => void removeDocument()} /> : null}
   </section>;
 }
 
