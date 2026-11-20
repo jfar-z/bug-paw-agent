@@ -4,48 +4,17 @@
 .media-library-navigation .media-library-nav-row > button:first-child { width: 100%; padding-inline-end: 48px; }
 .media-library-nav-row > button:first-child > svg { flex-shrink: 0; }
 
-.media-library-navigation nav .media-library-nav-trigger {
+.media-library-nav-row .media-library-nav-actions {
   position: absolute;
   inset: 0 0 0 auto;
-  display: grid;
-  width: 44px;
+}
+
+.media-library-navigation nav .media-library-nav-actions > button {
+  justify-content: center;
+  width: var(--bp-touch-target);
   height: 100%;
   padding: 0;
-  place-items: center;
 }
-
-.media-library-actions {
-  position: fixed;
-  z-index: 72;
-  width: 174px;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100dvh - 16px);
-  padding: 6px;
-  overflow: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-}
-
-.media-library-actions > button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  min-height: 34px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 7px;
-  color: var(--text-primary);
-  background: transparent;
-  font-size: 12px;
-  text-align: left;
-}
-
-.media-library-actions > button:hover,
-.media-library-actions > button:focus-visible { background: color-mix(in srgb, var(--surface), var(--surface-hover)); }
-.media-library-actions > .is-danger { color: color-mix(in srgb, var(--danger) 65%, var(--text-primary)); }
 
 .media-library-landing {
   display: grid;
@@ -192,20 +161,7 @@
 
 .media-library-form { gap: 14px; }
 
-.media-library-form input,
-.media-library-form textarea {
-  width: 100%;
-  min-height: 42px;
-  min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  color: var(--text-primary);
-  background: var(--surface-soft);
-  font: inherit;
-}
-
-.media-library-form textarea { resize: vertical; }
+.media-library-form input[type="file"] { min-height: var(--bp-control-height-md); }
 
 .media-library-name {
   display: flex;
@@ -217,7 +173,6 @@
 
 @media (max-width: 760px) {
   .media-library-scrim { display: block; }
-  .media-library-actions > button { min-height: 44px; }
   .media-library-navigation button,
   .media-library-workspace button,
   .media-library-dialog button { min-height: 44px; }

@@ -145,7 +145,14 @@ export function LoginPage({ onLogin, onVerify }: LoginPageProps) {
               <ArrowRight size={18} aria-hidden="true" />
             </Button>
           </form>
-          {challenge ? <div className="login-factor-actions"><button type="button" className="text-button" disabled={submitting} onClick={() => { setRecovery(!recovery); setCode(""); setError(""); }}>{recovery ? "使用验证器验证码" : "无法使用验证器？使用恢复码"}</button><button type="button" className="text-button" disabled={submitting} onClick={() => { setChallenge(undefined); setCode(""); setError(""); }}>返回密码登录</button></div> : null}
+          {challenge ? <div className="login-factor-actions">
+            <Button variant="ghost" disabled={submitting} onClick={() => { setRecovery(!recovery); setCode(""); setError(""); }}>
+              {recovery ? "使用验证器验证码" : "无法使用验证器？使用恢复码"}
+            </Button>
+            <Button variant="ghost" disabled={submitting} onClick={() => { setChallenge(undefined); setCode(""); setError(""); }}>
+              返回密码登录
+            </Button>
+          </div> : null}
 
           {error ? <p className="login-error" role="alert">{error}</p> : null}
 

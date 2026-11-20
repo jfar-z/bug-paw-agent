@@ -595,30 +595,9 @@ p {
   margin-top: 12px;
 }
 
-.login-factor-actions button {
-  min-height: 44px;
-  padding: 6px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
+.login-factor-actions .bp-button {
+  min-height: var(--bp-touch-target);
   font-size: 13px;
-  cursor: pointer;
-}
-
-.login-factor-actions button:hover:not(:disabled) {
-  color: var(--text-primary);
-  text-decoration: underline;
-}
-
-.login-factor-actions button:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
-.login-factor-actions button:disabled {
-  opacity: .5;
-  cursor: wait;
 }
 
 .login-security {

@@ -22,6 +22,11 @@
   top: auto;
   bottom: calc(100% + 4px);
 }
+.bp-menu__popup[data-portal] {
+  position: fixed;
+  z-index: 72;
+  max-width: calc(100vw - 16px);
+}
 .bp-menu__item {
   display: block;
   width: 100%;
@@ -53,3 +58,6 @@
 .bp-menu__item[data-danger] { color: var(--bp-danger-text, var(--danger)); }
 .bp-menu__separator { border-top:1px solid var(--border); }
 .bp-menu__item svg { width:16px;height:16px;margin-inline-end:8px;vertical-align:middle; }
+@media (pointer: coarse) {
+  .bp-menu__item { min-height: var(--bp-touch-target); }
+}

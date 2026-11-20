@@ -1,8 +1,8 @@
 import { Button, IconButton } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
+import { Menu } from "../ui/menu";
 import type { MediaCategory, MediaDeleteItemResult, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
 import { api } from "../api";
 import { useApiTask } from "../api-task-provider";
@@ -129,7 +129,12 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
             <LibraryBig size={16} aria-hidden="true" />
             <span><strong>{base.name}</strong><small>{base.fileCount} 个文件</small></span>
           </button>
-          <MediaLibraryActions name={base.name} online={online} drawerOpen={open} onAction={(kind) => openLibraryAction(kind, base.id)} />
+          <Menu key={String(open)} portal disabled={!online} className="media-library-nav-actions"
+            label={`管理媒体库：${base.name}`} title="管理媒体库" icon={<MoreHorizontal size={16} />}
+            items={[
+              { key: "edit", label: "编辑媒体库", icon: <Pencil />, onSelect: () => openLibraryAction("edit", base.id) },
+              { key: "delete", label: "删除媒体库", icon: <Trash2 />, danger: true, onSelect: () => openLibraryAction("delete", base.id) },
+            ]} />
         </div>)}
       </nav>
       {createButton("knowledge-base-navigation__create")}
@@ -180,94 +185,6 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
         if (libraryAction.id === libraryId) setFilesRevision((current) => current + 1);
       }} />}
   </section>;
-}
-
-/** 媒体库行操作沿用会话列表的三点入口，浮层脱离侧栏的滚动区域。 */
-function MediaLibraryActions({ name, online, drawerOpen, onAction }: {
-  name: string;
-  online: boolean;
-  drawerOpen: boolean;
-  onAction: (kind: "edit" | "delete") => void;
-}) {
-  const menuId = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const visible = open && online;
-
-  useLayoutEffect(() => {
-    const button = trigger.current;
-    const panel = menu.current;
-    if (!visible || !button || !panel) return;
-
-    const anchor = button.getBoundingClientRect();
-    const { width, height } = panel.getBoundingClientRect();
-    const margin = 8;
-    const gap = 4;
-    const below = anchor.bottom + gap;
-    const top = below + height <= window.innerHeight - margin ? below : Math.max(margin, anchor.top - gap - height);
-    const left = Math.min(Math.max(margin, anchor.right - width), window.innerWidth - margin - width);
-    panel.style.top = top + "px";
-    panel.style.left = left + "px";
-    panel.querySelector("button")?.focus();
-
-    const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !panel.contains(event.target) && !button.contains(event.target)) setOpen(false);
-    };
-    const dismiss = () => {
-      if (panel.contains(document.activeElement)) button.focus({ preventScroll: true });
-      setOpen(false);
-    };
-    const closeOnScroll = (event: Event) => {
-      if (event.target !== panel) dismiss();
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", closeOnScroll, true);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", closeOnScroll, true);
-    };
-  }, [visible]);
-
-  useEffect(() => {
-    if (!online) setOpen(false);
-  }, [online]);
-
-  useEffect(() => {
-    if (!drawerOpen && window.matchMedia("(max-width: 760px)").matches) setOpen(false);
-  }, [drawerOpen]);
-
-  function choose(kind: "edit" | "delete") {
-    trigger.current?.focus();
-    setOpen(false);
-    onAction(kind);
-  }
-
-  return <>
-    <button ref={trigger} type="button" className="icon-button media-library-nav-trigger"
-      aria-label={`管理媒体库：${name}`} title="管理媒体库" aria-haspopup="menu" aria-expanded={visible}
-      aria-controls={visible ? menuId : undefined} disabled={!online} onClick={() => setOpen((current) => !current)}>
-      <MoreHorizontal size={16} aria-hidden="true" />
-    </button>
-    {visible && createPortal(<div ref={menu} className="media-library-actions" id={menuId} role="menu" aria-label={`管理媒体库：${name}`}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Tab") {
-          if (event.key === "Escape") event.preventDefault();
-          trigger.current?.focus();
-          setOpen(false);
-        } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-          event.preventDefault();
-          const items = event.currentTarget.querySelectorAll("button");
-          const last = event.key === "End" || (event.key.startsWith("Arrow") && document.activeElement === items[0]);
-          items[last ? 1 : 0]?.focus();
-        }
-      }}>
-      <button type="button" role="menuitem" tabIndex={-1} onClick={() => choose("edit")}><Pencil size={15} aria-hidden="true" />编辑媒体库</button>
-      <button type="button" role="menuitem" tabIndex={-1} className="is-danger" onClick={() => choose("delete")}><Trash2 size={15} aria-hidden="true" />删除媒体库</button>
-    </div>, document.body)}
-  </>;
 }
 
 function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, onLibraryUpdate }: {

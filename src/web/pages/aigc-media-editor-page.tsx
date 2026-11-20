@@ -6,7 +6,7 @@ import { SearchSelect } from "../ui/search-select";
 import {
   AudioLines, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Download, Film, FolderOpen,
   GripVertical, Image as ImageIcon, ImagePlus, LoaderCircle, Pause, Play, Plus, Scissors,
-  Settings2, Trash2, Volume2, VolumeX, X,
+  Settings2, Trash2, Volume2, VolumeX,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -26,7 +26,8 @@ export function AigcMediaEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [creatingKind, setCreatingKind] = useState<AigcMediaProjectKind>();
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryKind, setLibraryKind] = useState<AigcOutputKind>("video");
   const [outputs, setOutputs] = useState<AigcOutputItem[]>([]);
@@ -139,6 +140,7 @@ export function AigcMediaEditorPage() {
     const existing = projects.find((candidate) => candidate.kind === kind);
     if (existing) return selectProject(existing);
     creatingProject.current = true;
+    setCreatingKind(kind);
     try {
       const result = await runApiTask(() => api.createAigcMediaProject({ kind }), {
         operation: "新建剪辑工程", expected: editorExpected(setError),
@@ -150,13 +152,14 @@ export function AigcMediaEditorPage() {
       }
     } finally {
       creatingProject.current = false;
+      setCreatingKind(undefined);
     }
   };
 
   const selectProject = (next: AigcMediaProject) => {
     currentProjectIdRef.current = next.id;
     setProject(next);
-    setProjectMenuOpen(false);
+    setProjectDialogOpen(false);
     setLibraryOpen(false);
     setSelectedClipId(next.clips[0]?.id ?? "");
     setPlayheadMs(0);
@@ -235,8 +238,14 @@ export function AigcMediaEditorPage() {
     <header className="aigc-media-editor-header">
       <div className="aigc-media-editor-heading">
         <span>AIGC WORKBENCH</span>
-        <div><h1>轻剪辑</h1><button type="button" className="aigc-media-editor-project-switcher" aria-expanded={projectMenuOpen} onClick={() => setProjectMenuOpen((open) => !open)}><FolderOpen size={14} aria-hidden="true" /><span>{project.name}</span><ChevronDown size={13} aria-hidden="true" /></button></div>
-        {projectMenuOpen ? <ProjectMenu projects={projects} current={project} onClose={() => setProjectMenuOpen(false)} onSelect={selectProject} onCreate={(kind) => void createProject(kind)} /> : null}
+        <div>
+          <h1>轻剪辑</h1>
+          <Button variant="ghost" size="sm" className="aigc-media-editor-project-switcher"
+            aria-label={`剪辑工程：${project.name}`} aria-haspopup="dialog" aria-expanded={projectDialogOpen}
+            onClick={() => setProjectDialogOpen(true)}>
+            <FolderOpen aria-hidden="true" /><span title={project.name}>{project.name}</span><ChevronDown aria-hidden="true" />
+          </Button>
+        </div>
       </div>
       <div className="aigc-media-editor-actions">
         <Tabs<AigcMediaProjectKind> label="工程类型" panelId="media-project-panel" value={project.kind} manual
@@ -251,7 +260,7 @@ export function AigcMediaEditorPage() {
       </div>
     </header>
 
-    {error ? <p className="configuration-inline-error aigc-media-editor-error">{error}</p> : null}
+    {error && !projectDialogOpen ? <p className="configuration-inline-error aigc-media-editor-error">{error}</p> : null}
     {renderJob ? <RenderStatus job={renderJob} onCancel={() => void cancelRender()} /> : null}
 
     <div id="media-project-panel" role="tabpanel" aria-labelledby={`media-project-panel-${project.kind}`}>
@@ -268,17 +277,41 @@ export function AigcMediaEditorPage() {
 
     </div>
 
+    {projectDialogOpen ? <ProjectDialog projects={projects} current={project} creatingKind={creatingKind} error={error}
+      onClose={() => setProjectDialogOpen(false)} onSelect={selectProject} onCreate={(kind) => void createProject(kind)} /> : null}
     {libraryOpen ? <AssetLibrary project={project} kind={libraryKind} items={outputs} loading={outputsLoading} onKindChange={setLibraryKind} onAdd={(item) => void addOutput(item)} onClose={() => setLibraryOpen(false)} /> : null}
   </main>;
 }
 
 /** 标题旁的工程切换器承载旧工程与新建入口。 */
-function ProjectMenu({ projects, current, onClose, onSelect, onCreate }: { projects: AigcMediaProject[]; current: AigcMediaProject; onClose: () => void; onSelect: (project: AigcMediaProject) => void; onCreate: (kind: AigcMediaProjectKind) => void }) {
-  return <div className="aigc-media-editor-project-menu" role="dialog" aria-label="剪辑工程">
-    <header><span>剪辑工程</span><IconButton label="关闭工程列表" onClick={onClose}><X size={16} /></IconButton></header>
-    <div className="aigc-media-editor-project-list">{projects.map((item) => <button key={item.id} type="button" className={item.id === current.id ? "is-current" : undefined} onClick={() => onSelect(item)}><span><strong>{item.name}</strong><small>{formatModified(item.updatedAt)}</small></span><span>{item.kind === "video" ? "视频" : "音频"}</span></button>)}</div>
-    <footer><Button onClick={() => onCreate("video")}><Film size={14} aria-hidden="true" />新建视频工程</Button><Button onClick={() => onCreate("audio")}><AudioLines size={14} aria-hidden="true" />新建音频工程</Button></footer>
-  </div>;
+function ProjectDialog({ projects, current, creatingKind, error, onClose, onSelect, onCreate }: {
+  projects: AigcMediaProject[];
+  current: AigcMediaProject;
+  creatingKind?: AigcMediaProjectKind;
+  error: string;
+  onClose: () => void;
+  onSelect: (project: AigcMediaProject) => void;
+  onCreate: (kind: AigcMediaProjectKind) => void;
+}) {
+  const busy = Boolean(creatingKind);
+  return <Dialog title="剪辑工程" closeLabel="关闭工程列表" onClose={onClose} busy={busy}
+    footer={<div className="aigc-media-editor-project-actions">
+      <Button disabled={busy} loading={creatingKind === "video"} onClick={() => onCreate("video")}
+        icon={<Film aria-hidden="true" />}>新建视频工程</Button>
+      <Button disabled={busy} loading={creatingKind === "audio"} onClick={() => onCreate("audio")}
+        icon={<AudioLines aria-hidden="true" />}>新建音频工程</Button>
+    </div>}>
+    {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
+    {projects.map((item) => (
+      <Button key={item.id} variant="ghost" className="aigc-media-editor-project-option"
+        aria-current={item.id === current.id ? "true" : undefined} disabled={busy} onClick={() => onSelect(item)}>
+        <span className="aigc-media-editor-project-row">
+          <strong>{item.name}</strong>
+          <small>{item.kind === "video" ? "视频" : "音频"} · {formatModified(item.updatedAt)}</small>
+        </span>
+      </Button>
+    ))}
+  </Dialog>;
 }
 
 /** 在浏览器中按时间线逐段播放，避免预览阶段占用服务端转码资源。 */

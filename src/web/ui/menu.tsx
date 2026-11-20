@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./controls";
 import "./menu.css";
 
@@ -16,9 +17,17 @@ export function Menu({
   label,
   items,
   icon,
+  title,
+  disabled = false,
+  portal = false,
+  className = "",
 }: {
   label: string;
   icon?: ReactNode;
+  title?: string;
+  disabled?: boolean;
+  portal?: boolean;
+  className?: string;
   items: readonly {
     key: string;
     label: string;
@@ -29,15 +38,19 @@ export function Menu({
     separatorBefore?: boolean;
   }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const [expanded, setOpen] = useState(false);
+  const open = expanded && !disabled;
   const root = useRef<HTMLDivElement>(null),
     menu = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null),
     id = useId();
   function close() {
     setOpen(false);
-    trigger.current?.focus();
+    trigger.current?.focus({ preventScroll: true });
   }
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
   useLayoutEffect(() => {
     if (!open || !menu.current || !trigger.current) return;
     const popup = menu.current,
@@ -45,6 +58,19 @@ export function Menu({
     function place() {
       const rect = button.getBoundingClientRect(),
         height = popup.offsetHeight;
+      // 可滚动侧栏中的浮层使用视口坐标，避免被祖先的 overflow 裁切。
+      if (portal) {
+        const margin = 8;
+        const gap = 4;
+        const width = popup.offsetWidth;
+        const top = rect.bottom + gap + height <= window.innerHeight - margin
+          ? rect.bottom + gap
+          : Math.max(margin, rect.top - gap - height);
+        const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - margin - width));
+        popup.style.top = `${top}px`;
+        popup.style.left = `${left}px`;
+        return;
+      }
       popup.dataset.above = String(
         window.innerHeight - rect.bottom < height + 8 &&
           rect.top > window.innerHeight - rect.bottom,
@@ -57,27 +83,89 @@ export function Menu({
     popup
       .querySelector<HTMLElement>("[role=menuitem]:not(:disabled)")
       ?.focus({ preventScroll: true });
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
+    function onScroll(event: Event) {
+      if (!portal) place();
+      else if (event.target !== popup) close();
+    }
+    const onResize = portal ? close : place;
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
-  }, [open]);
+  }, [open, portal]);
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!root.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
+  const popup = open && (
+    <div
+      role="menu"
+      aria-label={label}
+      className="bp-menu__popup"
+      data-portal={portal || undefined}
+      id={id}
+      ref={menu}
+      onKeyDown={(e) => {
+        const buttons = Array.from(
+          e.currentTarget.querySelectorAll<HTMLButtonElement>(
+            "[role=menuitem]:not(:disabled)",
+          ),
+        );
+        const index = buttons.indexOf(
+          document.activeElement as HTMLButtonElement,
+        );
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          return;
+        }
+        if (e.key === "Tab" && portal) {
+          // 浮层位于文档末尾，Tab 从原条目的导航顺序继续。
+          close();
+          return;
+        }
+        const targets: Record<string, number> = {
+          ArrowDown: (index + 1) % buttons.length,
+          ArrowUp: (index - 1 + buttons.length) % buttons.length,
+          Home: 0,
+          End: buttons.length - 1,
+        };
+        if (e.key in targets) {
+          e.preventDefault();
+          buttons[targets[e.key]]?.focus();
+        }
+      }}
+    >
+      {items.map((item) => (
+        <Fragment key={item.key}>
+          {item.separatorBefore && <div role="separator" className="bp-menu__separator" />}
+          <button role="menuitem" type="button" className="bp-menu__item" tabIndex={-1}
+            disabled={item.disabled} data-danger={item.danger || undefined}
+            onClick={() => {
+              close();
+              item.onSelect();
+            }}>
+            {item.icon && <span aria-hidden="true">{item.icon}</span>}
+            {item.label}
+          </button>
+        </Fragment>
+      ))}
+    </div>
+  );
   return (
     <div
-      className="bp-menu"
+      className={["bp-menu", className].filter(Boolean).join(" ")}
       ref={root}
       onBlur={(e) => {
-        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget))
+        if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget) && !menu.current?.contains(e.relatedTarget))
           setOpen(false);
       }}
     >
@@ -85,7 +173,8 @@ export function Menu({
         ref={trigger}
         aria-label={label}
         className={icon ? "bp-button--icon" : undefined}
-        title={icon ? label : undefined}
+        title={title ?? (icon ? label : undefined)}
+        disabled={disabled}
         aria-controls={open ? id : undefined}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -99,60 +188,7 @@ export function Menu({
       >
         {icon ? <span aria-hidden>{icon}</span> : label}
       </Button>
-      {open && (
-        <div
-          role="menu"
-          aria-label={label}
-          className="bp-menu__popup"
-          id={id}
-          ref={menu}
-          onKeyDown={(e) => {
-            const buttons = Array.from(
-              e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                "[role=menuitem]:not(:disabled)",
-              ),
-            );
-            const index = buttons.indexOf(
-              document.activeElement as HTMLButtonElement,
-            );
-            if (e.key === "Escape") {
-              e.preventDefault();
-              e.stopPropagation();
-              close();
-              return;
-            }
-            const targets: Record<string, number> = {
-              ArrowDown: (index + 1) % buttons.length,
-              ArrowUp: (index - 1 + buttons.length) % buttons.length,
-              Home: 0,
-              End: buttons.length - 1,
-            };
-            if (e.key in targets) {
-              e.preventDefault();
-              buttons[targets[e.key]]?.focus();
-            }
-          }}
-        >
-          {items.map((i) => (
-            <Fragment key={i.key}>{i.separatorBefore && <div role="separator" className="bp-menu__separator"/>}<button
-              role="menuitem"
-              type="button"
-              className="bp-menu__item"
-              tabIndex={-1}
-              key={i.key}
-              disabled={i.disabled}
-              data-danger={i.danger || undefined}
-
-              onClick={() => {
-                close();
-                i.onSelect();
-              }}
-            >
-              {i.icon && <span aria-hidden="true">{i.icon}</span>}{i.label}
-            </button></Fragment>
-          ))}
-        </div>
-      )}
+      {portal && popup ? createPortal(popup, document.body) : popup}
     </div>
   );
 }

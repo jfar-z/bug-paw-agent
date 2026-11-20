@@ -86,9 +86,9 @@ it("信号量管理具有独立懒加载与主题响应式边界", async () => {
 
 /** 媒体页独立加载，并直接复用知识库侧栏的三主题规则。 */
 it("媒体库按路由加载缩略图和预览样式", async () => {
-  const [app, main, page, css, theme] = await Promise.all([
+  const [app, main, page, menuCss, theme] = await Promise.all([
     "src/web/app.tsx", "src/web/main.tsx", "src/web/pages/media-library-page.tsx",
-    "src/web/media-library.css", "src/web/bugpaw-theme.css",
+    "src/web/ui/menu.css", "src/web/bugpaw-theme.css",
   ].map((path) => readFile(path, "utf8")));
   expect(app).toContain('lazy(() => import("./pages/media-library-page")');
   expect(page).toContain('import "../media-library.css"');
@@ -99,8 +99,9 @@ it("媒体库按路由加载缩略图和预览样式", async () => {
   expect(theme).toContain(':root[data-theme="bug"] .knowledge-base-navigation');
   expect(page).toContain('from "../components/media-library-preview"');
   expect(page).toContain('from "../components/media-thumbnail"');
-  expect(css).toMatch(/\.media-library-actions\s*\{[^}]*background:\s*var\(--surface\)/);
-  expect(css).toMatch(/\.media-library-actions > \.is-danger\s*\{[^}]*var\(--danger\)/);
+  expect(page).toContain('import { Menu } from "../ui/menu"');
+  expect(menuCss).toMatch(/\.bp-menu__popup\s*\{[^}]*background:\s*var\(--surface\)/);
+  expect(menuCss).toMatch(/\.bp-menu__item\[data-danger\]\s*\{[^}]*var\(--bp-danger-text/);
 });
 
 /** 跨页面媒体按钮仅在弹层打开时加载选择器布局。 */
