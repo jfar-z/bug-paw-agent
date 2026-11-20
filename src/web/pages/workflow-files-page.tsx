@@ -1,5 +1,5 @@
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button, IconButton, TextField } from "../ui/controls";
+import { SearchField, Button, FilePickerButton, IconButton, TextField } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, File, FolderOpen, RefreshCw, Trash2, Upload } from "lucide-react";
@@ -27,7 +27,6 @@ export function WorkflowFilesPage() {
   const [cleanupResult, setCleanupResult] = useState("");
   const sequence = useRef(0), pending = useRef(false);
   const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const constantUploadInput = useRef<HTMLInputElement>(null);
   const reload = useCallback(async () => {
     const ticket = ++sequence.current;
     setLoading(true);
@@ -85,15 +84,8 @@ export function WorkflowFilesPage() {
       <div className="workspace-resources-page__toolbar">
         <SearchField className="workspace-search" label="搜索工作流文件" placeholder="搜索文件名" value={query} onChange={(next) => changeFilter(() => setQuery(next))} />
         <Button disabled={busy || !online} loading={loading} icon={<RefreshCw aria-hidden />} onClick={() => void reload()}>刷新</Button>
-        {directory === "constants" && <>
-          <Button disabled={busy || !online} icon={<Upload aria-hidden />} onClick={() => constantUploadInput.current?.click()}>上传常量</Button>
-          <input ref={constantUploadInput} type="file" aria-label="上传文件常量" multiple hidden disabled={busy || !online}
-            onChange={(event) => {
-              const files = Array.from(event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-              void upload(files);
-            }} />
-        </>}
+        {directory === "constants" && <FilePickerButton label="上传文件常量" disabled={busy || !online}
+          multiple icon={<Upload aria-hidden="true" />} onFilesSelected={(files) => void upload(files)}>上传常量</FilePickerButton>}
         <Button variant="danger" disabled={!online || busy || loading || !selected.length} icon={<Trash2 aria-hidden />} onClick={() => setConfirming(true)}>删除所选 {selected.length} 项</Button>
         <Button variant="danger" disabled={!online || busy || loading} icon={<Trash2 aria-hidden />} onClick={() => setClearingDirectory(directory)}>清理目录</Button>
       </div>

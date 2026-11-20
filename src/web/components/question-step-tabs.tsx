@@ -1,39 +1,28 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useId, type ReactNode } from "react";
+import { Tabs } from "../ui/tabs";
 
 interface QuestionStepTabsProps {
   count: number;
   activeIndex: number;
   onChange: (index: number) => void;
   label: string;
+  children: ReactNode;
 }
 
-/** 提供问答卡片共用的逐题切换语义和键盘行为。 */
-export function QuestionStepTabs({ count, activeIndex, onChange, label }: QuestionStepTabsProps) {
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  if (count <= 1) return null;
-
-  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number, offset: number) => {
-    event.preventDefault();
-    const nextIndex = (index + offset + count) % count;
-    onChange(nextIndex);
-    tabRefs.current[nextIndex]?.focus();
-  };
-
-  return <div className="question-step-tabs" role="tablist" aria-label={label}>
-    {Array.from({ length: count }, (_, index) => <button
-      key={index}
-      ref={(element) => {
-        tabRefs.current[index] = element;
-      }}
-      type="button"
-      role="tab"
-      aria-selected={index === activeIndex}
-      tabIndex={index === activeIndex ? 0 : -1}
-      onClick={() => onChange(index)}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") move(event, index, -1);
-        if (event.key === "ArrowRight") move(event, index, 1);
-      }}
-    >{index + 1}</button>)}
-  </div>;
+/** 历史问答共享页签键盘操作，当前问题和回答共用一个内容面板。 */
+export function QuestionStepTabs({ count, activeIndex, onChange, label, children }: QuestionStepTabsProps) {
+  const panelId = useId();
+  if (count <= 1) return <>{children}</>;
+  const value = String(activeIndex);
+  return <>
+    <Tabs
+      className="question-step-tabs"
+      label={label}
+      panelId={panelId}
+      value={value}
+      onChange={(next) => onChange(Number(next))}
+      items={Array.from({ length: count }, (_, index) => ({ id: String(index), label: String(index + 1) }))}
+    />
+    <div role="tabpanel" id={panelId} aria-labelledby={`${panelId}-${value}`}>{children}</div>
+  </>;
 }

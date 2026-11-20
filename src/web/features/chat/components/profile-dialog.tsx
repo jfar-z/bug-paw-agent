@@ -1,4 +1,4 @@
-import { Button, TextField } from "../../../ui/controls";
+import { Button, FilePickerButton, TextField } from "../../../ui/controls";
 import { Dialog } from "../../../ui/dialog";
 
 interface ProfileDialogProps {
@@ -20,7 +20,11 @@ export function ProfileDialog(props: ProfileDialogProps) {
     footer={<Button variant="primary" loading={props.saving} disabled={!props.ready || !props.displayName.trim()} onClick={props.onSave}>保存显示名</Button>}>
     <div className="profile-dialog__form">
       <label><span>显示名</span><TextField data-initial-focus aria-label="显示名" value={props.displayName} maxLength={64} onChange={(event) => props.onDisplayNameChange(event.target.value)} /></label>
-      <label><span>头像图片</span><TextField aria-label="上传个人头像" type="file" accept="image/png,image/jpeg,image/webp" disabled={!props.ready || props.saving} onChange={(event) => { props.onAvatarSelected(event.target.files?.[0]); event.target.value = ""; }} /><small>PNG、JPEG 或 WebP，原图最大 20 MB；上传前可裁剪，系统将自动压缩。</small></label>
+      <div className="bp-field">
+        <FilePickerButton label="上传个人头像" accept="image/png,image/jpeg,image/webp" disabled={!props.ready || props.saving}
+          onFilesSelected={([file]) => props.onAvatarSelected(file)}>上传头像图片</FilePickerButton>
+        <small>PNG、JPEG 或 WebP，原图最大 20 MB；上传前可裁剪，系统将自动压缩。</small>
+      </div>
       {props.avatarError ? <p className="configuration-inline-error" role="alert">{props.avatarError}</p> : null}
     </div>
   </Dialog>;

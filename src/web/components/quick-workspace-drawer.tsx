@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Dialog } from "../ui/dialog";
 import { WorkspaceBrowser, type WorkspaceLocationRequest } from "./workspace-browser";
@@ -11,8 +11,7 @@ interface QuickWorkspaceDrawerProps {
   locationRequest?: WorkspaceLocationRequest;
   message?: string;
   swipeTranslatePercent?: number;
-  previewCloseRequest: number;
-  onPreviewOpenChange(open: boolean): void;
+  previewBackRef: RefObject<(() => void) | null>;
   onBack(): void;
   onClose(): void;
 }
@@ -48,8 +47,7 @@ export function QuickWorkspaceDrawer(props: QuickWorkspaceDrawerProps) {
       agentId={props.agentId}
       mode="quick"
       locationRequest={props.locationRequest}
-      previewCloseRequest={props.previewCloseRequest}
-      onPreviewOpenChange={props.onPreviewOpenChange}
+      previewBackRef={props.previewBackRef}
     /> : <p>当前没有可浏览的 Agent 工作目录。</p>}
   </Dialog>, document.body);
 }

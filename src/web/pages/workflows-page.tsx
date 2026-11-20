@@ -1,5 +1,5 @@
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button, IconButton, TextField, Textarea } from "../ui/controls";
+import { SearchField, Button, FilePickerButton, IconButton, TextField, Textarea } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
@@ -686,16 +686,12 @@ function Runner({
                     {transfer.missing?.field === f.name && <p className="configuration-inline-error" role="alert">{transfer.missing.message}</p>}
                     {["image", "video", "audio", "file"].includes(f.type) ? (
                       <>
-                        <input
-                          aria-label={`上传 ${f.name}`}
-                          type="file"
+                        <FilePickerButton
+                          label={`上传 ${f.name}`}
                           multiple={f.multiple}
                           disabled={busy || !online}
                           accept={f.type === "file" ? undefined : `${f.type}/*`}
-                          onChange={(e) => {
-                            const files = [...(e.target.files ?? [])];
-                            e.target.value = "";
-                            if (!files.length) return;
+                          onFilesSelected={(files) => {
                             const existing =
                               f.multiple && Array.isArray(inputs[f.name])
                                 ? (inputs[f.name] as unknown[])
@@ -726,7 +722,7 @@ function Runner({
                               setBusy(false);
                             });
                           }}
-                        />
+                        >选择本地文件</FilePickerButton>
                         <MediaLibraryPicker label={f.name}
                           category={f.type === "image" || f.type === "video" || f.type === "audio" ? f.type : undefined}
                           disabled={busy || !online || (f.multiple === true && Array.isArray(inputs[f.name]) && (inputs[f.name] as unknown[]).length >= 100)}

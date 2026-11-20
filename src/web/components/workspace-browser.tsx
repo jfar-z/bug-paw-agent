@@ -1,9 +1,9 @@
 import { Table } from "../ui/table";
 import { ConfirmDialog, Dialog } from "../ui/dialog";
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button, IconButton, TextField } from "../ui/controls";
+import { SearchField, Button, FilePickerButton, IconButton, TextField } from "../ui/controls";
 import { Eye, File, FileAudio, FileImage, FileText, FileVideo, Folder, FolderPlus, MoveRight, Pencil, Trash2, Upload, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from "react";
 import type { WorkspaceEntry, WorkspaceTextPreview } from "../../shared/contracts";
 import { api, workspaceFileUrl } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
@@ -37,13 +37,12 @@ interface WorkspaceBrowserProps {
   mode: "page" | "quick";
   heading?: ReactNode;
   locationRequest?: WorkspaceLocationRequest;
-  onPreviewOpenChange?: (open: boolean) => void;
-  previewCloseRequest?: number;
+  previewBackRef?: RefObject<(() => void) | null>;
   dataSource?: WorkspaceBrowserDataSource;
 }
 
 /** 为独立资源页和快捷抽屉提供固定 Agent 的同一套文件管理能力。 */
-export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPreviewOpenChange, previewCloseRequest, dataSource }: WorkspaceBrowserProps) {
+export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, previewBackRef, dataSource }: WorkspaceBrowserProps) {
   const { runApiTask } = useApiTask();
   const online = useOnlineStatus();
   const [directory, setDirectory] = useState("");
@@ -53,6 +52,7 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [preview, setPreview] = useState<WorkspaceEntry>();
   const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const restorePreviewFocus = useRef(false);
   const [highlightedPath, setHighlightedPath] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -132,10 +132,24 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
       await runApiTask(async () => { throw reason; }, { operation: "定位工作区文件", expected: workspaceExpected(setError) });
     });
   }, [sourceKey, includeHidden, locationRequest?.id]);
-  useEffect(() => onPreviewOpenChange?.(Boolean(preview)), [onPreviewOpenChange, preview]);
-  useEffect(() => {
-    if (previewCloseRequest !== undefined) setPreview(undefined);
-  }, [previewCloseRequest]);
+  const closePreview = () => {
+    restorePreviewFocus.current = true;
+    setPreview(undefined);
+  };
+
+  // 打开预览与安装返回操作在同一次提交中完成，连续按键始终以当前层为准。
+  useLayoutEffect(() => {
+    if (!previewBackRef || !preview) return;
+    previewBackRef.current = closePreview;
+    return () => { previewBackRef.current = null; };
+  }, [preview, previewBackRef]);
+
+  useLayoutEffect(() => {
+    if (preview || !restorePreviewFocus.current) return;
+    restorePreviewFocus.current = false;
+    // 此时抽屉列表已解除 inert，可以直接聚焦原文件入口。
+    previewTriggerRef.current?.focus({ preventScroll: true });
+  }, [preview]);
 
   const resetLocationState = () => {
     setQuery("");
@@ -226,9 +240,8 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
       setMoveSubmitting(false);
     }
   };
-  const uploadFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const result = await runApiTask(() => dataSource?.uploadFiles(directory, [...files]) ?? api.uploadWorkspaceFiles(agentId, directory, [...files]), { operation: "上传文件", expected: workspaceExpected(setError) });
+  const uploadFiles = async (files: File[]) => {
+    const result = await runApiTask(() => dataSource?.uploadFiles(directory, files) ?? api.uploadWorkspaceFiles(agentId, directory, files), { operation: "上传文件", expected: workspaceExpected(setError) });
     if (result.status === "success") await refreshEntries();
   };
   const deleteSelected = async () => {
@@ -258,7 +271,7 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
 
   const previewPanel = preview && <WorkspaceFilePreview key={preview.path}
     agentId={agentId} entry={preview} mode={mode === "quick" ? "overlay" : "side"}
-    onClose={() => setPreview(undefined)} returnFocus={previewTriggerRef.current}
+    onClose={closePreview} returnFocus={previewTriggerRef.current}
     fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} />;
   const main = <section className={mode === "page" ? "workspace-resources-page__main" : "workspace-browser workspace-browser--quick"} style={quickScrollStyle}>
     {heading}
@@ -267,7 +280,7 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
       <div className="workspace-resources-page__toolbar">
         <SearchField className="workspace-search" label="搜索文件名" placeholder={searchPlaceholder} value={query} onChange={setQuery} />
         {dataSource?.showHiddenToggle === false ? null : <label className="workspace-hidden-toggle"><Checkbox checked={includeHidden} onChange={(event) => setIncludeHidden(event.target.checked)} />显示隐藏文件</label>}
-        <label className="configuration-secondary-action workspace-upload" aria-disabled={!online}><Upload size={15} aria-hidden="true" />上传<input type="file" multiple disabled={!online} onChange={(event) => void uploadFiles(event.target.files)} /></label>
+        <FilePickerButton label="上传" className="configuration-secondary-action" icon={<Upload aria-hidden="true" />} multiple disabled={!online} onFilesSelected={(files) => void uploadFiles(files)}>上传</FilePickerButton>
         <Button type="button" className="configuration-secondary-action" disabled={!online} onClick={openCreateDirectoryDialog}><FolderPlus size={15} aria-hidden="true" />新建文件夹</Button>
         <Button variant="danger" disabled={!online || !selectedPaths.length} icon={<Trash2 aria-hidden />} onClick={() => setDeleteOpen(true)}>删除所选 {selectedPaths.length} 项</Button>
       </div>

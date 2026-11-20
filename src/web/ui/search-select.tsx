@@ -18,12 +18,16 @@ export interface SearchSelectOption<T extends SearchSelectValue> {
   value: T;
   label: string;
   description?: string;
+  ariaLabel?: string;
   icon?: ReactNode;
   disabled?: boolean;
 }
 
 interface SearchSelectProps<T extends SearchSelectValue> {
   ariaLabel?: string;
+  listLabel?: string;
+  triggerTitle?: string;
+  iconOnly?: boolean;
   id?: string;
   name?: string;
   required?: boolean;
@@ -45,6 +49,9 @@ interface SearchSelectProps<T extends SearchSelectValue> {
  */
 export function SearchSelect<T extends SearchSelectValue>({
   ariaLabel,
+  listLabel = ariaLabel,
+  triggerTitle,
+  iconOnly = false,
   id,
   name,
   required,
@@ -194,7 +201,8 @@ export function SearchSelect<T extends SearchSelectValue>({
         value={value === undefined ? undefined : String(value)}
         ref={buttonRef}
         type="button"
-        className="bp-select__trigger"
+        className={iconOnly ? "bp-select__trigger bp-select__trigger--icon" : "bp-select__trigger"}
+        title={triggerTitle}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -209,10 +217,10 @@ export function SearchSelect<T extends SearchSelectValue>({
         onClick={() => (open ? closeMenu() : setOpen(true))}
       >
         {(selected?.icon ?? placeholderIcon) && <span className="bp-select__icon" aria-hidden="true">{selected?.icon ?? placeholderIcon}</span>}
-        <span className={selected ? undefined : "is-placeholder"}>
-          {selected?.label ?? placeholder}
-        </span>
-        <ChevronDown size={15} aria-hidden="true" />
+        {!iconOnly && <>
+          <span className={selected ? undefined : "is-placeholder"}>{selected?.label ?? placeholder}</span>
+          <ChevronDown size={15} aria-hidden="true" />
+        </>}
       </button>
       {open ? (
         <div className="bp-select__popover" ref={popupRef} popover={typeof HTMLElement.prototype.showPopover === "function" ? "manual" : undefined} onKeyDown={handlePopupKeyDown}>
@@ -235,7 +243,7 @@ export function SearchSelect<T extends SearchSelectValue>({
             className="bp-select__options"
             ref={listRef}
             role="listbox"
-            aria-label={ariaLabel}
+            aria-label={listLabel}
             tabIndex={searchable ? undefined : -1}
             aria-activedescendant={!searchable && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
           >
@@ -246,6 +254,7 @@ export function SearchSelect<T extends SearchSelectValue>({
                 type="button"
                 value={String(option.value)}
                 role="option"
+                aria-label={option.ariaLabel}
                 tabIndex={-1}
                 disabled={option.disabled}
                 aria-selected={Object.is(option.value, value)}

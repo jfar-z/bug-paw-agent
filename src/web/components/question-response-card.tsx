@@ -31,21 +31,22 @@ export function QuestionResponseCard({ pendingQuestion, resolution }: QuestionRe
       activeIndex={activeIndex}
       onChange={setActiveIndex}
       label="用户回答题目"
-    />
-    <div className="question-response-card__detail">
-      <div className="question-response-card__question">
-        <span>{question.header} · 第 {activeIndex + 1} 题</span>
-        <strong>{question.question}</strong>
+    >
+      <div className="question-response-card__detail">
+        <div className="question-response-card__question">
+          <span>{question.header} · 第 {activeIndex + 1} 题</span>
+          <strong>{question.question}</strong>
+        </div>
+        <div className="question-response-card__answer">
+          <span>Agent 实际收到</span>
+          <strong>{details.value}</strong>
+          {details.descriptions.map((description) => <p key={description}>{description}</p>)}
+        </div>
+        <span className="question-response-card__summary">
+          未回答 {resolution.unansweredQuestionIds.length} 题
+        </span>
       </div>
-      <div className="question-response-card__answer">
-        <span>Agent 实际收到</span>
-        <strong>{details.value}</strong>
-        {details.descriptions.map((description) => <p key={description}>{description}</p>)}
-      </div>
-      <span className="question-response-card__summary">
-        未回答 {resolution.unansweredQuestionIds.length} 题
-      </span>
-    </div>
+    </QuestionStepTabs>
   </section>;
 }
 

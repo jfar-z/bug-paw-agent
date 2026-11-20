@@ -73,30 +73,30 @@ export function IconButton({
   );
 }
 
-/** 由公共图标按钮打开系统文件选择器，重置输入以允许再次选择同一文件。 */
+/** 通过公共按钮打开系统选择器，取消时保留原状态，同一文件可再次选择。 */
 export function FilePickerButton({
   label,
-  title,
   icon,
-  className,
-  disabled,
+  children,
+  accept,
   multiple,
   onFilesSelected,
-}: {
+  ...buttonProps
+}: Pick<ButtonProps, "className" | "style" | "title" | "disabled" | "variant" | "loading"> & {
   label: string;
-  title?: string;
-  icon: ReactNode;
-  className?: string;
-  disabled?: boolean;
+  icon?: ReactNode;
+  children?: ReactNode;
+  accept?: string;
   multiple?: boolean;
   onFilesSelected: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const open = () => inputRef.current?.click();
   return <>
-    <IconButton label={label} title={title} className={className} disabled={disabled} onClick={() => inputRef.current?.click()}>
-      {icon}
-    </IconButton>
-    <input ref={inputRef} type="file" hidden disabled={disabled} multiple={multiple} onChange={(event) => {
+    {children === undefined
+      ? <IconButton {...buttonProps} label={label} onClick={open}>{icon}</IconButton>
+      : <Button {...buttonProps} aria-label={label} icon={icon} onClick={open}>{children}</Button>}
+    <input ref={inputRef} type="file" hidden disabled={buttonProps.disabled || buttonProps.loading} accept={accept} multiple={multiple} onChange={(event) => {
       const files = Array.from(event.currentTarget.files ?? []);
       event.currentTarget.value = "";
       if (files.length) onFilesSelected(files);

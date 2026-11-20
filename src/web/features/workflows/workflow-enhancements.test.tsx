@@ -873,7 +873,8 @@ it("编辑器固定文件上传到常量目录，也可选择已有文件，运�
   const changed = vi.fn();
   render(<Wrapper><WorkflowBindingEditor label="image" field={{name:"image",type:"image"}} binding={{kind:"literal",value:null}} nodes={[]} nodeId="node" onChange={changed}/></Wrapper>);
   const data = new File(["image"],"reference.png",{type:"image/png"});
-  fireEvent.change(screen.getByLabelText("上传 image"),{target:{files:[data]}});
+  const picker = screen.getByRole("button", { name: "上传 image" });
+  fireEvent.change(picker.nextElementSibling!, { target: { files: [data] } });
   await waitFor(() => expect(upload).toHaveBeenCalledWith(data,"constants"));
   fireEvent.click(screen.getByRole("button",{name:"选择已有文件常量"}));
   fireEvent.click(await screen.findByRole("button",{name:"reference.png"}));

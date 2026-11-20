@@ -47,9 +47,7 @@
 
 .workspace-hidden-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 10px; }
 
-.workspace-upload { position: relative; overflow: hidden; }
 
-.workspace-upload input { position: absolute; inset: 0; cursor: pointer; opacity: 0; }
 
 .workspace-danger-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); border-radius: 9px; color: var(--danger); background: transparent; font-size: 10px; }
 

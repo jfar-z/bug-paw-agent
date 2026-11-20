@@ -64,9 +64,9 @@ async function fixture(surface: "run" | "editor", field: WorkflowInputField) {
       </ApiTaskProvider>
     </ErrorToastProvider>,
   );
-  const input = (await screen.findByLabelText(
-    "上传 media",
-  )) as HTMLInputElement;
+  const uploadButton = await screen.findByRole("button", { name: "上传 media" });
+  const input = uploadButton.nextElementSibling as HTMLInputElement;
+  expect(input).toHaveAttribute("type", "file");
   // 运行表单在定义加载后通过 effect 填入默认值，等待其显示再模拟用户上传。
   if (Array.isArray(field.defaultValue) && field.defaultValue.length)
     await screen.findByText(field.defaultValue[0].name);

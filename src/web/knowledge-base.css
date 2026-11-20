@@ -64,7 +64,6 @@
 
 .knowledge-base-empty-state > span, .knowledge-base-workspace__heading span, .knowledge-base-documents header span, .knowledge-base-side-panel header span, .knowledge-base-search-panel header span { color: var(--fg); font: 11px var(--font-mono); letter-spacing: .1em; }
 
-.knowledge-base-upload-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 
 .knowledge-base-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 28px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); }
 

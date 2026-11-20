@@ -43,7 +43,7 @@ it("独立常量目录、筛选与文本预览使用工作流接口", async () =
   mount();await screen.findByText("output.txt");
   fireEvent.click(screen.getByRole("button",{name:"文件常量"}));
   await waitFor(() => expect(list).toHaveBeenLastCalledWith(expect.objectContaining({directory:"constants",page:"1"})));
-  expect(screen.getByLabelText("上传文件常量")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "上传文件常量" })).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button",{name:"预览 output.txt"}));
   expect(await screen.findByText("文本内容")).toBeInTheDocument();
   chooseOption("筛选文件类型", "image");

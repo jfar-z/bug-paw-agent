@@ -207,8 +207,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     } else setStandaloneSidebarOpen(open);
   };
   const [resourcesOpen, setResourcesOpen] = useState(false);
-  const [workspacePreviewOpen, setWorkspacePreviewOpen] = useState(false);
-  const [workspacePreviewCloseRequest, setWorkspacePreviewCloseRequest] = useState(0);
+  const workspacePreviewBackRef = useRef<(() => void) | null>(null);
   const [workspaceLocationRequest, setWorkspaceLocationRequest] = useState<{ id: number; path: string }>();
   const [workspaceMessage, setWorkspaceMessage] = useState("");
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -239,6 +238,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
   const [activeRun, setActiveRun] = useState<ChatRunSummary>();
   const [mediaDeleteError, setMediaDeleteError] = useState<{ sessionId: string; error: { code: string; message: string } }>();
   const [questionSubmitting, setQuestionSubmitting] = useState(false);
+  const questionSubmissionRef = useRef<{ sessionId: string; questionId: string } | null>(null);
   const [error, setError] = useState("");
   const [runNotice, setRunNotice] = useState("");
   const reportFailure = useCallback((reason: unknown, operation: string) => runApiTask(
@@ -790,15 +790,11 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     cancelSessionSelection();
     setSidebarOpen(false);
   };
-  const closeResources = useCallback(() => {
-    setResourcesOpen(false);
-    setWorkspacePreviewOpen(false);
-  }, []);
+  const closeResources = useCallback(() => setResourcesOpen(false), []);
   /** 手势、系统返回和 Escape 先退出预览，再关闭抽屉。 */
   const closeResourcesLayer = useCallback(() => {
-    if (workspacePreviewOpen) setWorkspacePreviewCloseRequest((count) => count + 1);
-    else closeResources();
-  }, [closeResources, workspacePreviewOpen]);
+    (workspacePreviewBackRef.current ?? closeResources)();
+  }, [closeResources]);
   /** 普通入口只打开当前目录，避免重放上一次 Markdown 文件定位。 */
   const openResources = () => {
     closeSidebar();
@@ -1409,10 +1405,12 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     const submittedSessionId = session.id;
     const submittedQuestionId = pendingQuestion.id;
     const submittedBranchToken = session.history?.branchToken;
-    const ticket = interactionCoordinator.begin("question-submission", {
-      sessionId: submittedSessionId,
-      questionId: submittedQuestionId,
-    });
+    const submission = { sessionId: submittedSessionId, questionId: submittedQuestionId };
+    const inFlight = questionSubmissionRef.current;
+    // 同一问题的连续提交在 React 刷新按钮状态之前也只发出一次请求。
+    if (inFlight?.sessionId === submission.sessionId && inFlight.questionId === submission.questionId) return;
+    questionSubmissionRef.current = submission;
+    const ticket = interactionCoordinator.begin("question-submission", submission);
     setQuestionSubmitting(true);
     setError("");
     setRunNotice("");
@@ -1449,6 +1447,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         await reportFailure(reason, "提交提问回答");
       }
     } finally {
+      if (questionSubmissionRef.current === submission) questionSubmissionRef.current = null;
       if (pageMountedRef.current && interactionCoordinator.isCurrent(ticket)) setQuestionSubmitting(false);
     }
   };
@@ -1902,11 +1901,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
             onCollapse={() => questionDraft.setCollapsed(true)}
             onSubmit={(answers) => void submitQuestionAnswers(answers)}
           /> : <div className="composer">
-            {pendingQuestion ? <button
-              type="button"
+            {pendingQuestion ? <Button
               className="question-composer-resume"
               onClick={() => questionDraft.setCollapsed(false)}
-            >继续回答 · {questionDraft.answeredCount}/{pendingQuestion.questions.length}</button> : null}
+            >继续回答 · {questionDraft.answeredCount}/{pendingQuestion.questions.length}</Button> : null}
             <ReferenceComposer
               value={draft}
               references={draftReferences}
@@ -1952,8 +1950,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         locationRequest={workspaceLocationRequest}
         message={workspaceMessage}
         swipeTranslatePercent={workspaceSwipe.resourceTranslatePercent}
-        previewCloseRequest={workspacePreviewCloseRequest}
-        onPreviewOpenChange={setWorkspacePreviewOpen}
+        previewBackRef={workspacePreviewBackRef}
         onBack={closeResourcesLayer}
         onClose={closeResources}
       />

@@ -80,9 +80,17 @@ export function Dialog({
       aria-busy={busy}
       aria-labelledby={id}
       onKeyDown={(event) => {
-        if (event.defaultPrevented || event.key !== "Tab") return;
+        if (event.defaultPrevented) return;
         const dialog = event.currentTarget;
         if (!(event.target instanceof Element) || event.target.closest("dialog") !== dialog) return;
+        if (onEscape && event.key === "Escape" && !document.fullscreenElement) {
+          // 有内部层级的抽屉直接消费按键，避免原生 cancel 再关闭外层。
+          event.preventDefault();
+          event.stopPropagation();
+          if (!busy && !event.repeat) onEscape();
+          return;
+        }
+        if (event.key !== "Tab") return;
         // 模态层屏蔽背景，首尾循环同时阻止焦点跳到浏览器地址栏。
         const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
           "button, input, select, textarea, a[href], summary, iframe, [tabindex], [contenteditable='true'], audio[controls], video[controls]",
@@ -98,7 +106,7 @@ export function Dialog({
         }
       }}
       onCancel={(e) => {
-        if (e.target !== e.currentTarget) return;
+        if (e.defaultPrevented || e.target !== e.currentTarget) return;
         e.preventDefault();
         if (!busy) (onEscape ?? onClose)?.();
       }}

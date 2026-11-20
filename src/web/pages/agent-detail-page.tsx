@@ -1,5 +1,5 @@
 import { Tabs } from "../ui/tabs";
-import { Button, Textarea, TextField } from "../ui/controls";
+import { Button, FilePickerButton, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { MediaLibraryCatalogStatus, useMediaLibraries } from "../components/media-library-actions";
@@ -319,7 +319,11 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
             <div className="configuration-section__heading"><div><span>01</span><h2 id="agent-identity-title">基本身份</h2></div></div>
             <label><span>显示名称<small>在会话和 Agent 列表中使用</small></span><TextField value={agent.name} onChange={(event) => updateProfile({ name: event.target.value })} /></label>
             <label><span>头像文字<small>保存后使用文字头像，也可上传方形图片</small></span><TextField aria-label="头像文字" value={agent.avatar.kind === "initial" ? agent.avatar.value : ""} maxLength={2} onChange={(event) => updateProfile({ avatar: { kind: "initial", value: event.target.value } })} /></label>
-            <label><span>头像图片<small>PNG、JPEG 或 WebP，原图最大 20 MB；上传前可裁剪，系统将自动压缩。</small></span><input aria-label="上传头像图片" type="file" accept="image/png,image/jpeg,image/webp" disabled={saving} onChange={(event) => { selectAvatar(event.target.files?.[0]); event.target.value = ""; }} /></label>
+            <div className="bp-field">
+              <FilePickerButton label="上传头像图片" accept="image/png,image/jpeg,image/webp" disabled={saving}
+                onFilesSelected={([file]) => selectAvatar(file)}>上传头像图片</FilePickerButton>
+              <small className="configuration-help">PNG、JPEG 或 WebP，原图最大 20 MB；上传前可裁剪，系统将自动压缩。</small>
+            </div>
             {avatarError && !avatarFile ? <div className="configuration-inline-error" role="alert">{avatarError}</div> : null}
             <label><span>简介<small>简短说明这个 Agent 的用途</small></span><Textarea rows={3} value={agent.description} onChange={(event) => updateProfile({ description: event.target.value })} /></label>
             <div className="configuration-button-row">

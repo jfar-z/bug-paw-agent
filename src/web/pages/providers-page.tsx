@@ -1,5 +1,5 @@
 import { Tabs } from "../ui/tabs";
-import { Button, SearchField, NumberField, Textarea, TextField } from "../ui/controls";
+import { Button, FilePickerButton, SearchField, NumberField, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { Check, PencilLine, Plus, Save, TestTube2, Trash2 } from "lucide-react";
@@ -768,7 +768,11 @@ export function ProvidersPage() {
                 { value: "max_completion_tokens", label: "max_completion_tokens" },
               ]}
             /></label></div></details><Button type="button" variant="danger" disabled={busy !== false || (Boolean(savedProvider?.models?.some((model) => model.id === selectedModel.id)) && dirty)} onClick={() => { setError(""); setDeleteTarget("model"); }}><Trash2 size={14} aria-hidden="true" />删除模型</Button></div> : !draft.models?.length ? <p className="configuration-help">尚未配置模型，请新增或发现并导入模型。</p> : null}
-            <label className="provider-import"><span>批量导入模型 JSON<small>接受模型对象数组，导入后仍可逐项审阅</small></span><input type="file" accept="application/json" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void importModelFile(file); }} /></label>
+            <div className="bp-field">
+              <FilePickerButton label="批量导入模型 JSON" accept="application/json"
+                onFilesSelected={([file]) => void importModelFile(file)}>批量导入模型 JSON</FilePickerButton>
+              <small className="configuration-help">接受模型对象数组，导入后仍可逐项审阅</small>
+            </div>
           </div>
         </section><section id="provider-panel-tests" role="tabpanel" aria-labelledby="provider-tab-tests" hidden={tab !== "tests"}><div className="configuration-form-card provider-form"><h3>连接测试</h3><p className="configuration-help">使用已保存的连接、模型与凭证，结果仅表示本次测试。测试不会替代核心配置生效确认。</p><label><span>已保存模型</span><SearchSelect
           ariaLabel="连接测试模型"

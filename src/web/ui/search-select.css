@@ -20,6 +20,16 @@
 }
 .bp-select__trigger > svg { flex-shrink: 0; }
 
+.bp-select__trigger--icon {
+  min-width: var(--bp-control-height-md);
+  justify-content: center;
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .bp-select__trigger--icon { min-width: var(--bp-touch-target); }
+}
+
 .bp-select__trigger[aria-invalid="true"] { border-color: var(--danger); }
 
 .bp-select__trigger[aria-expanded="true"]:not([aria-invalid="true"]) {

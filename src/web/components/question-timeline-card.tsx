@@ -4,6 +4,7 @@ import { Check } from "typebox/value";
 import { QuestionResolutionSchema, type QuestionResolution } from "../../shared/question-response-protocol";
 import { PendingQuestionProjectionSchema, type PendingQuestionProjection } from "../../shared/session-question-contracts";
 import type { ToolBlock } from "../conversation-timeline";
+import { Button } from "../ui/controls";
 import { QuestionStepTabs } from "./question-step-tabs";
 
 interface QuestionTimelineCardProps {
@@ -39,14 +40,14 @@ export function QuestionTimelineCard({ tool }: QuestionTimelineCardProps) {
           ? "已放弃"
           : "等待回答"}</strong>
       <span>共 {pending.questions.length} 个问题</span>
-      <button
-        type="button"
+      <Button
+        size="sm"
         className="question-timeline-card__disclosure"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
         {expanded ? "收起问题" : "查看问题"}
-      </button>
+      </Button>
     </header>
     {expanded ? <div className="question-audit-detail">
       <QuestionStepTabs
@@ -54,17 +55,18 @@ export function QuestionTimelineCard({ tool }: QuestionTimelineCardProps) {
         activeIndex={activeIndex}
         onChange={setActiveIndex}
         label="Agent 提问题目"
-      />
-      <div className="question-audit-detail__question">
-        <span>{question.header}</span>
-        <strong>{question.question}</strong>
-      </div>
-      <ul className="question-audit-detail__options">
-        {question.options.map((option) => <li key={option.id}>
-          <strong>{option.label}</strong>
-          <span>{option.description}</span>
-        </li>)}
-      </ul>
+      >
+        <div className="question-audit-detail__question">
+          <span>{question.header}</span>
+          <strong>{question.question}</strong>
+        </div>
+        <ul className="question-audit-detail__options">
+          {question.options.map((option) => <li key={option.id}>
+            <strong>{option.label}</strong>
+            <span>{option.description}</span>
+          </li>)}
+        </ul>
+      </QuestionStepTabs>
     </div> : null}
   </section>;
 }

@@ -1,7 +1,7 @@
-import { Button } from "../../ui/controls";
+import { Button, FilePickerButton } from "../../ui/controls";
 import { Dialog } from "../../ui/dialog";
 import { ImagePlus } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 
 import type { AvatarCropArea } from "../../../shared/avatar-contracts";
@@ -22,7 +22,6 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [cropArea, setCropArea] = useState<AvatarCropArea>();
-  const replaceInputRef = useRef<HTMLInputElement>(null);
   const [objectUrl, setObjectUrl] = useState("");
   const mobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const styles = cropDialogStyles(mobile);
@@ -38,12 +37,6 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
     setZoom(1);
     setCropArea(undefined);
   }, [file]);
-
-  const replaceFile = (event: ChangeEvent<HTMLInputElement>) => {
-    const replacement = event.target.files?.[0];
-    event.target.value = "";
-    if (replacement) onReplace(replacement);
-  };
 
   return (
     <Dialog title="调整头像" closeLabel="关闭头像裁剪" busy={busy} onClose={onCancel}
@@ -104,26 +97,11 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
           </div>
           <strong style={styles.previewTitle}>圆角方形头像</strong>
           <small style={styles.previewHelp}>透明 PNG 会保留透明通道，最终统一保存为 WebP。</small>
-          <Button
-            type="button"
-            className="configuration-secondary-action"
-            disabled={busy}
-            style={styles.replaceButton}
-            onClick={() => replaceInputRef.current?.click()}
-          >
-            <ImagePlus size={16} aria-hidden="true" />
+          <FilePickerButton label="重新选择头像" className="configuration-secondary-action"
+            disabled={busy} style={styles.replaceButton} accept="image/png,image/jpeg,image/webp"
+            icon={<ImagePlus aria-hidden="true" />} onFilesSelected={([replacement]) => onReplace(replacement)}>
             重新选择
-          </Button>
-          <input
-            ref={replaceInputRef}
-            className="visually-hidden"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            aria-label="重新选择头像"
-            tabIndex={-1}
-            disabled={busy}
-            onChange={replaceFile}
-          />
+          </FilePickerButton>
         </aside>
       </div>
 

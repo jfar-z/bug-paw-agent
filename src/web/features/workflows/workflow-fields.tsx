@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { Button, FilePickerButton } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
 import { isMediaReference } from "../../../shared/media-library-contracts";
@@ -661,16 +661,12 @@ function WorkflowMediaValue({
   useEffect(() => () => onValidity?.(true), []);
   return (
     <>
-      <input
-        aria-label={`上传 ${field.name}`}
-        type="file"
+      <FilePickerButton
+        label={`上传 ${field.name}`}
         multiple={field.multiple}
         disabled={busy}
         accept={field.type === "file" ? undefined : `${field.type}/*`}
-        onChange={(event) => {
-          const selected = [...(event.target.files ?? [])];
-          event.target.value = "";
-          if (!selected.length) return;
+        onFilesSelected={(selected) => {
           setBusy(true);
           void runApiTask(
             async () => {
@@ -693,7 +689,7 @@ function WorkflowMediaValue({
             if (mounted.current) setBusy(false);
           });
         }}
-      />
+      >选择本地文件</FilePickerButton>
       {directory === "constants" && <Button type="button" className="wf-button" disabled={busy} onClick={() => setChoosing(true)}>选择已有文件常量</Button>}
       {choosing && <WorkflowFilePicker type={field.type} onClose={() => setChoosing(false)} onSelect={(file) => {
         void runApiTask(async () => {

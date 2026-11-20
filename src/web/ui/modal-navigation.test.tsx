@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmDialog } from "./dialog";
+import { ConfirmDialog, Dialog } from "./dialog";
 import { WorkspaceLayout } from "./workspace-layout";
 
 describe("模态窗口和导航", () => {
@@ -30,6 +30,20 @@ describe("模态窗口和导航", () => {
     expect(cancel).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "关闭" })).toBeDisabled();
   });
+  it("分层抽屉消费 Escape，同一次长按只返回一层", () => {
+    const back = vi.fn(), close = vi.fn();
+    render(<Dialog title="文件" onEscape={back} onClose={close}>
+      <button type="button">文件预览</button>
+    </Dialog>);
+    const preview = screen.getByRole("button", { name: "文件预览" });
+    expect(fireEvent.keyDown(preview, { key: "Escape" })).toBe(false);
+    expect(fireEvent.keyDown(preview, { key: "Escape", repeat: true })).toBe(false);
+    expect(back).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+    expect(back).toHaveBeenCalledTimes(2);
+  });
+
   it("关闭后恢复到开启前获得焦点的节点", () => {
     const opener = document.createElement("button");
     document.body.append(opener);

@@ -1,4 +1,4 @@
-import { Button, TextField, Textarea } from "../ui/controls";
+import { Button, FilePickerButton, TextField, Textarea } from "../ui/controls";
 import { useEffect, useId, useRef, useState } from "react";
 import { MEDIA_FORMATS, MEDIA_LIBRARY_NOTE_MAX_LENGTH, MEDIA_UPLOAD_BYTES, type MediaFile, type MediaLibrary } from "../../shared/media-library-contracts";
 import { api, type ApiClientError } from "../api";
@@ -119,7 +119,11 @@ export function MediaNameDialog(props: MediaNameDialogProps) {
       </Button>
     </>}>
     <form id={formId} noValidate className="media-library-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      {uploading && <label>选择文件<input type="file" accept={formats.join(",")} disabled={busy} onChange={(event) => chooseFile(event.target.files?.[0])} /></label>}
+      {uploading && <div>
+        <FilePickerButton label="选择文件" accept={formats.join(",")} disabled={busy}
+          onFilesSelected={([file]) => chooseFile(file)}>选择文件</FilePickerButton>
+        {upload && <p className="configuration-help" role="status">{upload.name}</p>}
+      </div>}
       <label>{library ? "主文件名" : "媒体库名称"}
         <span className="media-library-name">
           <TextField value={stem} disabled={busy || (uploading && !upload)} aria-invalid={!!error || undefined}

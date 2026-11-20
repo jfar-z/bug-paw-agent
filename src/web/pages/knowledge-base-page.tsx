@@ -1,4 +1,4 @@
-import { Button, IconButton, SearchField, TextField, Textarea } from "../ui/controls";
+import { Button, FilePickerButton, IconButton, SearchField, TextField, Textarea } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { BookOpen, FileSearch, FileText, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
@@ -157,7 +157,6 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
   const [editOpen, setEditOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocumentSummary>();
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const runSearch = async () => {
     if (busy || !query.trim()) return;
@@ -168,17 +167,17 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
     }
     finally { setBusy(false); }
   };
-  const upload = async (files: FileList | null) => {
-    if (!files?.length) return;
+  const upload = async (files: File[]) => {
+    if (busy) return;
     setBusy(true);
     try {
       const result = await runApiTask(async () => {
-        await api.uploadKnowledgeDocuments(base.id, [...files]);
+        await api.uploadKnowledgeDocuments(base.id, files);
         return api.getKnowledgeBase(base.id);
       }, { operation: "上传知识库资料", expected: knowledgeExpected(onError) });
       if (result.status === "success") onChanged(result.data);
     }
-    finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
+    finally { setBusy(false); }
   };
   const openDocument = async (documentId: string) => {
     const result = await runApiTask(() => api.getKnowledgeDocument(base.id, documentId), { operation: "读取知识库资料", expected: knowledgeExpected(onError) });
@@ -201,10 +200,11 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
   return <section className="knowledge-base-workspace">
     <header className="knowledge-base-workspace__heading">
       <div><span>KNOWLEDGE BASE</span><h1>{base.name}</h1><p>{base.description || "独立管理的可检索资料集合。"}</p></div>
-      <input ref={inputRef} id="knowledge-base-upload" className="knowledge-base-upload-input" type="file" accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple onChange={(event) => void upload(event.target.files)} />
       <div className="knowledge-base-workspace__actions">
         <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setEditOpen(true)}><Pencil size={15} aria-hidden="true" />编辑知识库</Button>
-        <Button variant="primary" type="button" className="configuration-primary-action" disabled={busy} onClick={() => inputRef.current?.click()}><Upload size={16} aria-hidden="true" />上传资料</Button>
+        <FilePickerButton label="上传资料" variant="primary" className="configuration-primary-action" disabled={busy} multiple
+          accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          icon={<Upload aria-hidden="true" />} onFilesSelected={(files) => void upload(files)}>上传资料</FilePickerButton>
       </div>
     </header>
     <section className="knowledge-base-overview" aria-label="知识库概览">

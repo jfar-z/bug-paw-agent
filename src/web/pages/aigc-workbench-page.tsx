@@ -1,7 +1,7 @@
 import { SegmentedControl } from "../ui/segmented-control";
 import { Tabs } from "../ui/tabs";
 import { FormField } from "../ui/form-field";
-import { Button, IconButton, Textarea, TextField } from "../ui/controls";
+import { Button, FilePickerButton, IconButton, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
@@ -888,12 +888,14 @@ function AigcRunField(props: {
               }}
             />
           </label>
-          <label>
-            <span>上传到公共区</span>
-            <input type="file" accept={accept} aria-label={`上传${field.label}到公共区`} onChange={(event) => onPublicFile(event.target.files?.[0])} />
-          </label>
+          <div className="aigc-media-input-upload">
+            <FilePickerButton label={`上传${field.label}到公共区`} accept={accept} disabled={disabled} loading={uploading}
+              icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => onPublicFile(file)}>
+              上传到公共区
+            </FilePickerButton>
+          </div>
           {picker}
-          {!hasLibraryFile && <small className="configuration-help">{uploading ? "上传中…" : selectedUrl || "选择公共文件或上传后自动填充公网地址"}</small>}
+          {!hasLibraryFile && <small className="configuration-help" role="status">{uploading ? "上传中…" : selectedUrl || "选择公共文件或上传后自动填充公网地址"}</small>}
         </div>
       );
     }
@@ -910,11 +912,13 @@ function AigcRunField(props: {
               .map((option) => ({ id: option.value, label: option.label }))} />
           <div role="tabpanel" id={sourcePanelId} aria-labelledby={`${sourcePanelId}-${mediaSource}`}>
             {mediaSource === "upload" ? (
-              <label className="aigc-media-input-upload">
-                <span>本地上传</span>
-                <input type="file" accept={accept} aria-label={field.label} onChange={(event) => onFile(event.target.files?.[0])} />
-                <small className="configuration-help">{uploading ? "上传中…" : uploaded?.name ?? "上传后作为生成入参"}</small>
-              </label>
+              <div className="aigc-media-input-upload">
+                <FilePickerButton label={field.label} accept={accept} disabled={disabled} loading={uploading}
+                  icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => onFile(file)}>
+                  选择本地文件
+                </FilePickerButton>
+                <small className="configuration-help" role="status">{uploading ? "上传中…" : uploaded?.name ?? "上传后作为生成入参"}</small>
+              </div>
             ) : null}
             {mediaSource === "public" ? (
               <label>
@@ -1855,9 +1859,11 @@ function AigcWorkflowsPage() {
 
   async function onFile(file: File | undefined) {
     if (!file) return;
+    const result = await runApiTask(() => file.text(), { operation: "读取 ComfyUI 工作流 JSON 文件" });
+    if (result.status !== "success") return;
     setFileName(file.name);
     setName(file.name.replace(/\.json$/iu, ""));
-    setRawText(await file.text());
+    setRawText(result.data);
   }
 
   async function save() {
@@ -1904,7 +1910,13 @@ function AigcWorkflowsPage() {
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
         <div className="configuration-section__heading"><div><span>01</span><h2>导入工作流</h2></div></div>
-        <label><span>JSON 文件</span><input type="file" accept=".json,application/json" aria-label="ComfyUI 工作流文件" disabled={importing} onChange={(event) => void onFile(event.target.files?.[0])} /></label>
+        <div className="aigc-media-input-upload">
+          <FilePickerButton label="ComfyUI 工作流文件" accept=".json,application/json" disabled={importing}
+            icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => void onFile(file)}>
+            选择 JSON 文件
+          </FilePickerButton>
+          {fileName && <small className="configuration-help" role="status">{fileName}</small>}
+        </div>
         <FormField label="工作流名称">{(props) =>
           <TextField {...props} disabled={importing} value={name} onChange={(event) => setName(event.target.value)} />
         }</FormField>
@@ -1935,7 +1947,6 @@ function AigcWorkflowsPage() {
 /** 工作流详情页，提供节点与字段点选的可视化映射编排。 */
 function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
   const { runApiTask } = useApiTask();
-  const replaceFileInputRef = useRef<HTMLInputElement>(null);
   const [detail, setDetail] = useState<AigcWorkflowDetail>();
   const [revision, setRevision] = useState("");
   const [name, setName] = useState("");
@@ -2024,7 +2035,6 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
       if (result.status === "success") setReplacement(result.data);
     } finally {
       setCheckingReplacement(false);
-      if (replaceFileInputRef.current) replaceFileInputRef.current.value = "";
     }
   }
 
@@ -2069,8 +2079,12 @@ function AigcWorkflowDetail({ workflowId }: { workflowId: string }) {
           onChange={setChannelId}
         /></div>
         <Button type="button" className="configuration-secondary-action" disabled={!detail || !channelId || isDirty || syncingMetadata || checkingReplacement || replacing || Boolean(replacement)} title={isDirty ? "请先保存映射后再同步" : undefined} onClick={() => void syncNodeMetadata()}><RefreshCw size={15} />{syncingMetadata ? "同步中…" : "同步节点定义"}</Button>
-        <input ref={replaceFileInputRef} hidden type="file" accept=".json,application/json" aria-label="替换原始工作流文件" onChange={(event) => void prepareReplacement(event.target.files?.[0])} />
-        <Button type="button" className="configuration-secondary-action" disabled={!detail || isDirty || replacing || checkingReplacement || syncingMetadata || Boolean(replacement)} title={isDirty ? "请先保存映射后再替换" : undefined} onClick={() => replaceFileInputRef.current?.click()}><Upload size={15} />{checkingReplacement ? "检查中…" : replacing ? "替换中…" : "替换原始工作流"}</Button>
+        <FilePickerButton label="替换原始工作流" className="configuration-secondary-action"
+          accept=".json,application/json" disabled={!detail || isDirty || syncingMetadata || Boolean(replacement)}
+          loading={checkingReplacement || replacing} title={isDirty ? "请先保存映射后再替换" : undefined}
+          icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => void prepareReplacement(file)}>
+          {checkingReplacement ? "检查中…" : replacing ? "替换中…" : "替换原始工作流"}
+        </FilePickerButton>
         <small>{detail?.nodeMetadataSyncedAt ? `最近同步 ${formatAigcTime(detail.nodeMetadataSyncedAt)}` : "尚未同步节点定义"}</small>
       </div>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}

@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, Minus, Send } from "lucide-react";
+import { Checkbox, Radio } from "../ui/choice";
+import { Button, IconButton, Textarea } from "../ui/controls";
 
 import type { PendingQuestionProjection, SubmittedQuestionAnswer } from "../../shared/session-question-contracts";
 import type { QuestionDraftController } from "../use-question-draft";
@@ -16,6 +18,7 @@ interface QuestionComposerProps {
 export function QuestionComposer({ pending, draft, submitting, error, onCollapse, onSubmit }: QuestionComposerProps) {
   const questionIndex = Math.min(draft.draft.questionIndex, pending.questions.length - 1);
   const question = pending.questions[questionIndex];
+  const Choice = question.multiSelect ? Checkbox : Radio;
   const answer = draft.draft.answers[question.id] ?? { optionIds: [], text: "" };
   const submitLabel = submitting
     ? "正在提交回答"
@@ -36,27 +39,25 @@ export function QuestionComposer({ pending, draft, submitting, error, onCollapse
         <span>问题 {questionIndex + 1}/{pending.questions.length}</span>
         <span>已回答 {draft.answeredCount}/{pending.questions.length}</span>
       </div>
-      <button type="button" className="question-composer__collapse" disabled={submitting} onClick={onCollapse} aria-label="收起提问处理框">
+      <IconButton className="question-composer__collapse" disabled={submitting} onClick={onCollapse} label="收起提问处理框">
         <Minus size={17} aria-hidden="true" />
-      </button>
+      </IconButton>
     </header>
 
     <fieldset className="question-composer__question" disabled={submitting}>
       <legend>{question.question}</legend>
       <div className="question-composer__options">
-        {question.options.map((option) => <label key={option.id} className={answer.optionIds.includes(option.id) ? "is-selected" : undefined}>
-          <input
-            type={question.multiSelect ? "checkbox" : "radio"}
-            name={`question-${question.id}`}
-            checked={answer.optionIds.includes(option.id)}
-            onChange={() => draft.toggleOption(question.id, option.id)}
-          />
-          <span><strong>{option.label}</strong><small>{option.description}</small></span>
-        </label>)}
+        {question.options.map((option) => <Choice
+          key={option.id}
+          name={`question-${question.id}`}
+          checked={answer.optionIds.includes(option.id)}
+          onChange={() => draft.toggleOption(question.id, option.id)}
+          label={<span><strong>{option.label}</strong><small>{option.description}</small></span>}
+        />)}
       </div>
       <label className="question-composer__text">
         <span>其他回答（可选）</span>
-        <textarea
+        <Textarea
           value={answer.text}
           maxLength={10_000}
           rows={2}
@@ -69,16 +70,16 @@ export function QuestionComposer({ pending, draft, submitting, error, onCollapse
     {error ? <p className="question-composer__error" role="alert">{error}</p> : null}
     <footer className="question-composer__footer">
       <div className="question-composer__navigation">
-        <button type="button" disabled={submitting || questionIndex === 0} onClick={() => draft.setQuestionIndex(questionIndex - 1)}>
+        <Button disabled={submitting || questionIndex === 0} onClick={() => draft.setQuestionIndex(questionIndex - 1)}>
           <ChevronLeft size={16} aria-hidden="true" />上一题
-        </button>
-        <button type="button" disabled={submitting || questionIndex === pending.questions.length - 1} onClick={() => draft.setQuestionIndex(questionIndex + 1)}>
+        </Button>
+        <Button disabled={submitting || questionIndex === pending.questions.length - 1} onClick={() => draft.setQuestionIndex(questionIndex + 1)}>
           下一题<ChevronRight size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
-      <button type="submit" className="question-composer__submit" disabled={submitting} aria-label={submitLabel}>
+      <Button type="submit" variant="primary" className="question-composer__submit" loading={submitting} aria-label={submitLabel}>
         <Send size={16} aria-hidden="true" />{submitLabel}
-      </button>
+      </Button>
     </footer>
   </form>;
 }

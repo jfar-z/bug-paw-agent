@@ -1,5 +1,5 @@
-import { BrainCircuit, Check, ChevronDown, CircleOff } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { BrainCircuit, CircleOff } from "lucide-react";
+import { SearchSelect } from "../ui/search-select";
 import { THINKING_LEVELS, type ThinkingLevel } from "../../shared/configuration-contracts";
 import type { ModelSummary } from "../api";
 
@@ -21,99 +21,52 @@ export function ComposerSessionControls({
   onThinkingLevelChange,
   onModelChange,
 }: ComposerSessionControlsProps) {
-  const [openMenu, setOpenMenu] = useState<"thinking" | "model">();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const thinkingLevels = selectedModel?.thinkingLevels ?? [...THINKING_LEVELS];
+  const thinkingLevels = selectedModel?.thinkingLevels ?? THINKING_LEVELS;
   const thinkingUnavailable = thinkingLevels.length <= 1;
   const thinkingLabel = thinkingLevelLabels[thinkingLevel];
-
-  useEffect(() => {
-    if (!openMenu) return;
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpenMenu(undefined);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenMenu(undefined);
-    };
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [openMenu]);
-
   const thinkingAriaLabel = thinkingUnavailable
     ? `思考深度：${thinkingLabel}；当前模型不支持调整`
     : `思考深度：${thinkingLabel}`;
 
-  return <div className="composer-session-controls" ref={rootRef}>
-    <div className="composer-session-control">
-      <button
-        type="button"
-        className="composer-thinking-trigger"
-        aria-label={thinkingAriaLabel}
-        aria-expanded={openMenu === "thinking"}
-        aria-haspopup="listbox"
-        title={thinkingAriaLabel}
-        disabled={disabled || thinkingUnavailable}
-        onClick={() => setOpenMenu((current) => current === "thinking" ? undefined : "thinking")}
-      >
-        <BrainCircuit size={18} aria-hidden="true" />
-      </button>
-      {openMenu === "thinking" ? <div className="composer-control-menu composer-thinking-menu" role="listbox" aria-label="思考深度">
-        {thinkingLevels.map((level) => <button
-          key={level}
-          type="button"
-          role="option"
-          aria-label={`${thinkingLevelLabels[level]} ${level}`}
-          aria-selected={level === thinkingLevel}
-          onClick={() => {
-            onThinkingLevelChange(level);
-            setOpenMenu(undefined);
-          }}
-        >
-          {level === "off" ? <CircleOff size={15} aria-hidden="true" /> : <BrainCircuit size={15} aria-hidden="true" />}
-          <span>{thinkingLevelLabels[level]}</span>
-          <small>{level}</small>
-          {level === thinkingLevel ? <Check size={15} aria-hidden="true" /> : null}
-        </button>)}
-      </div> : null}
-    </div>
-
-    <div className="composer-session-control composer-model-control">
-      <button
-        type="button"
-        className="composer-model-trigger"
-        aria-label={`切换模型，当前 ${selectedModel?.name ?? "未选择"}`}
-        aria-expanded={openMenu === "model"}
-        aria-haspopup="listbox"
-        title={selectedModel?.name ?? "选择模型"}
-        disabled={disabled || models.length === 0}
-        onClick={() => setOpenMenu((current) => current === "model" ? undefined : "model")}
-      >
-        <span>{selectedModel?.name ?? "选择模型"}</span>
-        <ChevronDown size={14} aria-hidden="true" />
-      </button>
-      {openMenu === "model" ? <div className="composer-control-menu composer-model-menu" role="listbox" aria-label="可用模型">
-        {models.map((model) => {
-          const selected = sameModel(model, selectedModel);
-          return <button
-            key={`${model.provider}:${model.id}`}
-            type="button"
-            role="option"
-            aria-selected={selected}
-            onClick={() => {
-              onModelChange(model);
-              setOpenMenu(undefined);
-            }}
-          >
-            <span><strong>{model.name}</strong><small>{model.provider} · {model.id}</small></span>
-            {selected ? <Check size={15} aria-hidden="true" /> : null}
-          </button>;
-        })}
-      </div> : null}
-    </div>
+  return <div className="composer-session-controls">
+    <SearchSelect
+      className="composer-thinking-control"
+      ariaLabel={thinkingAriaLabel}
+      listLabel="思考深度"
+      triggerTitle={thinkingAriaLabel}
+      iconOnly
+      placeholderIcon={<BrainCircuit size={18} />}
+      searchable={false}
+      disabled={disabled || thinkingUnavailable}
+      value={thinkingLevel}
+      onChange={onThinkingLevelChange}
+      options={thinkingLevels.map((level) => ({
+        value: level,
+        label: thinkingLevelLabels[level],
+        description: level,
+        ariaLabel: `${thinkingLevelLabels[level]} ${level}`,
+        icon: level === "off" ? <CircleOff size={15} /> : <BrainCircuit size={15} />,
+      }))}
+    />
+    <SearchSelect
+      className="composer-model-control"
+      ariaLabel={`切换模型，当前 ${selectedModel?.name ?? "未选择"}`}
+      listLabel="可用模型"
+      triggerTitle={selectedModel?.name}
+      placeholder="选择模型"
+      searchable={false}
+      disabled={disabled || models.length === 0}
+      value={selectedModel && modelKey(selectedModel)}
+      options={models.map((model) => ({
+        value: modelKey(model),
+        label: model.name,
+        description: `${model.provider} · ${model.id}`,
+      }))}
+      onChange={(value) => {
+        const model = models.find((item) => modelKey(item) === value);
+        if (model) onModelChange(model);
+      }}
+    />
   </div>;
 }
 
@@ -127,6 +80,7 @@ const thinkingLevelLabels: Record<ThinkingLevel, string> = {
   max: "最大",
 };
 
-function sameModel(left: ModelSummary, right?: ModelSummary): boolean {
-  return left.provider === right?.provider && left.id === right.id;
+/** 模型标识只在同一提供商内唯一。 */
+function modelKey(model: ModelSummary): string {
+  return JSON.stringify([model.provider, model.id]);
 }

@@ -161,7 +161,7 @@ describe("AigcWorkbenchPage 创作台", () => {
       name: "new.json",
       text: vi.fn(async () => JSON.stringify({ "1": { class_type: "KSampler", inputs: { steps: 30 } } })),
     } as unknown as File;
-    fireEvent.change(screen.getByLabelText("替换原始工作流文件"), { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("button", { name: "替换原始工作流" }).nextElementSibling!, { target: { files: [file] } });
 
     expect(await screen.findByRole("heading", { name: "替换为“new.json”？" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/replace"))).toBe(false);
@@ -199,7 +199,7 @@ describe("AigcWorkbenchPage 创作台", () => {
     renderAigcPage({ page: "aigc-workflow-detail", workflowId: workflow.id });
     await waitFor(() => expect(screen.getByRole("button", { name: "替换原始工作流" })).toBeEnabled());
     const file = { name: "new.json", text: async () => JSON.stringify({ "1": { class_type: "KSampler", inputs: { seed: 1 } } }) } as File;
-    const chooseFile = () => fireEvent.change(screen.getByLabelText("替换原始工作流文件"), { target: { files: [file] } });
+    const chooseFile = () => fireEvent.change(screen.getByRole("button", { name: "替换原始工作流" }).nextElementSibling!, { target: { files: [file] } });
     chooseFile();
     expect(await screen.findByRole("list", { name: "无法保留的映射与参数组" })).toBeInTheDocument();
     for (const label of ["入参：步数", "出参：成品图", "参数组：参考素材", "节点 1 · inputs.steps", "映射字段不存在"]) expect(screen.getByText(label)).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe("AigcWorkbenchPage 创作台", () => {
     renderAigcPage({ page: "aigc-workflow-detail", workflowId: workflow.id });
     await waitFor(() => expect(screen.getByRole("button", { name: "替换原始工作流" })).toBeEnabled());
     const file = { name: "new.json", text: async () => scenario === "无效 JSON" ? "{" : "{}" } as File;
-    fireEvent.change(screen.getByLabelText("替换原始工作流文件"), { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("button", { name: "替换原始工作流" }).nextElementSibling!, { target: { files: [file] } });
     if (scenario === "版本冲突") fireEvent.click(await screen.findByRole("button", { name: "确认替换" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(scenario === "检查失败" ? "无法识别 ComfyUI 工作流格式" : scenario === "版本冲突" ? "工作流版本已变化" : "JSON 格式无效");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
