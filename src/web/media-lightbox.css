@@ -50,3 +50,28 @@
   object-fit: scale-down;
 }
 
+
+.aigc-media-preview-dialog.bp-dialog {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: max(var(--bp-space-4), env(safe-area-inset-top)) max(var(--bp-space-4), env(safe-area-inset-right)) max(var(--bp-space-4), env(safe-area-inset-bottom)) max(var(--bp-space-4), env(safe-area-inset-left));
+  grid-template-rows: auto minmax(0, 1fr);
+  border-radius: 0;
+}
+
+.aigc-media-preview-dialog .bp-dialog__title {
+  overflow-wrap: anywhere;
+}
+
+.aigc-media-preview-dialog .bp-dialog__body {
+  max-height: none;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.aigc-media-preview-dialog .media-lightbox__stage {
+  border-radius: var(--bp-radius-control);
+  background: #070b09;
+}

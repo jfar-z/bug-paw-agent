@@ -1,4 +1,4 @@
-import { Button, Textarea, TextField } from "../ui/controls";
+import { IconButton, Button, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { ArrowLeft, Check, GitBranch, GripVertical, Layers3, Pencil, Plus, Search, Trash2, X } from "lucide-react";
@@ -301,7 +301,7 @@ function InputMappingBuilder(props: {
                     <small>汇总节点 #{group.boundaryNodeId} · {group.targetFieldPrefix}</small>
                   </div>
                   <div className="aigc-task-actions">
-                    <button type="button" className="is-danger" onClick={() => setDeleteGroupTarget(group)}><Trash2 size={14} />删除</button>
+                    <Button variant="danger" size="sm" onClick={() => setDeleteGroupTarget(group)}><Trash2 size={14} />删除</Button>
                   </div>
                 </article>
               );
@@ -317,8 +317,8 @@ function InputMappingBuilder(props: {
                   <small>{mapping.type}{mapping.required ? " · 必填" : " · 可选"}{mapping.activation ? ` · 条件分支 ${mapping.activation.nodeIds.length} 节点` : ""}</small>
                 </div>
                 <div className="aigc-task-actions">
-                  <button type="button" onClick={() => beginEdit(mapping)}><Pencil size={14} />编辑</button>
-                  <button type="button" className="is-danger" onClick={() => setDeleteTarget(mapping)}><Trash2 size={14} />删除</button>
+                  <Button size="sm" onClick={() => beginEdit(mapping)}><Pencil size={14} />编辑</Button>
+                  <Button variant="danger" size="sm" onClick={() => setDeleteTarget(mapping)}><Trash2 size={14} />删除</Button>
                 </div>
               </article>
             );
@@ -330,7 +330,7 @@ function InputMappingBuilder(props: {
         <div className="aigc-mapping-editor">
           <div className="configuration-section__heading">
             <strong>{editingId ? "编辑入参" : "新增入参"}</strong>
-            <button type="button" className="icon-button" aria-label="关闭入参编辑" onClick={closeEditor}><X size={15} /></button>
+            <IconButton label="关闭入参编辑" onClick={closeEditor}><X size={15} /></IconButton>
           </div>
 
           <div className="aigc-mapping-workspace">
@@ -430,7 +430,7 @@ function ReferenceGroupEditor({ workflow, draft, error, onChange, onCancel, onCo
   const field = draft.field || (result.fields.length === 1 ? result.fields[0] : "");
   return (
     <div className="aigc-mapping-editor aigc-reference-group-editor">
-      <div className="configuration-section__heading"><strong>创建参考输入组</strong><button type="button" className="icon-button" aria-label="关闭参考组编辑" onClick={onCancel}><X size={15} /></button></div>
+      <div className="configuration-section__heading"><strong>创建参考输入组</strong><IconButton label="关闭参考组编辑" onClick={onCancel}><X size={15} /></IconButton></div>
       <div className="aigc-form-grid">
         <div className="aigc-config-field aigc-span-2 aigc-reference-boundary-picker"><span>汇总节点</span>
           <div className="aigc-node-search aigc-reference-node-search">
@@ -587,8 +587,8 @@ function OutputMappingBuilder(props: {
                   <small>{mapping.mediaType}</small>
                 </div>
                 <div className="aigc-task-actions">
-                  <button type="button" onClick={() => beginEdit(mapping)}><Pencil size={14} />编辑</button>
-                  <button type="button" className="is-danger" onClick={() => setDeleteTarget(mapping)}><Trash2 size={14} />删除</button>
+                  <Button size="sm" onClick={() => beginEdit(mapping)}><Pencil size={14} />编辑</Button>
+                  <Button variant="danger" size="sm" onClick={() => setDeleteTarget(mapping)}><Trash2 size={14} />删除</Button>
                 </div>
               </article>
             );
@@ -600,7 +600,7 @@ function OutputMappingBuilder(props: {
         <div className="aigc-mapping-editor">
           <div className="configuration-section__heading">
             <strong>{editingId ? "编辑输出" : "新增输出"}</strong>
-            <button type="button" className="icon-button" aria-label="关闭输出编辑" onClick={closeEditor}><X size={15} /></button>
+            <IconButton label="关闭输出编辑" onClick={closeEditor}><X size={15} /></IconButton>
           </div>
           <div className="aigc-mapping-workspace">
             <WorkflowNodeNavigator

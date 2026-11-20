@@ -135,25 +135,8 @@
 /* 覆盖式预览填满快捷资源内容区，列表在预览期间由组件隐藏。 */
 .workspace-browser--quick .workspace-file-preview--overlay { position: absolute; inset: 0; border: 0; }
 
-.workspace-dialog-backdrop, .workspace-agent-navigation__scrim { position: fixed; z-index: 70; inset: 0; border: 0; background: rgba(13, 18, 15, .45); }
+.workspace-agent-navigation__scrim { position: fixed; z-index: 70; inset: 0; border: 0; background: rgba(13, 18, 15, .45); }
 
-.workspace-dialog { position: fixed; z-index: 71; top: 50%; left: 50%; width: min(360px, calc(100vw - 32px)); padding: 22px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); box-shadow: var(--shadow-float); transform: translate(-50%, -50%); }
-
-.workspace-dialog h2, .workspace-dialog p { margin: 0; }
-
-.workspace-dialog p { margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
-
-.workspace-dialog__field { display: grid; gap: 6px; margin-top: 18px; color: var(--text-secondary); font-size: 10px; }
-
-.workspace-dialog__field input { min-height: 38px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; outline: 0; color: var(--text-primary); background: var(--panel); font: inherit; }
-
-.workspace-dialog__field input:focus { border-color: var(--fg); }
-
-.workspace-dialog small { display: block; margin-top: 7px; color: var(--text-tertiary); font-size: 11px; }
-
-.workspace-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-
-.workspace-dialog footer > button:first-child { min-height: 36px; padding: 0 11px; border: 1px solid var(--border); border-radius: 9px; background: transparent; font-size: 10px; }
 
 @media (max-width: 760px) {
   .quick-workspace-open-button { display: none; }

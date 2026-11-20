@@ -509,7 +509,7 @@
   border-top: 1px solid var(--border);
 }
 
-.configuration-button-row button {
+.configuration-button-row button:not(.bp-button) {
   display: inline-flex;
   min-height: 38px;
   align-items: center;

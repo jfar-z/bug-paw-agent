@@ -1,5 +1,5 @@
 import { Checkbox } from "../ui/choice";
-import { SearchField, Button, TextField, Textarea } from "../ui/controls";
+import { SearchField, Button, IconButton, TextField, Textarea } from "../ui/controls";
 import { SearchSelect } from "../ui/search-select";
 import { isMediaReference, mediaReference } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, useMediaPublicTransfer } from "../components/media-library-actions";
@@ -135,14 +135,14 @@ function WorkflowList() {
       <div className="wf-list-toolbar">
         <SearchField className="wf-search" label="搜索工作流" placeholder="搜索名称或说明" value={query} onChange={setQuery} />
         <span>{items.length} 个工作流</span>
-        <button
-          className="icon-button"
-          aria-label="刷新列表"
-          disabled={loading || !online}
+        <IconButton
+          label="刷新列表"
+          loading={loading}
+          disabled={!online}
           onClick={() => void reload()}
         >
           <RefreshCw size={17} />
-        </button>
+        </IconButton>
       </div>
       {loading ? (
         <p role="status" className="wf-empty">
@@ -207,27 +207,25 @@ function WorkflowList() {
                     <Play size={15} />
                     运行
                   </Button>
-                  <button
-                    className="icon-button"
-                    aria-label={`编辑 ${w.name}`}
+                  <IconButton
+                    label={`编辑 ${w.name}`}
                     onClick={() =>
                       navigateTo({ page: "workflow-editor", workflowId: w.id })
                     }
                   >
                     <Pencil size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label={`复制 ${w.name}`}
+                  </IconButton>
+                  <IconButton
+                    label={`复制 ${w.name}`}
                     title="复制工作流"
                     disabled={!online}
                     onClick={() => setCopying(w)}
                   >
                     <Copy size={16} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label={`删除 ${w.name}`}
+                  </IconButton>
+                  <IconButton
+                    label={`删除 ${w.name}`}
+                    danger
                     disabled={!online}
                     onClick={async () => {
                       if (
@@ -242,7 +240,7 @@ function WorkflowList() {
                     }}
                   >
                     <Trash2 size={16} />
-                  </button>
+                  </IconButton>
                 </div>
               </article>
             ))}
@@ -377,13 +375,12 @@ function Editor({ id }: { id: string }) {
   return (
     <div className="wf-editor">
       <header className="wf-editor-header">
-        <button
-          className="icon-button"
-          aria-label="返回工作流列表"
+        <IconButton
+          label="返回工作流列表"
           onClick={() => navigateTo({ page: "workflows" })}
         >
           <ArrowLeft size={18} />
-        </button>
+        </IconButton>
         <div className="wf-editor-title">
           <label className="wf-field">
             工作流名称

@@ -1,4 +1,4 @@
-import { Button, NumberField, TextField } from "../../ui/controls";
+import { IconButton, Button, NumberField, TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
 import { ChevronDown, ChevronUp, ExternalLink, Trash2, X } from "lucide-react";
@@ -173,7 +173,7 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
       <form className="configuration-dialog configuration-form-card" role="dialog" aria-modal="true" aria-labelledby="search-provider-dialog-title" onSubmit={submit}>
         <header>
           <div><span>SEARCH PROVIDER</span><h2 id="search-provider-dialog-title">{title}</h2><p>渠道配置与凭证会作为一个事务保存。</p></div>
-          <button type="button" className="icon-button" aria-label="关闭配置搜索渠道" disabled={busy} onClick={close}><X size={18} aria-hidden="true" /></button>
+          <IconButton label="关闭配置搜索渠道" disabled={busy} onClick={close}><X size={18} aria-hidden="true" /></IconButton>
         </header>
 
         {props.mode === "create" ? <label><span>渠道类型</span><SearchSelect

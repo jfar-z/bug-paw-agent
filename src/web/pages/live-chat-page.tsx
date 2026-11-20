@@ -1,3 +1,4 @@
+import { Button, IconButton } from "../ui/controls";
 import { useWorkbenchNavigation } from "../layouts/workbench-shell";
 import { ChevronDown, CircleStop, FolderOpen, Menu, MessageSquarePlus, PencilLine, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -1820,11 +1821,11 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
       <section className="chat-workspace">
         <header className="chat-header live-chat-header">
           <div className="chat-header__left">
-            <button type="button" className="icon-button mobile-menu" aria-label="打开会话历史" aria-expanded={sidebarOpen} onClick={() => openDrawer("sessions")}><Menu size={19} /></button>
-            <button type="button" className="chat-workbench-switcher" aria-label="打开工作台导航" aria-expanded={navigation?.drawer === "primary"} onClick={() => {
+            <IconButton className="mobile-menu" label="打开会话历史" aria-expanded={sidebarOpen} onClick={() => openDrawer("sessions")}><Menu size={19} /></IconButton>
+            <Button className="chat-workbench-switcher" aria-label="打开工作台导航" aria-expanded={navigation?.drawer === "primary"} onClick={() => {
               closeSidebar();
               window.dispatchEvent(new Event(WORKBENCH_NAVIGATION_TOGGLE_EVENT));
-            }}><span>工作台</span><ChevronDown size={14} aria-hidden="true" /></button>
+            }}><span>工作台</span><ChevronDown size={14} aria-hidden="true" /></Button>
             <div className="chat-title"><strong>{session ? "Agent 对话" : "新对话"}</strong><span>pi SDK · 实时连接</span></div>
           </div>
           <div className="chat-header__actions">
@@ -1834,17 +1835,16 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
               disabled={streaming || isOpeningSession}
               onSelectAgent={(agentId) => void selectAgent(agentId)}
             />
-            <button type="button" className="icon-button quick-workspace-open-button" aria-label="打开快捷资源管理" title="快捷资源管理" disabled={!activeAgentId} onClick={(event) => { workspaceTriggerRef.current = event.currentTarget; setWorkspaceMessage(""); openDrawer("resources"); }}><FolderOpen size={18} aria-hidden="true" /></button>
-            <button
-              type="button"
-              className="icon-button chat-new-session-button"
-              aria-label="新建会话"
+            <IconButton className="quick-workspace-open-button" label="打开快捷资源管理" title="快捷资源管理" disabled={!activeAgentId} onClick={(event) => { workspaceTriggerRef.current = event.currentTarget; setWorkspaceMessage(""); openDrawer("resources"); }}><FolderOpen size={18} aria-hidden="true" /></IconButton>
+            <IconButton
+              className="chat-new-session-button"
+              label="新建会话"
               title="新建会话"
               disabled={noAvailableAgent || isOpeningSession}
               onClick={() => enterDraft()}
             >
               <MessageSquarePlus size={18} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
         </header>
 
@@ -1911,7 +1911,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
               editingContext={editingEntryId ? <div className="composer-editing-context" role="status">
                 <div className="composer-editing-context__heading"><PencilLine size={15} aria-hidden="true" /><span><strong>正在编辑历史消息</strong><small>发送后将创建新分支，原消息不会改动。</small></span></div>
                 <p title={editingEntry?.text || draft}>{editingEntry?.text || draft || "历史消息"}</p>
-                <button type="button" onClick={cancelEditing}>取消编辑</button>
+                <Button size="sm" onClick={cancelEditing}>取消编辑</Button>
               </div> : undefined}
               attachmentControl={<AttachmentPickerButton items={attachmentItems} disabled={streaming || isOpeningSession || !selectedAgentId} onFilesSelected={queueAttachmentFiles} onError={setError} />}
               railControls={<ComposerSessionControls

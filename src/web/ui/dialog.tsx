@@ -16,6 +16,7 @@ export function Dialog({
   children,
   footer,
   onClose,
+  closeLabel = "关闭",
   busy = false,
   drawer = false,
   className = "",
@@ -24,6 +25,7 @@ export function Dialog({
   children: ReactNode;
   footer?: ReactNode;
   onClose?: () => void;
+  closeLabel?: string;
   busy?: boolean;
   drawer?: boolean | "left" | "right";
   className?: string;
@@ -75,7 +77,7 @@ export function Dialog({
           {title}
         </h2>
         {onClose && (
-          <IconButton label="关闭" disabled={busy} onClick={onClose}>
+          <IconButton label={closeLabel} disabled={busy} onClick={onClose}>
             <X />
           </IconButton>
         )}

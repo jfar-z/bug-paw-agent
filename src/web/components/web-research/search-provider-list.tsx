@@ -1,4 +1,4 @@
-import { Button } from "../../ui/controls";
+import { IconButton, Button } from "../../ui/controls";
 import { ArrowDown, ArrowUp, Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 
@@ -63,8 +63,8 @@ export function SearchProviderList(props: SearchProviderListProps) {
           <span><strong>{provider.name}</strong><small>{providerTypeLabel(provider)} · {provider.enabled ? "已启用" : "已停用"}</small></span>
           <span><small>{provider.type === "searxng" ? "无需凭证" : configured ? "凭证已配置" : "缺少凭证"}</small></span>
           <div className="configuration-button-row">
-            <button type="button" className="icon-button" aria-label={`上移${provider.name}`} disabled={!props.online || saving || index === 0} onClick={() => void move(provider.id, -1)}><ArrowUp size={15} aria-hidden="true" /></button>
-            <button type="button" className="icon-button" aria-label={`下移${provider.name}`} disabled={!props.online || saving || index === props.document.config.searchProviders.length - 1} onClick={() => void move(provider.id, 1)}><ArrowDown size={15} aria-hidden="true" /></button>
+            <IconButton label={`上移${provider.name}`} disabled={!props.online || saving || index === 0} onClick={() => void move(provider.id, -1)}><ArrowUp size={15} aria-hidden="true" /></IconButton>
+            <IconButton label={`下移${provider.name}`} disabled={!props.online || saving || index === props.document.config.searchProviders.length - 1} onClick={() => void move(provider.id, 1)}><ArrowDown size={15} aria-hidden="true" /></IconButton>
             <Button type="button" className="configuration-secondary-action" aria-label={`配置${provider.name}`} disabled={!props.online || saving} onClick={() => props.onConfigure(provider)}><Settings2 size={14} aria-hidden="true" />配置</Button>
           </div>
         </li>;

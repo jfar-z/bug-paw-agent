@@ -44,7 +44,7 @@ import { AIGC_TASK_BULK_DELETE_LIMIT } from "../../shared/aigc-contracts";
 import { createDefaultOpenAiParameters, resolveOpenAiParameterDefinitions } from "../../shared/aigc-openai-parameters";
 import { aigcComfyUiInputContentUrl, aigcInputAssetUrl, aigcTaskAssetUrl, api } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { ConfirmDialog } from "../ui/dialog";
+import { ConfirmDialog, Dialog } from "../ui/dialog";
 import { SearchSelect } from "../ui/search-select";
 import { useErrorToast } from "../error-toast-provider";
 import { useOnlineStatus } from "../use-online-status";
@@ -601,7 +601,7 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
               <section key={item.group.id} className="aigc-run-reference-group" aria-labelledby={`reference-group-${item.group.id}`}>
                 <div className="aigc-run-reference-group__heading"><div><strong id={`reference-group-${item.group.id}`}>{item.group.label}</strong><small>{item.filledCount}/{item.fields.length} 已添加</small></div><span>{item.group.type}</span></div>
                 <div className="aigc-run-reference-group__slots">
-                  {item.visibleFields.map((field) => <div key={field.name} className="aigc-run-reference-slot"><div className="aigc-run-reference-slot__heading"><span>槽位 {item.fields.indexOf(field) + 1}</span>{hasRunValue(values[field.name]) ? <button type="button" className="icon-button" aria-label={`清空${field.label}`} title="清空槽位" onClick={() => clearRunField(field)}><Trash2 size={14} /></button> : null}</div>{renderRunField(field)}</div>)}
+                  {item.visibleFields.map((field) => <div key={field.name} className="aigc-run-reference-slot"><div className="aigc-run-reference-slot__heading"><span>槽位 {item.fields.indexOf(field) + 1}</span>{hasRunValue(values[field.name]) ? <IconButton label={`清空${field.label}`} title="清空槽位" onClick={() => clearRunField(field)}><Trash2 size={14} /></IconButton> : null}</div>{renderRunField(field)}</div>)}
                 </div>
               </section>
             )) : (
@@ -625,7 +625,7 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
           onOpenImage={setPreviewAsset}
         />
       </div>
-      {previewAsset && createdTask ? <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${previewAsset.name} 大图预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={() => setPreviewAsset(undefined)}><X size={20} /></button><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(createdTask.id, previewAsset.id)} alt={previewAsset.name} /></div></div> : null}
+      {previewAsset && createdTask ? <Dialog className="aigc-media-preview-dialog" title={`${previewAsset.name} 大图预览`} closeLabel="关闭产物预览" onClose={() => setPreviewAsset(undefined)}><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(createdTask.id, previewAsset.id)} alt={previewAsset.name} /></div></Dialog> : null}
     </div>
   );
 }
@@ -680,6 +680,7 @@ function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage 
   onOpenImage: (asset: AigcTaskAsset) => void;
 }) {
   const activeAsset = task?.assets.find((asset) => asset.id === activeAssetId) ?? task?.assets[0];
+  const panelId = "aigc-run-output";
   const source = task && activeAsset ? aigcTaskAssetUrl(task.id, activeAsset.id) : "";
   return (
     <section className="aigc-run-preview" aria-labelledby="aigc-run-preview-title">
@@ -692,7 +693,18 @@ function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage 
           {task ? <a className="icon-button" href={`/aigc/tasks/${encodeURIComponent(task.id)}`} aria-label="查看任务详情" title="查看任务详情" onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-task-detail", taskId: task.id }); }}><Activity size={15} /></a> : null}
         </div>
       </div>
-      <div className="aigc-run-preview-stage">
+      {task && activeAsset ? (
+        <Tabs className="aigc-run-output-switcher" label="产物切换" panelId={panelId} value={activeAsset.id}
+          onChange={onActiveAssetChange}
+          items={task.assets.map((asset, index) => ({
+            id: asset.id,
+            label: <>
+              <AigcAssetIcon mediaType={asset.mediaType} />
+              <span className="aigc-run-output-switcher__label" title={asset.name}><strong>{asset.name}</strong><small> · {index + 1} / {task.assets.length} · {formatFileSize(asset.size)}</small></span>
+            </>,
+          }))} />
+      ) : null}
+      <div className="aigc-run-preview-stage" id={panelId} role={activeAsset ? "tabpanel" : undefined} aria-labelledby={activeAsset ? `${panelId}-${activeAsset.id}` : undefined}>
         {task && activeAsset?.mediaType.startsWith("image/") ? <button type="button" className="aigc-run-preview-image" aria-label={`放大预览 ${activeAsset.name}`} onClick={() => onOpenImage(activeAsset)}><img src={source} alt={activeAsset.name} /></button> : null}
         {task && activeAsset?.mediaType.startsWith("video/") ? <video key={activeAsset.id} src={source} controls preload="metadata" aria-label={activeAsset.name} /> : null}
         {task && activeAsset?.mediaType.startsWith("audio/") ? <div className="aigc-run-audio"><AudioLines size={34} aria-hidden="true" /><strong>{activeAsset.name}</strong><audio key={activeAsset.id} src={source} controls preload="metadata" aria-label={activeAsset.name} /></div> : null}
@@ -700,16 +712,6 @@ function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage 
         {task && !activeAsset ? <AigcRunPreviewState task={task} /> : null}
         {!task ? <div className="aigc-run-preview-empty"><ImageIcon size={30} aria-hidden="true" /><strong>等待生成</strong><p>尚未创建任务</p></div> : null}
       </div>
-      {task && task.assets.length ? (
-        <div className="aigc-task-actions aigc-run-output-switcher" role="tablist" aria-label="产物切换">
-          {task.assets.map((asset, index) => (
-            <button key={asset.id} type="button" role="tab" aria-selected={activeAsset?.id === asset.id} className={activeAsset?.id === asset.id ? "is-selected" : undefined} onClick={() => onActiveAssetChange(asset.id)}>
-              <AigcAssetIcon mediaType={asset.mediaType} />
-              <span><strong>{asset.name}</strong><small> · {index + 1} / {task.assets.length} · {formatFileSize(asset.size)}</small></span>
-            </button>
-          ))}
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -1790,7 +1792,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
   if (!task) return <div className="aigc-workbench-page"><p className="configuration-help">正在加载任务…</p></div>;
   return (
     <div className="aigc-workbench-page">
-      <header className="aigc-page-heading"><h1>创作结果</h1><p>{task.interfaceName} · {taskStatusLabel(task.status)}</p><button type="button" className="danger-button" onClick={() => setDeleteOpen(true)}><Trash2 size={15} />删除任务</button></header>
+      <header className="aigc-page-heading"><h1>创作结果</h1><p>{task.interfaceName} · {taskStatusLabel(task.status)}</p><Button variant="danger" onClick={() => setDeleteOpen(true)}><Trash2 size={15} aria-hidden="true" />删除任务</Button></header>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
         <div className="aigc-task-meta"><span>任务 ID</span><code>{task.id}</code></div>
@@ -1820,7 +1822,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
         {(task.status === "failed" || task.status === "cancelled") && !task.preparation ? <Button type="button" className="configuration-secondary-action" onClick={() => void retry()}><RefreshCw size={15} />重试</Button> : null}
       </section>
       <AigcTaskDiagnostics task={task} />
-      {previewAsset ? <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${previewAsset.name} 大图预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={() => setPreviewAsset(undefined)}><X size={20} /></button><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(task.id, previewAsset.id)} alt={previewAsset.name} /></div></div> : null}
+      {previewAsset ? <Dialog className="aigc-media-preview-dialog" title={`${previewAsset.name} 大图预览`} closeLabel="关闭产物预览" onClose={() => setPreviewAsset(undefined)}><div className="media-lightbox__stage"><img src={aigcTaskAssetUrl(task.id, previewAsset.id)} alt={previewAsset.name} /></div></Dialog> : null}
       {deleteOpen ? <ConfirmDialog title="删除任务？" description={`任务 ${task.id} 及其 ${task.assets.length} 个 AIGC 产物将被永久删除；已交付至 Agent 工作目录的附件会保留。`} confirmLabel="删除任务和产物" onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
     </div>
   );
@@ -1917,7 +1919,7 @@ function AigcWorkflowsPage() {
             <div><strong>{workflow.name}</strong><span>{workflow.fileName}</span><small>{workflow.nodeCount} 节点 · {workflow.edgeCount} 连线</small></div>
             <p>{workflow.inputCount} 个入参 · {workflow.outputCount} 个输出映射</p>
             <div className="aigc-task-actions">
-              {interfaces.find((item) => item.enabled && item.protocol === "comfyui" && (item.config as { workflowId?: string }).workflowId === workflow.id) ? <button type="button" onClick={() => { const item = interfaces.find((candidate) => candidate.enabled && candidate.protocol === "comfyui" && (candidate.config as { workflowId?: string }).workflowId === workflow.id); if (item) navigateTo({ page: "aigc-run", interfaceId: item.id }); }}><Play size={14} />运行</button> : <button type="button" onClick={() => navigateTo({ page: "aigc-interfaces" })}><Boxes size={14} />创建运行接口</button>}
+              {interfaces.find((item) => item.enabled && item.protocol === "comfyui" && (item.config as { workflowId?: string }).workflowId === workflow.id) ? <Button onClick={() => { const item = interfaces.find((candidate) => candidate.enabled && candidate.protocol === "comfyui" && (candidate.config as { workflowId?: string }).workflowId === workflow.id); if (item) navigateTo({ page: "aigc-run", interfaceId: item.id }); }}><Play size={14} />运行</Button> : <Button onClick={() => navigateTo({ page: "aigc-interfaces" })}><Boxes size={14} />创建运行接口</Button>}
               <a href={`/aigc/workflows/${encodeURIComponent(workflow.id)}`} onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-workflow-detail", workflowId: workflow.id }); }}>配置映射</a>
               <Button variant="danger" icon={<Trash2 aria-hidden />} onClick={() => setDeleteTarget(workflow)}>删除</Button>
             </div>

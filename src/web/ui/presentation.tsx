@@ -68,14 +68,18 @@ export function Skeleton({ label = "正在加载" }: { label?: string }) {
 export function Pagination({
   page,
   total,
+  itemCount,
+  label = "分页",
   onChange,
 }: {
   page: number;
   total: number;
+  itemCount?: number;
+  label?: string;
   onChange: (page: number) => void;
 }) {
   return (
-    <div className="bp-pagination">
+    <nav className="bp-pagination" aria-label={label}>
       <Button
         size="sm"
         aria-label="上一页"
@@ -85,7 +89,7 @@ export function Pagination({
         ‹
       </Button>
       <output>
-        {page} / {total}
+        {page} / {total}{itemCount !== undefined && `，共 ${itemCount} 项`}
       </output>
       <Button
         size="sm"
@@ -95,6 +99,6 @@ export function Pagination({
       >
         ›
       </Button>
-    </div>
+    </nav>
   );
 }

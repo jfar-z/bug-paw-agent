@@ -3,14 +3,14 @@ import { Button, Textarea, TextField } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import { MediaLibraryCatalogStatus, useMediaLibraries } from "../components/media-library-actions";
-import { ArrowLeft, Check, Copy, Folder, Save, Trash2, X } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { ArrowLeft, Check, Copy, Folder, Save, Trash2 } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { AgentInstructions, AgentProfile, MediaLibraryGrant, AgentProfileDocument, TitleGenerationConfig } from "../../shared/agent-contracts";
 import type { AvatarCropArea } from "../../shared/avatar-contracts";
 import { BUILTIN_TOOL_CATALOG, CAPABILITY_TOOL_CATALOG, DEFAULT_AGENT_TOOL_NAMES, SYSTEM_TOOL_CATALOG } from "../../shared/tool-catalog";
 import { api, type ModelSummary, type ResourceCatalog } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
-import { ConfirmDialog } from "../ui/dialog";
+import { ConfirmDialog, Dialog } from "../ui/dialog";
 import { AvatarCropDialog } from "../components/avatar/avatar-crop-dialog";
 import { validateAvatarFile } from "../components/avatar/avatar-file";
 import { FormField } from "../ui/form-field";
@@ -82,6 +82,21 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<"archive" | "clone" | "delete">();
+  const lifecyclePending = useRef(false);
+
+  // 生命周期操作共享互斥锁，避免在同一配置版本上重复写入。
+  async function runLifecycle(action: NonNullable<typeof lifecycleAction>, perform: () => Promise<void>) {
+    if (lifecyclePending.current || saving || !online) return;
+    lifecyclePending.current = true;
+    setLifecycleAction(action);
+    try {
+      await perform();
+    } finally {
+      lifecyclePending.current = false;
+      setLifecycleAction(undefined);
+    }
+  }
   const [avatarFile, setAvatarFile] = useState<File>();
   const [avatarError, setAvatarError] = useState("");
   const [notFound, setNotFound] = useState(false);
@@ -245,8 +260,17 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
     if (result.status === "success") { setDocument(result.data); setNotice(result.data.profile.status === "active" ? "已恢复" : "已归档"); }
   }
 
+  async function cloneAgent() {
+    const result = await runApiTask(() => api.cloneAgent(agentId), {
+      operation: "克隆 Agent",
+      expected: agentDetailExpected(setError),
+    });
+    if (result.status === "success") onNavigate({ page: "agent-detail", agentId: result.data.profile.id });
+  }
+
   async function openDeleteDialog() {
     setDeleteOpen(true);
+    setDeletePreview(undefined);
     const result = await runApiTask(() => api.getAgentDeletePreview(agentId), { operation: "读取 Agent 删除影响", expected: agentDetailExpected(setError) });
     if (result.status === "success") setDeletePreview(result.data);
   }
@@ -260,7 +284,7 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
     return (
       <div className="configuration-page configuration-state">
         <span className="configuration-eyebrow">AGENT PROFILE</span><h1>Agent 不存在</h1><p>未找到 ID 为 <code>{agentId}</code> 的 Agent。</p>
-        <button type="button" onClick={() => onNavigate({ page: "agents" })}>返回 Agents</button>
+        <Button type="button" onClick={() => onNavigate({ page: "agents" })}>返回 Agents</Button>
       </div>
     );
   }
@@ -268,9 +292,9 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
 
   return (
     <div className="configuration-page agent-detail-page">
-      <button type="button" className="configuration-back" onClick={() => onNavigate({ page: "agents" })}>
+      <Button type="button" variant="ghost" className="configuration-back" onClick={() => onNavigate({ page: "agents" })}>
         <ArrowLeft size={16} aria-hidden="true" />返回 Agents
-      </button>
+      </Button>
       <header className="agent-detail-header">
         <span className="agent-detail-header__avatar">
           {agent.avatar.kind === "image"
@@ -299,9 +323,9 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
             {avatarError && !avatarFile ? <div className="configuration-inline-error" role="alert">{avatarError}</div> : null}
             <label><span>简介<small>简短说明这个 Agent 的用途</small></span><Textarea rows={3} value={agent.description} onChange={(event) => updateProfile({ description: event.target.value })} /></label>
             <div className="configuration-button-row">
-              <button type="button" onClick={toggleArchive}>{agent.status === "active" ? "归档 Agent" : "恢复 Agent"}</button>
-              <button type="button" onClick={async () => { const clone = await api.cloneAgent(agentId); onNavigate({ page: "agent-detail", agentId: clone.profile.id }); }}><Copy size={15} aria-hidden="true" />克隆</button>
-              <button type="button" className="danger-link" onClick={openDeleteDialog}><Trash2 size={15} aria-hidden="true" />删除</button>
+              <Button loading={lifecycleAction === "archive"} disabled={saving || !!lifecycleAction || !online || document?.revision === "fallback"} onClick={() => void runLifecycle("archive", toggleArchive)}>{agent.status === "active" ? "归档 Agent" : "恢复 Agent"}</Button>
+              <Button loading={lifecycleAction === "clone"} disabled={saving || !!lifecycleAction || !online} onClick={() => void runLifecycle("clone", cloneAgent)} icon={<Copy size={15} aria-hidden="true" />}>克隆</Button>
+              <Button variant="danger" disabled={saving || !!lifecycleAction || !online} onClick={() => void openDeleteDialog()} icon={<Trash2 size={15} aria-hidden="true" />}>删除</Button>
             </div>
           </section>
           <section className="configuration-form-card" aria-labelledby="agent-workspace-title">
@@ -317,7 +341,7 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
 
       {activeTab === "instructions" ? (
         <section className="agent-instructions" aria-labelledby="agent-instructions-title">
-          <header className="agent-instructions__heading"><div><span className="configuration-eyebrow">SYSTEM INSTRUCTIONS · 4 SECTIONS</span><h2 id="agent-instructions-title">角色与行为</h2><p>四个分区按固定顺序合并，并持续注入每次 Agent 运行。</p></div><div className="configuration-button-row"><button type="button" className="secondary-button" onClick={() => void openBootsharp()}>修改 BOOTSHARP</button><small>Markdown</small></div></header>
+          <header className="agent-instructions__heading"><div><span className="configuration-eyebrow">SYSTEM INSTRUCTIONS · 4 SECTIONS</span><h2 id="agent-instructions-title">角色与行为</h2><p>四个分区按固定顺序合并，并持续注入每次 Agent 运行。</p></div><div className="configuration-button-row"><Button type="button" className="secondary-button" onClick={() => void openBootsharp()}>修改 BOOTSHARP</Button><small>Markdown</small></div></header>
           <div className="agent-instruction-grid">
             {instructionFields.map((field, index) => (
               <label className="agent-instruction-field" key={field.key}>
@@ -426,18 +450,25 @@ export function AgentDetailPage({ agentId, onNavigate }: AgentDetailPageProps) {
       {activeTab === "resources" ? <section className="configuration-form-card configuration-single-column"><h2>资源</h2><p className="configuration-help">显示当前 Agent 经核心资源加载器合并后的真实资源与工具。完整安装和启停操作位于“Skills 与扩展”。</p><div className="agent-resource-summary"><div><strong>{resources?.resources.filter((item) => item.type === "skill").length ?? "…"}</strong><small>Skills</small></div><div><strong>{resources?.resources.filter((item) => item.type === "prompt").length ?? "…"}</strong><small>Prompts</small></div><div><strong>{resources?.resources.filter((item) => item.type === "extension").length ?? "…"}</strong><small>Extensions</small></div><div><strong>{resources?.tools.length ?? "…"}</strong><small>Tools</small></div></div><div className="agent-resource-list">{resources?.resources.slice(0, 8).map((item) => <div key={item.id}><span>{item.name}</span><small>{item.type} · {item.scope}{item.inherited ? " · 继承" : ""}</small></div>)}</div><div className="agent-path-preview"><Folder size={18} aria-hidden="true" /><code>{agent.cwd}</code></div></section> : null}
       {activeTab === "effective" ? <section className="configuration-form-card configuration-single-column"><h2>有效配置</h2><p className="configuration-help">这是当前 Agent Profile 的只读快照；未设置的模型与思考级别由运行时继承。</p><pre className="effective-config-preview">{JSON.stringify(agent, null, 2)}</pre></section> : null}
 
-      {activeTab !== "effective" && activeTab !== "resources" ? <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" onClick={save} disabled={saving || document?.revision === "fallback" || !online}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : "保存更改"}</Button></div> : null}
+      {activeTab !== "effective" && activeTab !== "resources" ? <div className="configuration-save-bar"><Button variant="primary" type="button" className="configuration-primary-action" onClick={save} disabled={!!lifecycleAction || document?.revision === "fallback" || !online} loading={saving}><Save size={16} aria-hidden="true" />{saving ? "保存中…" : "保存更改"}</Button></div> : null}
 
       </div>
       {deleteOpen ? (
-        <ConfirmDialog title="删除 Agent" confirmLabel="永久删除 Agent" requireText={agent.name} onCancel={() => setDeleteOpen(false)} onConfirm={removeAgent}>
+        <ConfirmDialog title="删除 Agent" confirmLabel="永久删除 Agent" requireText={agent.name} busy={lifecycleAction === "delete"} confirmDisabled={!online} onCancel={() => setDeleteOpen(false)} onConfirm={() => void runLifecycle("delete", removeAgent)}>
           <p>Profile 将被删除。工作目录会移动到回收区，不会直接擦除。</p>
           <dl className="delete-impact"><div><dt>Sessions</dt><dd>{deletePreview?.sessions.count ?? "…"}</dd></div><div><dt>工作目录文件</dt><dd>{deletePreview?.workspace.files ?? "…"}</dd></div><div><dt>占用空间</dt><dd>{deletePreview ? `${deletePreview.workspace.bytes} B` : "…"}</dd></div></dl>
           <label><Checkbox checked={removeSessions} onChange={(event) => setRemoveSessions(event.target.checked)} />同时删除关联 Sessions</label>
           <label><Checkbox checked={removeWorkspace} onChange={(event) => setRemoveWorkspace(event.target.checked)} />同时移除工作目录</label>
         </ConfirmDialog>
       ) : null}
-      {bootsharpOpen ? <div className="configuration-dialog-backdrop" role="presentation"><section className="configuration-dialog" role="dialog" aria-modal="true" aria-labelledby="bootsharp-title"><header><div><span>INITIALIZATION</span><h2 id="bootsharp-title">修改 BOOTSHARP</h2></div><button type="button" className="icon-button" aria-label="关闭 BOOTSHARP 编辑" onClick={() => setBootsharpOpen(false)}><X size={18} /></button></header><p>此提示仅在文件非空时引导首次协作；清空后将不再注入新会话。</p><label className="configuration-field"><span>BOOTSHARP 内容</span><Textarea aria-label="BOOTSHARP 内容" rows={16} value={bootsharp} onChange={(event) => setBootsharp(event.target.value)} /></label><footer><button type="button" className="secondary-button" onClick={() => setBootsharpOpen(false)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={saving || !online} onClick={() => void saveBootsharp()}>{saving ? "保存中…" : "保存 BOOTSHARP"}</Button></footer></section></div> : null}
+      {bootsharpOpen ? <Dialog title="修改 BOOTSHARP" closeLabel="关闭 BOOTSHARP 编辑" onClose={() => setBootsharpOpen(false)} busy={saving}
+        footer={<>
+          <Button disabled={saving} onClick={() => setBootsharpOpen(false)}>取消</Button>
+          <Button variant="primary" loading={saving} disabled={!online} onClick={() => void saveBootsharp()}>保存 BOOTSHARP</Button>
+        </>}>
+        <p>此提示仅在文件非空时引导首次协作；清空后将不再注入新会话。</p>
+        <label className="bp-field"><span>BOOTSHARP 内容</span><Textarea aria-label="BOOTSHARP 内容" rows={16} value={bootsharp} data-initial-focus onChange={(event) => setBootsharp(event.target.value)} /></label>
+      </Dialog> : null}
       {avatarFile ? <AvatarCropDialog
         file={avatarFile}
         busy={saving}

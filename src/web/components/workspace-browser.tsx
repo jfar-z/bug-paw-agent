@@ -1,5 +1,5 @@
 import { Table } from "../ui/table";
-import { ConfirmDialog } from "../ui/dialog";
+import { ConfirmDialog, Dialog } from "../ui/dialog";
 import { Checkbox } from "../ui/choice";
 import { SearchField, Button, IconButton, TextField } from "../ui/controls";
 import { Eye, File, FileAudio, FileImage, FileText, FileVideo, Folder, FolderPlus, MoveRight, Pencil, Trash2, Upload, type LucideIcon } from "lucide-react";
@@ -60,6 +60,8 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
   const [moveTargetDirectory, setMoveTargetDirectory] = useState("");
   const [moveConfirmationOpen, setMoveConfirmationOpen] = useState(false);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(false);
+  const entryMutation = useRef(false);
   const [renameEntry, setRenameEntry] = useState<WorkspaceEntry>();
   const [renameValue, setRenameValue] = useState("");
   const [createDirectoryOpen, setCreateDirectoryOpen] = useState(false);
@@ -146,29 +148,48 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
   const toggleSelection = (path: string) => setSelectedPaths((current) => current.includes(path) ? current.filter((item) => item !== path) : [...current, path]);
   const openCreateDirectoryDialog = () => {
     setDirectoryName("");
+    setError("");
     setCreateDirectoryOpen(true);
   };
   const confirmCreateDirectory = async () => {
-    if (!directoryName.trim()) return;
-    const result = await runApiTask(() => dataSource?.createDirectory(directory, directoryName.trim()) ?? api.createWorkspaceDirectory(agentId, directory, directoryName.trim()), { operation: "创建文件夹", expected: workspaceExpected(setError) });
-    if (result.status === "success") {
-      setCreateDirectoryOpen(false);
-      await refreshEntries();
+    if (!online || entryMutation.current || !directoryName.trim()) return;
+    entryMutation.current = true;
+    setEditingEntry(true);
+    setError("");
+    try {
+      const result = await runApiTask(() => dataSource?.createDirectory(directory, directoryName.trim()) ?? api.createWorkspaceDirectory(agentId, directory, directoryName.trim()), { operation: "创建文件夹", expected: workspaceExpected(setError) });
+      if (result.status === "success") {
+        setCreateDirectoryOpen(false);
+        await refreshEntries();
+      }
+    } finally {
+      entryMutation.current = false;
+      setEditingEntry(false);
     }
   };
   const openRenameDialog = (entry: WorkspaceEntry) => {
+    setError("");
     setRenameEntry(entry);
     setRenameValue(entry.name);
   };
   const confirmRenameEntry = async () => {
-    if (!renameEntry || !renameValue.trim() || renameValue.trim() === renameEntry.name) return;
-    const result = await runApiTask(() => dataSource?.updateEntry({ operation: "rename", path: renameEntry.path, name: renameValue.trim() }) ?? api.updateWorkspaceEntry(agentId, { operation: "rename", path: renameEntry.path, name: renameValue.trim() }), { operation: "重命名文件", expected: workspaceExpected(setError) });
-    if (result.status === "success") {
-      setRenameEntry(undefined);
-      await refreshEntries();
+    if (!online || entryMutation.current || !renameEntry || !renameValue.trim() || renameValue.trim() === renameEntry.name) return;
+    entryMutation.current = true;
+    setEditingEntry(true);
+    setError("");
+    try {
+      const result = await runApiTask(() => dataSource?.updateEntry({ operation: "rename", path: renameEntry.path, name: renameValue.trim() }) ?? api.updateWorkspaceEntry(agentId, { operation: "rename", path: renameEntry.path, name: renameValue.trim() }), { operation: "重命名文件", expected: workspaceExpected(setError) });
+      if (result.status === "success") {
+        setRenameEntry(undefined);
+        await refreshEntries();
+      }
+    } finally {
+      entryMutation.current = false;
+      setEditingEntry(false);
     }
   };
   const openMoveDialog = (entry: WorkspaceEntry) => {
+    setError("");
     setMoveEntry(entry);
     setMoveTargetDirectory("");
     setMoveConfirmationOpen(false);
@@ -280,9 +301,42 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
 
   return <>{main}
     {mode === "page" && preview ? <WorkspaceFilePreview agentId={agentId} entry={preview} mode="side" onClose={() => setPreview(undefined)} fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} /> : null}
-    {renameEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-rename-title"><h2 id="workspace-rename-title">重命名文件</h2><p>修改“{renameEntry.name}”的名称。</p><label className="workspace-dialog__field" htmlFor="workspace-rename-value">新名称<TextField id="workspace-rename-value" aria-label="新名称" value={renameValue} onChange={(event) => setRenameValue(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setRenameEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !renameValue.trim() || renameValue.trim() === renameEntry.name} onClick={() => void confirmRenameEntry()}>确认重命名</Button></footer></section></div> : null}
-    {createDirectoryOpen ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-create-directory-title"><h2 id="workspace-create-directory-title">新建文件夹</h2><p>将在当前目录中创建新的文件夹。</p><label className="workspace-dialog__field" htmlFor="workspace-directory-name">文件夹名称<TextField id="workspace-directory-name" aria-label="文件夹名称" value={directoryName} placeholder="例如 drafts" onChange={(event) => setDirectoryName(event.target.value)} autoFocus /></label><footer><button type="button" onClick={() => setCreateDirectoryOpen(false)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !directoryName.trim()} onClick={() => void confirmCreateDirectory()}>确认新建</Button></footer></section></div> : null}
-    {moveEntry ? <div className="workspace-dialog-backdrop"><section className="workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-move-title"><h2 id="workspace-move-title">移动文件</h2><p>将“{moveEntry.name}”移动到指定目录。</p>{moveConfirmationOpen ? <><p>目录“{moveTargetDirectory.trim()}”不存在。</p><small>确认后将创建该目录及其缺失的父目录，再移动文件。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveConfirmationOpen(false)}>返回修改</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(true)}>创建并移动</Button></footer></> : <><label className="workspace-dialog__field" htmlFor="workspace-move-target">目标目录<TextField id="workspace-move-target" aria-label="目标目录" value={moveTargetDirectory} placeholder="例如 docs/archive" onChange={(event) => setMoveTargetDirectory(event.target.value)} autoFocus /></label><small>留空表示移动到工作目录根部。</small><footer><button type="button" disabled={moveSubmitting} onClick={() => setMoveEntry(undefined)}>取消</button><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || moveSubmitting} onClick={() => void moveEntryToDirectory(false)}>确认移动</Button></footer></>}</section></div> : null}
+    {renameEntry ? <Dialog title="重命名文件" busy={editingEntry} onClose={() => setRenameEntry(undefined)}
+      footer={<>
+        <Button disabled={editingEntry} onClick={() => setRenameEntry(undefined)}>取消</Button>
+        <Button variant="primary" loading={editingEntry} disabled={!online || !renameValue.trim() || renameValue.trim() === renameEntry.name} onClick={() => void confirmRenameEntry()}>确认重命名</Button>
+      </>}>
+      <p>修改“{renameEntry.name}”的名称。</p>
+      <label className="bp-field">新名称<TextField aria-label="新名称" value={renameValue} data-initial-focus onChange={(event) => setRenameValue(event.target.value)} /></label>
+      {error && <p role="alert">{error}</p>}
+    </Dialog> : null}
+    {createDirectoryOpen ? <Dialog title="新建文件夹" busy={editingEntry} onClose={() => setCreateDirectoryOpen(false)}
+      footer={<>
+        <Button disabled={editingEntry} onClick={() => setCreateDirectoryOpen(false)}>取消</Button>
+        <Button variant="primary" loading={editingEntry} disabled={!online || !directoryName.trim()} onClick={() => void confirmCreateDirectory()}>确认新建</Button>
+      </>}>
+      <p>将在当前目录中创建新的文件夹。</p>
+      <label className="bp-field">文件夹名称<TextField aria-label="文件夹名称" value={directoryName} placeholder="例如 drafts" data-initial-focus onChange={(event) => setDirectoryName(event.target.value)} /></label>
+      {error && <p role="alert">{error}</p>}
+    </Dialog> : null}
+    {moveEntry ? <Dialog title="移动文件" busy={moveSubmitting}
+      onClose={() => moveConfirmationOpen ? setMoveConfirmationOpen(false) : setMoveEntry(undefined)}
+      footer={moveConfirmationOpen ? <>
+        <Button disabled={moveSubmitting} onClick={() => setMoveConfirmationOpen(false)}>返回修改</Button>
+        <Button variant="primary" loading={moveSubmitting} disabled={!online} onClick={() => void moveEntryToDirectory(true)}>创建并移动</Button>
+      </> : <>
+        <Button disabled={moveSubmitting} onClick={() => setMoveEntry(undefined)}>取消</Button>
+        <Button variant="primary" loading={moveSubmitting} disabled={!online} onClick={() => void moveEntryToDirectory(false)}>确认移动</Button>
+      </>}>
+      <p>将“{moveEntry.name}”移动到指定目录。</p>
+      {moveConfirmationOpen ? <>
+        <p>目录“{moveTargetDirectory.trim()}”不存在。</p><small>确认后将创建该目录及其缺失的父目录，再移动文件。</small>
+      </> : <>
+        <label className="bp-field">目标目录<TextField aria-label="目标目录" value={moveTargetDirectory} placeholder="例如 docs/archive" data-initial-focus onChange={(event) => setMoveTargetDirectory(event.target.value)} /></label>
+        <small>留空表示移动到工作目录根部。</small>
+      </>}
+      {error && <p role="alert">{error}</p>}
+    </Dialog> : null}
     {deleteOpen && <ConfirmDialog title="永久删除文件"
       description={`${selectedPaths.length} 个项目将被永久删除，无法恢复。`}
       busy={deleting} confirmDisabled={!online} confirmLabel="永久删除"

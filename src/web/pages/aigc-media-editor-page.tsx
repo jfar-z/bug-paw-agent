@@ -1,3 +1,6 @@
+import { Button, IconButton, NumberField, TextField } from "../ui/controls";
+import { Dialog } from "../ui/dialog";
+import { Tabs } from "../ui/tabs";
 import { Checkbox } from "../ui/choice";
 import { SearchSelect } from "../ui/search-select";
 import {
@@ -39,6 +42,7 @@ export function AigcMediaEditorPage() {
   const pendingSavesRef = useRef(0);
   const persistedProjectsRef = useRef(new Map<string, AigcMediaProject>());
   const currentProjectIdRef = useRef("");
+  const creatingProject = useRef(false);
 
   const selectedClip = project?.clips.find((clip) => clip.id === selectedClipId);
   const totalDurationMs = useMemo(() => project?.clips.reduce((total, clip) => total + clipDuration(clip), 0) ?? 0, [project]);
@@ -130,16 +134,22 @@ export function AigcMediaEditorPage() {
   }, [runApiTask]);
 
   const createProject = async (kind: AigcMediaProjectKind) => {
+    if (creatingProject.current) return;
     setError("");
     const existing = projects.find((candidate) => candidate.kind === kind);
     if (existing) return selectProject(existing);
-    const result = await runApiTask(() => api.createAigcMediaProject({ kind }), {
-      operation: "新建剪辑工程", expected: editorExpected(setError),
-    });
-    if (result.status === "success") {
-      persistedProjectsRef.current.set(result.data.id, result.data);
-      setProjects((current) => [result.data, ...current]);
-      selectProject(result.data);
+    creatingProject.current = true;
+    try {
+      const result = await runApiTask(() => api.createAigcMediaProject({ kind }), {
+        operation: "新建剪辑工程", expected: editorExpected(setError),
+      });
+      if (result.status === "success") {
+        persistedProjectsRef.current.set(result.data.id, result.data);
+        setProjects((current) => [result.data, ...current]);
+        selectProject(result.data);
+      }
+    } finally {
+      creatingProject.current = false;
     }
   };
 
@@ -229,27 +239,34 @@ export function AigcMediaEditorPage() {
         {projectMenuOpen ? <ProjectMenu projects={projects} current={project} onClose={() => setProjectMenuOpen(false)} onSelect={selectProject} onCreate={(kind) => void createProject(kind)} /> : null}
       </div>
       <div className="aigc-media-editor-actions">
-        <div className="aigc-media-editor-mode" role="tablist" aria-label="工程类型">
-          <button type="button" role="tab" aria-selected={project.kind === "video"} className={project.kind === "video" ? "is-active" : undefined} onClick={() => void createProject("video")}><Film size={15} aria-hidden="true" />视频</button>
-          <button type="button" role="tab" aria-selected={project.kind === "audio"} className={project.kind === "audio" ? "is-active" : undefined} onClick={() => void createProject("audio")}><AudioLines size={15} aria-hidden="true" />音频</button>
-        </div>
-        <button type="button" className="aigc-media-editor-export" disabled={!project.clips.length || saving || renderJob?.status === "queued" || renderJob?.status === "running"} onClick={() => void startRender()}>{renderJob?.status === "queued" || renderJob?.status === "running" ? <LoaderCircle size={16} className="is-spinning" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}导出</button>
+        <Tabs<AigcMediaProjectKind> label="工程类型" panelId="media-project-panel" value={project.kind} manual
+          onChange={(kind) => { if (kind !== project.kind) void createProject(kind); }}
+          items={[
+            { id: "video", label: <><Film size={15} aria-hidden="true" />视频</> },
+            { id: "audio", label: <><AudioLines size={15} aria-hidden="true" />音频</> },
+          ]} />
+        <Button variant="primary" loading={renderJob?.status === "queued" || renderJob?.status === "running"}
+          disabled={!project.clips.length || saving} onClick={() => void startRender()}
+          icon={<Download size={16} aria-hidden="true" />}>导出</Button>
       </div>
     </header>
 
     {error ? <p className="configuration-inline-error aigc-media-editor-error">{error}</p> : null}
     {renderJob ? <RenderStatus job={renderJob} onCancel={() => void cancelRender()} /> : null}
 
+    <div id="media-project-panel" role="tabpanel" aria-labelledby={`media-project-panel-${project.kind}`}>
     <section className="aigc-media-editor-workspace" aria-label="剪辑工作区">
       <EditorPreview project={project} activeClip={activeClip} activeOffsetMs={activePosition.offsetMs} totalDurationMs={totalDurationMs} playheadMs={playheadMs} playing={playing} renderJob={showRenderedOutput ? renderJob : undefined} onPlayChange={setPlaying} onPlayheadChange={setPlayheadMs} onOpenLibrary={openLibrary} onTimelinePreview={() => setShowRenderedOutput(false)} />
       <EditorInspector project={project} clip={selectedClip} saving={saving} onProjectChange={(patch) => setProject((current) => current ? { ...current, ...patch } : current)} onProjectSave={() => void saveProject(project)} onClipChange={(patch) => selectedClip && setProject((current) => current ? { ...current, clips: current.clips.map((item) => item.id === selectedClip.id ? { ...item, ...patch } : item) } : current)} onClipSave={() => void saveProject(project)} onClipCommit={(patch) => selectedClip && void updateClip(selectedClip.id, patch)} />
     </section>
 
     <section className="aigc-media-editor-timeline" aria-label="单轨时间线">
-      <header><div><Scissors size={16} aria-hidden="true" /><h2>单轨时间线</h2><span>{project.kind === "video" ? "画面与原音" : "连续音频"}</span></div><button type="button" onClick={openLibrary}><Plus size={16} aria-hidden="true" />添加片段</button></header>
+      <header><div><Scissors size={16} aria-hidden="true" /><h2>单轨时间线</h2><span>{project.kind === "video" ? "画面与原音" : "连续音频"}</span></div><Button onClick={openLibrary} icon={<Plus size={16} aria-hidden="true" />}>添加片段</Button></header>
       <div className="aigc-media-editor-ruler" aria-hidden="true"><span>00:00</span><span>{formatTime(totalDurationMs * .25)}</span><span>{formatTime(totalDurationMs * .5)}</span><span>{formatTime(totalDurationMs * .75)}</span><span>{formatTime(totalDurationMs)}</span></div>
       {project.clips.length ? <div className="aigc-media-editor-track">{project.clips.map((clip, index) => <TimelineClip key={clip.id} clip={clip} index={index} count={project.clips.length} selected={clip.id === selectedClipId} saving={saving} onSelect={() => { setSelectedClipId(clip.id); setPlayheadMs(clipStart(project.clips, index)); setShowRenderedOutput(false); }} onMove={(target) => void moveClip(clip.id, target)} onRemove={() => void removeClip(clip.id)} onDragStart={() => setDraggedClipId(clip.id)} onDrop={() => { if (draggedClipId) void moveClip(draggedClipId, index); setDraggedClipId(""); }} />)}</div> : <button type="button" className="aigc-media-editor-empty-track" onClick={openLibrary}><Plus size={18} aria-hidden="true" /><span>添加第一个片段</span></button>}
     </section>
+
+    </div>
 
     {libraryOpen ? <AssetLibrary project={project} kind={libraryKind} items={outputs} loading={outputsLoading} onKindChange={setLibraryKind} onAdd={(item) => void addOutput(item)} onClose={() => setLibraryOpen(false)} /> : null}
   </main>;
@@ -258,9 +275,9 @@ export function AigcMediaEditorPage() {
 /** 标题旁的工程切换器承载旧工程与新建入口。 */
 function ProjectMenu({ projects, current, onClose, onSelect, onCreate }: { projects: AigcMediaProject[]; current: AigcMediaProject; onClose: () => void; onSelect: (project: AigcMediaProject) => void; onCreate: (kind: AigcMediaProjectKind) => void }) {
   return <div className="aigc-media-editor-project-menu" role="dialog" aria-label="剪辑工程">
-    <header><span>剪辑工程</span><button type="button" aria-label="关闭工程列表" title="关闭工程列表" onClick={onClose}><X size={16} aria-hidden="true" /></button></header>
+    <header><span>剪辑工程</span><IconButton label="关闭工程列表" onClick={onClose}><X size={16} /></IconButton></header>
     <div className="aigc-media-editor-project-list">{projects.map((item) => <button key={item.id} type="button" className={item.id === current.id ? "is-current" : undefined} onClick={() => onSelect(item)}><span><strong>{item.name}</strong><small>{formatModified(item.updatedAt)}</small></span><span>{item.kind === "video" ? "视频" : "音频"}</span></button>)}</div>
-    <footer><button type="button" onClick={() => onCreate("video")}><Film size={14} aria-hidden="true" />新建视频工程</button><button type="button" onClick={() => onCreate("audio")}><AudioLines size={14} aria-hidden="true" />新建音频工程</button></footer>
+    <footer><Button onClick={() => onCreate("video")}><Film size={14} aria-hidden="true" />新建视频工程</Button><Button onClick={() => onCreate("audio")}><AudioLines size={14} aria-hidden="true" />新建音频工程</Button></footer>
   </div>;
 }
 
@@ -302,7 +319,7 @@ function EditorPreview({ project, activeClip, activeOffsetMs, totalDurationMs, p
   };
 
   return <div className={project.kind === "video" ? "aigc-media-editor-preview" : "aigc-media-editor-preview is-audio"}>
-    <div className="aigc-media-editor-preview__stage">{renderJob?.status === "succeeded" ? <div className="aigc-media-editor-rendered-preview">{project.kind === "video" ? <video src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" /> : <audio src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" />}<button type="button" onClick={onTimelinePreview}>返回时间线预览</button></div> : activeClip ? <>{activeClip.kind === "image" ? <img src={source} alt={activeClip.name} /> : activeClip.kind === "video" ? <video ref={(node) => { mediaRef.current = node; }} src={source} muted={Boolean(activeClip.muted)} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /> : <div className="aigc-media-editor-audio-stage"><AudioLines size={44} aria-hidden="true" /><strong>{activeClip.name}</strong><audio ref={(node) => { mediaRef.current = node; }} src={source} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /></div>}</> : <div className="aigc-media-editor-preview__empty">{project.kind === "video" ? <Clapperboard size={38} aria-hidden="true" /> : <AudioLines size={38} aria-hidden="true" />}<strong>{project.kind === "video" ? "空视频工程" : "空音频工程"}</strong><button type="button" onClick={onOpenLibrary}><ImagePlus size={16} aria-hidden="true" />添加产物</button></div>}</div>
+    <div className="aigc-media-editor-preview__stage">{renderJob?.status === "succeeded" ? <div className="aigc-media-editor-rendered-preview">{project.kind === "video" ? <video src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" /> : <audio src={aigcMediaRenderUrl(renderJob.id)} controls preload="metadata" />}<Button onClick={onTimelinePreview}>返回时间线预览</Button></div> : activeClip ? <>{activeClip.kind === "image" ? <img src={source} alt={activeClip.name} /> : activeClip.kind === "video" ? <video ref={(node) => { mediaRef.current = node; }} src={source} muted={Boolean(activeClip.muted)} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /> : <div className="aigc-media-editor-audio-stage"><AudioLines size={44} aria-hidden="true" /><strong>{activeClip.name}</strong><audio ref={(node) => { mediaRef.current = node; }} src={source} preload="metadata" onTimeUpdate={mediaTimeUpdate} onEnded={mediaTimeUpdate} /></div>}</> : <div className="aigc-media-editor-preview__empty">{project.kind === "video" ? <Clapperboard size={38} aria-hidden="true" /> : <AudioLines size={38} aria-hidden="true" />}<strong>{project.kind === "video" ? "空视频工程" : "空音频工程"}</strong><Button onClick={onOpenLibrary} icon={<ImagePlus size={16} aria-hidden="true" />}>添加产物</Button></div>}</div>
     <div className="aigc-media-editor-transport"><button type="button" aria-label={playing ? "暂停预览" : "播放预览"} title={playing ? "暂停预览" : "播放预览"} disabled={!activeClip || Boolean(renderJob)} onClick={() => onPlayChange(!playing)}>{playing ? <Pause size={17} aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}</button><span><strong>{formatTime(playheadMs, true)}</strong><small>/ {formatTime(totalDurationMs, true)}</small></span><input type="range" aria-label="时间线播放位置" min="0" max={Math.max(totalDurationMs, 1)} step="50" value={Math.min(playheadMs, totalDurationMs)} disabled={!activeClip || Boolean(renderJob)} onChange={(event) => { onPlayChange(false); onPlayheadChange(Number(event.target.value)); }} /><Volume2 size={17} aria-hidden="true" /></div>
   </div>;
 }
@@ -311,7 +328,7 @@ function EditorPreview({ project, activeClip, activeOffsetMs, totalDurationMs, p
 function EditorInspector({ project, clip, saving, onProjectChange, onProjectSave, onClipChange, onClipSave, onClipCommit }: { project: AigcMediaProject; clip?: AigcMediaClip; saving: boolean; onProjectChange: (patch: Partial<AigcMediaProject>) => void; onProjectSave: () => void; onClipChange: (patch: Partial<AigcMediaClip>) => void; onClipSave: () => void; onClipCommit: (patch: Partial<AigcMediaClip>) => void }) {
   return <aside className="aigc-media-editor-inspector" aria-label="工程参数">
     <header><Settings2 size={16} aria-hidden="true" /><h2>{clip ? "片段参数" : "工程参数"}</h2><span>{saving ? "保存中" : "已保存"}</span></header>
-    {clip ? <><div className="aigc-media-editor-selected-name"><strong title={clip.name}>{clip.name}</strong><small>{clip.kind === "image" ? "图片" : clip.kind === "video" ? "视频" : "音频"}</small></div>{clip.kind === "image" ? <label>展示时长<span><input type="number" min="0.5" max="30" step="0.5" value={(clip.imageDurationMs ?? 3000) / 1000} onChange={(event) => onClipChange({ imageDurationMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label> : <><label>起点<span><input type="number" min="0" max={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000 - .001} step="0.1" value={clip.trimStartMs / 1000} onChange={(event) => onClipChange({ trimStartMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label><label>终点<span><input type="number" min={clip.trimStartMs / 1000 + .001} max={clip.sourceDurationMs / 1000} step="0.1" value={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000} onChange={(event) => onClipChange({ trimEndMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label></>}{clip.kind === "video" && clip.hasAudio ? <label className="aigc-media-editor-mute"><Checkbox checked={Boolean(clip.muted)} onChange={(event) => onClipCommit({ muted: event.target.checked })} />{clip.muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}片段原音</label> : null}<div className="aigc-media-editor-codec"><span>片段时长</span><strong>{formatTime(clipDuration(clip), true)}</strong><span>原始时长</span><strong>{formatTime(clip.sourceDurationMs, true)}</strong></div></> : <><label>工程名称<input type="text" maxLength={80} value={project.name} onChange={(event) => onProjectChange({ name: event.target.value })} onBlur={onProjectSave} /></label>{project.kind === "video" ? <><label>画面尺寸<SearchSelect
+    {clip ? <><div className="aigc-media-editor-selected-name"><strong title={clip.name}>{clip.name}</strong><small>{clip.kind === "image" ? "图片" : clip.kind === "video" ? "视频" : "音频"}</small></div>{clip.kind === "image" ? <label>展示时长<span><NumberField min="0.5" max="30" step="0.5" value={(clip.imageDurationMs ?? 3000) / 1000} onChange={(event) => onClipChange({ imageDurationMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label> : <><label>起点<span><NumberField min="0" max={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000 - .001} step="0.1" value={clip.trimStartMs / 1000} onChange={(event) => onClipChange({ trimStartMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label><label>终点<span><NumberField min={clip.trimStartMs / 1000 + .001} max={clip.sourceDurationMs / 1000} step="0.1" value={(clip.trimEndMs ?? clip.sourceDurationMs) / 1000} onChange={(event) => onClipChange({ trimEndMs: Math.round(Number(event.target.value) * 1000) })} onBlur={onClipSave} />秒</span></label></>}{clip.kind === "video" && clip.hasAudio ? <label className="aigc-media-editor-mute"><Checkbox checked={Boolean(clip.muted)} onChange={(event) => onClipCommit({ muted: event.target.checked })} />{clip.muted ? <VolumeX size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}片段原音</label> : null}<div className="aigc-media-editor-codec"><span>片段时长</span><strong>{formatTime(clipDuration(clip), true)}</strong><span>原始时长</span><strong>{formatTime(clip.sourceDurationMs, true)}</strong></div></> : <><label>工程名称<TextField maxLength={80} value={project.name} onChange={(event) => onProjectChange({ name: event.target.value })} onBlur={onProjectSave} /></label>{project.kind === "video" ? <><label>画面尺寸<SearchSelect
       ariaLabel="画面尺寸"
       value="1920x1080"
       disabled
@@ -343,13 +360,21 @@ function TimelineClip({ clip, index, count, selected, saving, onSelect, onMove, 
 
 /** 从真实 AIGC 产物中选择与当前工程兼容的素材。 */
 function AssetLibrary({ project, kind, items, loading, onKindChange, onAdd, onClose }: { project: AigcMediaProject; kind: AigcOutputKind; items: AigcOutputItem[]; loading: boolean; onKindChange: (kind: AigcOutputKind) => void; onAdd: (item: AigcOutputItem) => void; onClose: () => void }) {
-  return <div className="aigc-media-editor-library-backdrop" onMouseDown={onClose}><aside className="aigc-media-editor-library" aria-label="产物库" onMouseDown={(event) => event.stopPropagation()}><header><div><span>AIGC OUTPUTS</span><h2>选择产物</h2></div><button type="button" aria-label="关闭产物库" title="关闭产物库" onClick={onClose}><X size={18} aria-hidden="true" /></button></header><div className="aigc-media-editor-library__tabs" role="tablist" aria-label="可用产物类型">{project.kind === "video" ? <><button type="button" role="tab" aria-selected={kind === "video"} onClick={() => onKindChange("video")}>视频</button><button type="button" role="tab" aria-selected={kind === "image"} onClick={() => onKindChange("image")}>图片</button></> : <button type="button" role="tab" aria-selected="true">音频</button>}</div>{loading ? <div className="aigc-media-editor-library__empty"><LoaderCircle className="is-spinning" size={24} aria-hidden="true" /><span>正在加载产物…</span></div> : items.length ? <div className="aigc-media-editor-library__items">{items.map((item) => <button key={`${item.taskId}-${item.id}`} type="button" onClick={() => onAdd(item)}>{item.kind === "image" ? <img src={aigcTaskThumbnailUrl(item.taskId, item.id)} alt="" /> : item.kind === "video" ? <video src={aigcTaskAssetUrl(item.taskId, item.id)} muted preload="metadata" /> : <AudioLines size={26} aria-hidden="true" />}<span><strong title={item.name}>{item.name}</strong><small>{formatBytes(item.size)}</small></span><Plus size={16} aria-hidden="true" /></button>)}</div> : <div className="aigc-media-editor-library__empty"><ImageIcon size={26} aria-hidden="true" /><span>暂无可用{kind === "image" ? "图片" : kind === "video" ? "视频" : "音频"}产物</span></div>}</aside></div>;
+  const kinds: { id: AigcOutputKind; label: string }[] = project.kind === "video"
+    ? [{ id: "video", label: "视频" }, { id: "image", label: "图片" }]
+    : [{ id: "audio", label: "音频" }];
+  return <Dialog title="选择产物" closeLabel="关闭产物库" onClose={onClose} drawer="right" className="aigc-media-editor-library">
+    <Tabs label="可用产物类型" panelId="editor-library-panel" items={kinds} value={kind} onChange={onKindChange} />
+    <div id="editor-library-panel" role="tabpanel" aria-labelledby={`editor-library-panel-${kind}`} tabIndex={0}>
+      {loading ? <div className="aigc-media-editor-library__empty"><LoaderCircle className="is-spinning" size={24} aria-hidden="true" /><span>正在加载产物…</span></div> : items.length ? <div className="aigc-media-editor-library__items">{items.map((item) => <button key={`${item.taskId}-${item.id}`} type="button" onClick={() => onAdd(item)}>{item.kind === "image" ? <img src={aigcTaskThumbnailUrl(item.taskId, item.id)} alt="" /> : item.kind === "video" ? <video src={aigcTaskAssetUrl(item.taskId, item.id)} muted preload="metadata" /> : <AudioLines size={26} aria-hidden="true" />}<span><strong title={item.name}>{item.name}</strong><small>{formatBytes(item.size)}</small></span><Plus size={16} aria-hidden="true" /></button>)}</div> : <div className="aigc-media-editor-library__empty"><ImageIcon size={26} aria-hidden="true" /><span>暂无可用{kind === "image" ? "图片" : kind === "video" ? "视频" : "音频"}产物</span></div>}
+    </div>
+  </Dialog>;
 }
 
 /** 展示队列位置、进度和可取消状态。 */
 function RenderStatus({ job, onCancel }: { job: AigcMediaRenderJob; onCancel: () => void }) {
   const active = job.status === "queued" || job.status === "running";
-  return <section className={`aigc-media-editor-render-status is-${job.status}`} role="status"><span>{job.status === "queued" ? `排队中 · 第 ${job.queuePosition ?? 1} 位` : job.status === "running" ? `正在导出 · ${Math.round(job.progress * 100)}%` : job.status === "succeeded" ? "导出完成" : job.status === "cancelled" ? "导出已取消" : job.error ?? "导出失败"}</span>{job.status === "succeeded" && job.fileName ? <a href={aigcMediaRenderUrl(job.id, true)} download={job.fileName}><Download size={14} aria-hidden="true" />下载</a> : null}{active ? <button type="button" onClick={onCancel}>取消</button> : null}</section>;
+  return <section className={`aigc-media-editor-render-status is-${job.status}`} role="status"><span>{job.status === "queued" ? `排队中 · 第 ${job.queuePosition ?? 1} 位` : job.status === "running" ? `正在导出 · ${Math.round(job.progress * 100)}%` : job.status === "succeeded" ? "导出完成" : job.status === "cancelled" ? "导出已取消" : job.error ?? "导出失败"}</span>{job.status === "succeeded" && job.fileName ? <a href={aigcMediaRenderUrl(job.id, true)} download={job.fileName}><Download size={14} aria-hidden="true" />下载</a> : null}{active ? <Button onClick={onCancel}>取消</Button> : null}</section>;
 }
 
 function toClipInput(clip: AigcMediaClip): AigcMediaClipInput {

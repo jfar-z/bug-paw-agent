@@ -487,16 +487,16 @@ export function PiSettingsPage() {
           options={agents.map(({ profile }) => ({ value: profile.id, label: profile.name }))}
         /></label> : null}
         <p>{scope === "global" ? "全局声明提供基础配置；Agent 可以覆盖部分字段。" : `当前对象：${agents.find((item) => item.profile.id === agentId)?.profile.name ?? "尚未选择"}。仅覆盖明确声明的字段；恢复继承需保存后才会移除覆盖。`}</p>
-        {directoryState === "error" ? <div className="pi-settings-load-error" role="alert">Agent 目录未能加载，错误详情已通过通知展示。<button type="button" disabled={saving} onClick={() => guard.request(() => setDirectoryReload((value) => value + 1))}>重新加载 Agent 目录</button></div> : null}
+        {directoryState === "error" ? <div className="pi-settings-load-error" role="alert">Agent 目录未能加载，错误详情已通过通知展示。<Button type="button" disabled={saving} onClick={() => guard.request(() => setDirectoryReload((value) => value + 1))}>重新加载 Agent 目录</Button></div> : null}
       </section>
       <ConfigurationEffectNotice configKey={configKey} dirty={dirty} />
       {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
       {notice ? <p className="configuration-save-notice" role="status"><Check size={14} aria-hidden="true" />{notice}</p> : null}
       {scope === "agent" && directoryState === "loading" ? <div className="configuration-state"><p>正在加载 Agent 目录…</p></div>
         : scope === "agent" && directoryState === "error" ? null
-        : scope === "agent" && agents.length === 0 ? <div className="configuration-state"><h2>还没有 Agent</h2><p>先创建 Agent，再设置独立运行覆盖。</p><button type="button" onClick={() => navigateTo({ page: "agents" })}>前往 Agents</button></div>
-        : !document ? <div className="configuration-state"><p>{loadState === "error" ? "运行设置未能加载，错误详情已通过通知展示。" : "正在加载设置…"}</p>{loadState === "error" ? <button type="button" onClick={() => setSettingsReload((value) => value + 1)}>重新加载运行设置</button> : null}</div> : <>
-        {modelState === "error" ? <div className="pi-settings-load-error" role="alert">模型目录未能加载；保留当前配置的模型，错误详情已通过通知展示。<button type="button" disabled={saving} onClick={() => setModelReload((value) => value + 1)}>重新加载模型目录</button></div> : null}
+        : scope === "agent" && agents.length === 0 ? <div className="configuration-state"><h2>还没有 Agent</h2><p>先创建 Agent，再设置独立运行覆盖。</p><Button type="button" onClick={() => navigateTo({ page: "agents" })}>前往 Agents</Button></div>
+        : !document ? <div className="configuration-state"><p>{loadState === "error" ? "运行设置未能加载，错误详情已通过通知展示。" : "正在加载设置…"}</p>{loadState === "error" ? <Button type="button" onClick={() => setSettingsReload((value) => value + 1)}>重新加载运行设置</Button> : null}</div> : <>
+        {modelState === "error" ? <div className="pi-settings-load-error" role="alert">模型目录未能加载；保留当前配置的模型，错误详情已通过通知展示。<Button type="button" disabled={saving} onClick={() => setModelReload((value) => value + 1)}>重新加载模型目录</Button></div> : null}
         <Tabs className="pi-settings-tabs" label="运行设置分类" tabIdPrefix="pi-settings-tab"
           panelId={(id) => `pi-settings-panel-${id}`} value={category} disabled={saving} onChange={setCategory}
           items={categories.map((item) => ({ id: item.id, label: <>{item.label}<small>{categorySummary(item.id)}</small></> }))} />

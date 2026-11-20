@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, IconButton } from "../ui/controls";
 import { ArchiveRestore, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { SessionSummary } from "../api";
@@ -43,7 +43,7 @@ export function ArchivedSessionsDialog({
       <section className="archive-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-dialog-title">
         <header>
           <div><span>会话管理</span><h2 id="archive-dialog-title">已归档会话</h2></div>
-          <button type="button" className="icon-button" aria-label="关闭已归档会话" onClick={onClose}><X size={18} /></button>
+          <IconButton label="关闭已归档会话" onClick={onClose}><X size={18} /></IconButton>
         </header>
         <div
           className="configuration-heading-actions archive-dialog__bulk-bar"
@@ -73,13 +73,13 @@ export function ArchivedSessionsDialog({
                 </button>
                 {confirmingId === session.id ? (
                   <div className="archive-dialog__confirm">
-                    <button type="button" disabled={busy} onClick={() => setConfirmingId(undefined)}>取消</button>
-                    <button type="button" className="is-danger" disabled={busy} onClick={() => { void onDelete(session.id); setConfirmingId(undefined); }}>确认永久删除</button>
+                    <Button size="sm" disabled={busy} onClick={() => setConfirmingId(undefined)}>取消</Button>
+                    <Button variant="danger" size="sm" disabled={busy} onClick={() => { void onDelete(session.id); setConfirmingId(undefined); }}>确认永久删除</Button>
                   </div>
                 ) : (
                   <div className="archive-dialog__actions">
-                    <button type="button" aria-label={`恢复${title}`} disabled={busy} onClick={() => void onRestore(session.id)}><ArchiveRestore size={16} /></button>
-                    <button type="button" className="is-danger" aria-label={`删除${title}`} disabled={busy} onClick={() => setConfirmingId(session.id)}><Trash2 size={16} /></button>
+                    <IconButton size="sm" label={`恢复${title}`} disabled={busy} onClick={() => void onRestore(session.id)}><ArchiveRestore size={16} /></IconButton>
+                    <IconButton size="sm" danger label={`删除${title}`} disabled={busy} onClick={() => setConfirmingId(session.id)}><Trash2 size={16} /></IconButton>
                   </div>
                 )}
               </article>

@@ -694,7 +694,7 @@
   gap: 4px;
 }
 
-.archive-dialog__actions button {
+.archive-dialog__actions button:not(.bp-button) {
   display: grid;
   width: 32px;
   height: 32px;
@@ -2916,7 +2916,7 @@ img.message-avatar {
   /* 竖屏中为会话入口、工作台、Agent 选择器和新建会话预留稳定的四列布局。 */
   .live-chat-header {
     display: grid;
-    grid-template-columns: 40px minmax(0, 0.82fr) minmax(0, 1fr) 40px;
+    grid-template-columns: 44px minmax(0, 0.82fr) minmax(0, 1fr) 44px;
     column-gap: 8px;
     justify-content: initial;
     padding: 0 12px;
@@ -2950,10 +2950,6 @@ img.message-avatar {
     display: contents;
   }
 
-  .live-chat-header .chat-new-session-button {
-    width: 40px;
-    height: 40px;
-  }
 }
 
 @media (max-width: 760px) {

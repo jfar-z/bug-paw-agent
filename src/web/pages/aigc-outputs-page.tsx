@@ -1,7 +1,10 @@
+import { Dialog } from "../ui/dialog";
+import { Tabs } from "../ui/tabs";
+import { Pagination } from "../ui/presentation";
 import { SearchSelect } from "../ui/search-select";
 import { SaveMediaResultButton } from "../components/media-library-actions";
 import "../media-lightbox.css";
-import { ChevronLeft, ChevronRight, Download, File, FileAudio, Image as ImageIcon, X } from "lucide-react";
+import { Download, File, FileAudio, Image as ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AigcOutputItem, AigcOutputKind, AigcOutputPage } from "../../shared/aigc-contracts";
 import { aigcTaskAssetUrl, aigcTaskThumbnailUrl, api } from "../api";
@@ -21,21 +24,27 @@ export function AigcOutputsPage() {
   const [kind, setKind] = useState<AigcOutputKind>("image");
   const [sort, setSort] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState<AigcOutputPage>();
+  const [result, setResult] = useState<{ key: string; kind: AigcOutputKind; data: AigcOutputPage }>();
+  const requestKey = `${kind}/${sort}/${page}`;
+  const visibleResult = result?.key === requestKey ? result.data : undefined;
   const [preview, setPreview] = useState<AigcOutputItem>();
-  const [error, setError] = useState("");
+  const [failure, setFailure] = useState<{ key: string; message: string }>();
+  const error = failure?.key === requestKey ? failure.message : undefined;
 
   useEffect(() => {
     let active = true;
-    setError("");
+    setFailure(undefined);
     void runApiTask(() => api.getAigcOutputs(kind, sort, page), {
       operation: "加载 AIGC 产物",
-      expected: outputExpected(setError),
+      expected: outputExpected((message) => { if (active) setFailure({ key: requestKey, message }); }),
     }).then((response) => {
-      if (active && response.status === "success") setResult(response.data);
+      if (!active) return;
+      // 切换过滤条件时保留类型计数，面板只展示当前请求的内容。
+      if (response.status === "success") setResult({ key: requestKey, kind, data: response.data });
+      else setFailure((current) => current?.key === requestKey ? current : { key: requestKey, message: "产物列表未能加载，详情见错误通知。" });
     });
     return () => { active = false; };
-  }, [kind, page, runApiTask, sort]);
+  }, [kind, page, requestKey, runApiTask, sort]);
 
   const selectKind = (next: AigcOutputKind) => {
     setKind(next);
@@ -61,16 +70,17 @@ export function AigcOutputsPage() {
       /></label>
     </header>
 
-    <div className="aigc-assets-tabs" role="tablist" aria-label="产物类型">
-      {OUTPUT_KINDS.map((item) => <button key={item.kind} type="button" role="tab" aria-selected={kind === item.kind} className={kind === item.kind ? "is-active" : undefined} onClick={() => selectKind(item.kind)}><span>{item.label}</span><strong>{result?.counts[item.kind] ?? 0}</strong></button>)}
-    </div>
-
-    {error ? <p className="configuration-inline-error">{error}</p> : null}
-    {result?.items.length ? <div className="aigc-output-grid">
-      {result.items.map((item) => <OutputCard key={`${item.taskId}-${item.id}`} item={item} onPreview={() => setPreview(item)} />)}
-    </div> : !error && result ? <div className="aigc-output-empty"><ImageIcon size={30} aria-hidden="true" /><strong>暂无{OUTPUT_KINDS.find((item) => item.kind === kind)?.label}产物</strong></div> : <p className="aigc-output-loading" role="status">正在加载产物…</p>}
-
-    {result && result.totalPages > 1 ? <nav className="aigc-output-pagination" aria-label="产物分页"><button type="button" aria-label="上一页" title="上一页" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={17} /></button><span>第 {result.page} / {result.totalPages} 页，共 {result.total} 项</span><button type="button" aria-label="下一页" title="下一页" disabled={page >= result.totalPages} onClick={() => setPage((current) => current + 1)}><ChevronRight size={17} /></button></nav> : null}
+    <Tabs label="产物类型" panelId="aigc-outputs-panel" value={kind} onChange={selectKind}
+      items={OUTPUT_KINDS.map((item) => ({ id: item.kind, label: <>{item.label} <strong>{result?.data.counts[item.kind] ?? 0}</strong></> }))} />
+    <section id="aigc-outputs-panel" role="tabpanel" aria-labelledby={`aigc-outputs-panel-${kind}`} tabIndex={0}>
+      {error ? <p className="configuration-inline-error" role="alert">{error}</p>
+        : visibleResult?.items.length ? <div className="aigc-output-grid">
+          {visibleResult.items.map((item) => <OutputCard key={`${item.taskId}-${item.id}`} item={item} onPreview={() => setPreview(item)} />)}
+        </div>
+        : visibleResult ? <div className="aigc-output-empty"><ImageIcon size={30} aria-hidden="true" /><strong>暂无{OUTPUT_KINDS.find((item) => item.kind === kind)?.label}产物</strong></div>
+        : <p className="aigc-output-loading" role="status">正在加载产物…</p>}
+      {result?.kind === kind && result.data.totalPages > 1 ? <Pagination label="产物分页" page={visibleResult?.page ?? page} total={result.data.totalPages} itemCount={result.data.total} onChange={setPage} /> : null}
+    </section>
 
     {preview ? <OutputPreview item={preview} onClose={() => setPreview(undefined)} /> : null}
   </main>;
@@ -94,12 +104,14 @@ function OutputCard({ item, onPreview }: { item: AigcOutputItem; onPreview: () =
 
 function OutputPreview({ item, onClose }: { item: AigcOutputItem; onClose: () => void }) {
   const source = aigcTaskAssetUrl(item.taskId, item.id);
-  return <div className="media-lightbox" role="dialog" aria-modal="true" aria-label={`${item.name} 预览`}><button type="button" className="media-lightbox__close" aria-label="关闭产物预览" onClick={onClose}><X size={20} /></button><div className="media-lightbox__stage">
-    {item.kind === "image" ? <img src={source} alt={item.name} /> : null}
-    {item.kind === "video" ? <video src={source} controls autoPlay /> : null}
-    {item.kind === "audio" ? <div className="aigc-output-audio-preview"><FileAudio size={48} aria-hidden="true" /><strong>{item.name}</strong><audio src={source} controls autoPlay /></div> : null}
-    {item.kind === "other" ? <div className="aigc-output-audio-preview"><File size={48} aria-hidden="true" /><strong>{item.name}</strong><a href={aigcTaskAssetUrl(item.taskId, item.id, true)} download={item.name}>下载文件</a></div> : null}
-  </div></div>;
+  return <Dialog className="aigc-media-preview-dialog" title={`${item.name} 预览`} closeLabel="关闭产物预览" onClose={onClose}>
+    <div className="media-lightbox__stage">
+      {item.kind === "image" ? <img src={source} alt={item.name} /> : null}
+      {item.kind === "video" ? <video src={source} controls autoPlay /> : null}
+      {item.kind === "audio" ? <div className="aigc-output-audio-preview"><FileAudio size={48} aria-hidden="true" /><strong>{item.name}</strong><audio src={source} controls autoPlay /></div> : null}
+      {item.kind === "other" ? <div className="aigc-output-audio-preview"><File size={48} aria-hidden="true" /><strong>{item.name}</strong><a href={aigcTaskAssetUrl(item.taskId, item.id, true)} download={item.name}>下载文件</a></div> : null}
+    </div>
+  </Dialog>;
 }
 
 function outputExpected(setError: (message: string) => void): ApiTaskPolicy["expected"] {

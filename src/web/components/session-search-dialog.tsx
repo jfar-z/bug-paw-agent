@@ -1,4 +1,4 @@
-import { Button, TextField } from "../ui/controls";
+import { Button, IconButton, TextField } from "../ui/controls";
 import { Archive, LoaderCircle, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -103,7 +103,7 @@ export function SessionSearchDialog(props: SessionSearchDialogProps) {
       <section className="configuration-dialog session-search-dialog" role="dialog" aria-modal="true" aria-labelledby="session-search-dialog-title">
         <header>
           <div><span>SESSIONS · SEARCH</span><h2 id="session-search-dialog-title">搜索聊天记录</h2></div>
-          <button type="button" className="icon-button" aria-label="关闭聊天记录搜索" onClick={close}><X size={18} aria-hidden="true" /></button>
+          <IconButton label="关闭聊天记录搜索" onClick={close}><X size={18} /></IconButton>
         </header>
         <div className="session-search-dialog__field">
           <Search size={17} aria-hidden="true" />
@@ -124,13 +124,12 @@ export function SessionSearchDialog(props: SessionSearchDialogProps) {
           <span className="session-search-dialog__field-actions">
             {(search.state === "loading" || search.state === "loadingMore")
               ? <LoaderCircle className="is-spinning" size={16} aria-hidden="true" /> : null}
-            {search.query ? <button
-              type="button"
-              className="icon-button session-search-dialog__clear"
-              aria-label="清空聊天记录搜索"
+            {search.query ? <IconButton
+              className="session-search-dialog__clear"
+              label="清空聊天记录搜索"
               onMouseDown={(event) => event.preventDefault()}
               onClick={clearSearch}
-            ><X size={16} aria-hidden="true" /></button> : null}
+            ><X size={16} /></IconButton> : null}
           </span>
         </div>
         <p
@@ -163,7 +162,7 @@ export function SessionSearchDialog(props: SessionSearchDialogProps) {
           </div> : null}
         </div>
         {search.state === "success" && search.canLoadMore ? <footer>
-          <button type="button" className="configuration-secondary-action session-search-dialog__load-more" aria-label="加载更多搜索结果" disabled={selecting} onClick={() => void search.loadMore()}>加载更多</button>
+          <Button className="configuration-secondary-action session-search-dialog__load-more" aria-label="加载更多搜索结果" disabled={selecting} onClick={() => void search.loadMore()}>加载更多</Button>
         </footer> : null}
       </section>
     </div>,

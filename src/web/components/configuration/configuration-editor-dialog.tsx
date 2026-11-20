@@ -1,3 +1,4 @@
+import { IconButton } from "../../ui/controls";
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -77,7 +78,7 @@ export function ConfigurationEditorDialog({ variant, title, description, busy, s
       role="dialog" aria-modal={!suspended} aria-hidden={suspended || undefined} inert={suspended || undefined}
       aria-labelledby={id} aria-describedby={`${id}-description`} aria-busy={busy}>
       <header className={variant === "drawer" ? "configuration-editor-drawer__header" : undefined}><div><h2 id={id}>{title}</h2><p id={`${id}-description`}>{description}</p></div>
-        {variant === "drawer" ? <button type="button" className="icon-button" aria-label={closeLabel} disabled={busy} onClick={onClose}><X size={19} /></button> : null}</header>
+        {variant === "drawer" ? <IconButton label={closeLabel} disabled={busy} onClick={onClose}><X size={19} /></IconButton> : null}</header>
       <div className={variant === "drawer" ? "configuration-editor-drawer__content" : undefined}>{children}</div>
       <footer className={variant === "drawer" ? "configuration-editor-drawer__footer" : undefined}>{footer}</footer>
     </section>

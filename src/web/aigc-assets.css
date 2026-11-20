@@ -41,44 +41,6 @@
   background: var(--surface);
 }
 
-.aigc-assets-tabs {
-  display: inline-flex;
-  gap: 2px;
-  margin-bottom: 18px;
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--panel);
-}
-
-.aigc-assets-tabs button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 5px;
-  color: var(--text-secondary);
-  background: transparent;
-}
-
-.aigc-assets-tabs button.is-active {
-  color: var(--text-primary);
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
-}
-
-.aigc-assets-tabs strong {
-  min-width: 20px;
-  padding: 1px 5px;
-  border-radius: 999px;
-  color: var(--text-secondary);
-  background: var(--surface-hover);
-  font-size: 10px;
-  text-align: center;
-}
-
 .aigc-output-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -162,8 +124,7 @@
   font-size: 10px;
 }
 
-.aigc-output-card footer a,
-.aigc-output-pagination button {
+.aigc-output-card footer a {
   display: grid;
   flex: 0 0 34px;
   width: 34px;
@@ -171,22 +132,12 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-secondary);
-  background: transparent;
   place-items: center;
 }
 
-.aigc-output-pagination {
-  display: flex;
-  align-items: center;
+.aigc-assets-page .bp-pagination {
   justify-content: center;
-  gap: 12px;
   margin-top: 20px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.aigc-output-pagination button:disabled {
-  opacity: .4;
 }
 
 .aigc-output-empty,
@@ -218,8 +169,6 @@
 @media (max-width: 680px) {
   .aigc-assets-page { padding: 16px 12px; }
   .aigc-assets-heading { align-items: start; flex-direction: column; }
-  .aigc-assets-tabs { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
-  .aigc-assets-tabs button { justify-content: center; padding: 0 6px; }
   .aigc-output-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .aigc-output-card footer { align-items: start; }
 }

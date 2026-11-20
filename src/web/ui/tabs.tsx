@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "./controls";
 import "./tabs.css";
 
@@ -7,6 +7,7 @@ export function Tabs<T extends string>({
   tabIdPrefix,
   className = "",
   disabled,
+  manual = false,
   label,
   items,
   value,
@@ -17,16 +18,20 @@ export function Tabs<T extends string>({
   tabIdPrefix?: string;
   className?: string;
   disabled?: boolean;
+  manual?: boolean;
   items: readonly { id: T; label: ReactNode; panel?: ReactNode }[];
   value: T;
   onChange: (value: T) => void;
 }) {
   const id = useId();
+  const [focused, setFocused] = useState<T>();
   // 页面可以保留既有面板与挂载顺序，同时共享键盘切换。
   const tabId = (item: T) => (tabIdPrefix ?? (typeof panelId === "string" ? panelId : id + "-tab")) + "-" + item;
   return (
     <div>
-      <div className={`bp-tabs ${className}`} role="tablist" aria-label={label}>
+      <div className={`bp-tabs ${className}`} role="tablist" aria-label={label} onBlur={(event) => {
+        if (manual && !event.currentTarget.contains(event.relatedTarget)) setFocused(undefined);
+      }}>
         {items.map((item, index) => (
           <Button
             key={item.id}
@@ -35,7 +40,8 @@ export function Tabs<T extends string>({
             id={tabId(item.id)}
             disabled={disabled}
             aria-controls={typeof panelId === "function" ? panelId(item.id) : panelId ?? id + "-panel-" + index}
-            tabIndex={value === item.id ? 0 : -1}
+            tabIndex={(manual ? focused ?? value : value) === item.id ? 0 : -1}
+            onFocus={manual ? () => setFocused(item.id) : undefined}
             aria-selected={value === item.id}
             onClick={() => onChange(item.id)}
             onKeyDown={(e) => {
@@ -49,7 +55,8 @@ export function Tabs<T extends string>({
               )[e.key];
               if (target !== undefined) {
                 e.preventDefault();
-                onChange(items[target].id);
+                // 需要发起写入的页签仅移动焦点，等待用户按 Enter 或空格。
+                if (!manual) onChange(items[target].id);
                 document.getElementById(tabId(items[target].id))?.focus();
               }
             }}

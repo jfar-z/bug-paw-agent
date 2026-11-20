@@ -1,3 +1,4 @@
+import { IconButton } from "../ui/controls";
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -52,7 +53,7 @@ export function AigcConfigDrawer({ title, eyebrow, description, busy = false, on
 
   return createPortal(<div className="aigc-config-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
     <section ref={root} tabIndex={-1} className="aigc-config-drawer" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <header className="aigc-config-drawer__header"><div><small className="aigc-config-eyebrow">{eyebrow}</small><h2 id={titleId}>{title}</h2><p>{description}</p></div><button type="button" className="icon-button" aria-label="关闭编辑" disabled={busy} onClick={onClose}><X size={19} /></button></header>
+      <header className="aigc-config-drawer__header"><div><small className="aigc-config-eyebrow">{eyebrow}</small><h2 id={titleId}>{title}</h2><p>{description}</p></div><IconButton label="关闭编辑" disabled={busy} onClick={onClose}><X size={19} /></IconButton></header>
       <div className="aigc-config-drawer__content">{children}</div>
       <footer className="aigc-config-drawer__footer">{footer}</footer>
     </section>
