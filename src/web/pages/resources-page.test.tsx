@@ -72,7 +72,16 @@ describe("Skills 与扩展交互",()=>{
   });
   it("从 Agent 卸载全局包明确全局影响，引用拒绝保留确认对象",async()=>{
     const remove=vi.spyOn(api,"removeResourcePackage").mockRejectedValue(new ApiClientError("PACKAGE_IN_USE","扩展包仍被写作助手引用",409));show();await screen.findByRole("button",{name:"查看资源 Research"});fireEvent.click(screen.getByRole("button",{name:"Agent 资源"}));await tick();fireEvent.click(screen.getByRole("tab",{name:"扩展包"}));fireEvent.click(screen.getByRole("button",{name:"卸载 npm:example"}));
-    const confirm=screen.getByRole("dialog",{name:"确认卸载扩展包"});expect(confirm).toHaveTextContent("即使从 Agent 视图操作也影响全局");fireEvent.click(within(confirm).getByRole("button",{name:"确认卸载"}));await within(confirm).findByText("扩展包仍被写作助手引用");expect(remove).toHaveBeenCalledWith("npm:example","global",undefined);
+    const confirm = within(screen.getByRole("dialog", { name: "确认卸载扩展包" }));
+    expect(confirm.getByText(/即使从 Agent 视图操作也影响全局/)).toBeInTheDocument();
+    fireEvent.click(confirm.getByRole("button", { name: "确认卸载" }));
+    const impact = await confirm.findByRole("region", { name: "操作影响清单" });
+    await within(impact).findByText("扩展包仍被写作助手引用");
+    const notice = await confirm.findByRole("group", { name: "卸载扩展包失败" });
+    expect(notice).toHaveTextContent("扩展包仍被写作助手引用");
+    fireEvent.click(within(notice).getByRole("button", { name: "查看错误详情" }));
+    expect(within(notice).getByText("PACKAGE_IN_USE")).toBeInTheDocument();
+    expect(remove).toHaveBeenCalledWith("npm:example", "global", undefined);
   });
   it("Agent 目录失败不冒充空态，迟到目录不能覆盖新目标",async()=>{
     let resolveA: (value: ResourceCatalog)=>void = ()=>undefined;

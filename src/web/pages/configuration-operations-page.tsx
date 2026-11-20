@@ -37,6 +37,7 @@ export function ConfigurationOperationsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [generatingPreview, setGeneratingPreview] = useState(false);
   const [restoreEntry, setRestoreEntry] = useState<ConfigurationHistoryEntry>();
   const [restorePreview, setRestorePreview] = useState<ConfigurationRestorePreview>();
   const [restoreState, setRestoreState] = useState<"loading" | "ready" | "error">("loading");
@@ -62,9 +63,20 @@ export function ConfigurationOperationsPage() {
     let value: unknown;
     try { value = JSON.parse(source); if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("导入内容必须是 JSON 对象"); }
     catch (reason) { report(`JSON 校验：${reason instanceof Error ? reason.message : "捕获到非 Error 异常"}`); return; }
-    const version = sourceVersion.current; lock.current = true; setBusy(true); setError(""); setPreview(undefined);
-    try { const result = await runApiTask(() => api.previewConfigurationImport(value), { operation: "生成配置导入预览", expected }); if (sourceVersion.current === version && result.status === "success") setPreview(result.data); }
-    finally { lock.current = false; setBusy(false); }
+    const version = sourceVersion.current;
+    lock.current = true;
+    setBusy(true);
+    setGeneratingPreview(true);
+    setError("");
+    setPreview(undefined);
+    try {
+      const result = await runApiTask(() => api.previewConfigurationImport(value), { operation: "生成配置导入预览", expected });
+      if (sourceVersion.current === version && result.status === "success") setPreview(result.data);
+    } finally {
+      lock.current = false;
+      setBusy(false);
+      setGeneratingPreview(false);
+    }
   }
   async function readFile(file?: File) {
     if (!file || !online || lock.current) return;
@@ -121,7 +133,11 @@ export function ConfigurationOperationsPage() {
     {!online ? <p className="configuration-save-notice">离线只读，导入、导出与恢复暂停。</p> : null}
     <Tabs label="配置页面分区" panelId="configuration-maintenance-panel" value={category} onChange={setCategory} items={[{ id: "import", label: "导入配置" }, { id: "export", label: "安全导出" }, { id: "history", label: "变更历史" }]} />
     <div role="tabpanel" id="configuration-maintenance-panel" aria-labelledby={`configuration-maintenance-panel-${category}`}>
-    {category === "import" ? <><div className="maintenance-steps"><span className={!preview && !applied ? "is-active" : undefined}>01 输入</span><span className={preview ? "is-active" : undefined}>02 服务端预览</span><span className={applied ? "is-active" : undefined}>03 应用结果</span></div><section className="configuration-form-card"><h2><Upload size={18} />输入配置</h2><p>导入仅处理 models/settings，不恢复 Agent 档案、凭证、知识库或其他应用数据。</p><div className="bp-field"><FilePickerButton label="配置 JSON 文件" accept=".json,application/json" disabled={!online || busy} onFilesSelected={([file]) => void readFile(file)}>选择 JSON 文件</FilePickerButton><small className="configuration-help">UTF-8 JSON 文件（最多 1 MiB）</small></div><label className="configuration-field"><span>配置包或标准模型配置</span><Textarea aria-label="配置 JSON 内容" value={source} onChange={(event) => changeSource(event.target.value)} disabled={busy || !online} rows={8} spellCheck={false} placeholder="粘贴 JSON 内容" /></label><Button variant="primary" type="button" className="configuration-primary-action" onClick={() => void createPreview()} disabled={!source.trim() || busy || !online}>生成预览</Button></section>
+    {category === "import" ? <><div className="maintenance-steps"><span className={!preview && !applied ? "is-active" : undefined}>01 输入</span><span className={preview ? "is-active" : undefined}>02 服务端预览</span><span className={applied ? "is-active" : undefined}>03 应用结果</span></div><section className="configuration-form-card"><h2><Upload size={18} />输入配置</h2><p>导入仅处理 models/settings，不恢复 Agent 档案、凭证、知识库或其他应用数据。</p><div className="bp-field"><FilePickerButton label="配置 JSON 文件" accept=".json,application/json" disabled={!online || busy} onFilesSelected={([file]) => void readFile(file)}>选择 JSON 文件</FilePickerButton><small className="configuration-help">UTF-8 JSON 文件（最多 1 MiB）</small></div><label className="configuration-field"><span>配置包或标准模型配置</span><Textarea aria-label="配置 JSON 内容" value={source} onChange={(event) => changeSource(event.target.value)} disabled={busy || !online} rows={8} spellCheck={false} placeholder="粘贴 JSON 内容" /></label><div className="configuration-button-row">
+        <Button variant="primary" type="button" className="configuration-primary-action" onClick={() => void createPreview()} loading={generatingPreview} disabled={!source.trim() || busy || !online}>生成预览</Button>
+        <span role="status" className="maintenance-muted">{generatingPreview ? "正在生成预览…" : ""}</span>
+      </div>
+    </section>
       {preview ? <section className="configuration-form-card"><h2>文件级变更预览</h2><p>预览显示整份文件的应用范围，不是字段级差异。修改输入后预览失效，应用时再次校验版本。</p><div className="import-preview"><PreviewGroup label="新增" values={preview.added} /><PreviewGroup label="变更" values={preview.changed} /><PreviewGroup label="冲突" values={preview.conflicts} /><PreviewGroup label="无效" values={preview.invalid.map((item) => `${item.file}：${item.message}`)} /></div><Button variant="primary" type="button" className="configuration-primary-action" disabled={preview.invalid.length > 0 || preview.conflicts.length > 0 || busy || !online} onClick={() => setConfirmation("import")}>确认并应用</Button></section> : null}
       {applied ? <section className="configuration-form-card"><h2>配置提交完成</h2><p>请按接口实际返回结果查看上方生效提示。历史列表加载失败不会改变配置已提交的事实。</p></section> : null}</> : null}
     {category === "export" ? <section className="configuration-form-card"><h2><Download size={18} />安全导出</h2><p>包含模型配置、运行设置及 Agent 档案；排除 auth.json、应用密码和敏感 Header 值。</p><p>不包含会话、知识库或完整生产数据；Agent 档案不由本页导入恢复。</p>{online ? <a className="configuration-secondary-action" href="/api/v1/configuration/export" download>下载配置包</a> : <Button type="button" className="configuration-secondary-action" disabled>下载配置包</Button>}</section> : null}

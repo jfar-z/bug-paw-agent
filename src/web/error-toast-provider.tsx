@@ -19,6 +19,16 @@ interface ToastAnnouncement {
 }
 
 const ErrorToastContext = createContext<ErrorToastController | undefined>(undefined);
+const ErrorToastModalContext = createContext<{
+  registerModal: (modal: HTMLDialogElement) => () => void;
+  activeModal: HTMLDialogElement | undefined;
+  toast: ReactNode;
+} | undefined>(undefined);
+
+/** 模态打开时将全局错误提示呈现在原生顶层，保留详情操作和播报。 */
+export function useErrorToastModal() {
+  return useContext(ErrorToastModalContext);
+}
 
 /** 在应用根部维护错误提示队列，并向业务组件提供稳定控制器。 */
 export function ErrorToastProvider({ children }: { children: ReactNode }) {
@@ -26,6 +36,11 @@ export function ErrorToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ManagedToast[]>([]);
   const itemsRef = useRef<ManagedToast[]>([]);
   const [announcement, setAnnouncement] = useState<ToastAnnouncement>();
+  const [modals, setModals] = useState<HTMLDialogElement[]>([]);
+  const registerModal = useCallback((modal: HTMLDialogElement) => {
+    setModals((current) => [...current, modal]);
+    return () => setModals((current) => current.filter((entry) => entry !== modal));
+  }, []);
 
   const dismiss = useCallback((id: string) => {
     setItems((current) => {
@@ -116,16 +131,22 @@ export function ErrorToastProvider({ children }: { children: ReactNode }) {
   }, [dismiss, items]);
 
   const controller = useMemo<ErrorToastController>(() => ({ push, clear }), [clear, push]);
+  const activeModal = modals.at(-1);
+  const toast = (
+    <Toast
+      items={items.slice(0, MAX_VISIBLE_TOASTS)}
+      announcement={announcement}
+      onDismiss={dismiss}
+      onExpandedChange={setExpanded}
+      onPauseChange={setPaused}
+    />
+  );
   return (
     <ErrorToastContext.Provider value={controller}>
-      {children}
-      <Toast
-        items={items.slice(0, MAX_VISIBLE_TOASTS)}
-        announcement={announcement}
-        onDismiss={dismiss}
-        onExpandedChange={setExpanded}
-        onPauseChange={setPaused}
-      />
+      <ErrorToastModalContext.Provider value={{ registerModal, activeModal, toast }}>
+        {children}
+        {activeModal ? null : toast}
+      </ErrorToastModalContext.Provider>
     </ErrorToastContext.Provider>
   );
 }

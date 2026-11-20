@@ -3,6 +3,7 @@ import { SearchField, Button, NumberField, TextField } from "../ui/controls";
 import { Table } from "../ui/collection";
 import { FormField } from "../ui/form-field";
 import { Tabs } from "../ui/tabs";
+import { SegmentedControl } from "../ui/segmented-control";
 import { ConfirmDialog } from "../ui/dialog";
 import { ArrowUpRight, Boxes, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -86,6 +87,7 @@ export function AigcInterfacesPage() {
       config: item.config as AigcInterfaceInput["config"],
     };
     setSelected(item);
+    setMessage("");
     setDraft(nextDraft);
     setSavedDraft(nextDraft);
     setEditorOpen(true);
@@ -102,6 +104,7 @@ export function AigcInterfacesPage() {
   function createImmediately() {
     const nextDraft = { ...emptyInterface, channelId: channels.find((channel) => channel.enabled && channel.type === emptyInterface.protocol)?.id ?? "" };
     setSelected(undefined);
+    setMessage("");
     setDraft(nextDraft);
     setSavedDraft(nextDraft);
     setEditorOpen(true);
@@ -247,7 +250,7 @@ export function AigcInterfacesPage() {
   return (
     <div className="aigc-workbench-page aigc-interface-config-page">
       <header className="aigc-config-heading"><div><small className="aigc-config-eyebrow">CONNECTIONS &amp; ACCESS</small><h1>接口配置</h1><p>管理生成接口，以及外部 MCP 客户端的访问权限。</p></div><Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !document} onClick={() => tab === "interfaces" ? createDraft() : setMcpCreateRequest((current) => current + 1)}><Plus size={16} />{tab === "interfaces" ? "新增接口" : "签发新 Key"}</Button></header>
-      {message ? <p className="configuration-help" role="status">{message}</p> : null}
+      {!editorOpen && message ? <p className="configuration-help" role="status">{message}</p> : null}
       {!online ? <p className="aigc-config-info">当前离线，配置与授权暂不可保存。</p> : null}
       <Tabs
         label="配置视图"
@@ -262,7 +265,8 @@ export function AigcInterfacesPage() {
           },
         ]}
       />
-      {editorOpen ? <AigcConfigDrawer title={selected ? `编辑 · ${selected.name}` : "新增接口"} eyebrow={selected ? "EDIT INTERFACE" : "NEW INTERFACE"} description={selected ? "修改配置将更新此接口。" : "选择协议、配置执行目标，再决定开放方式。"} busy={busy} onClose={closeEditor} footer={<><small>{selected ? "正在编辑现有接口" : "尚未创建"}</small><div>{selected ? <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={busy || !online} onClick={() => setDeleteTarget(selected)}><Trash2 size={15} />删除</Button> : null}<Button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeEditor}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" loading={busy} disabled={!online || !draft.name.trim() || !draft.channelId || !isDirty} onClick={() => void save()}><Save size={15} />{selected ? "保存修改" : "创建接口"}</Button></div></>}>
+      {editorOpen ? <AigcConfigDrawer title={selected ? `编辑 · ${selected.name}` : "新增接口"} description={selected ? "修改配置将更新此接口。" : "选择协议、配置执行目标，再决定开放方式。"} busy={busy} onClose={closeEditor} footer={<><small>{selected ? "正在编辑现有接口" : "尚未创建"}</small><div>{selected ? <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" disabled={busy || !online} onClick={() => setDeleteTarget(selected)}><Trash2 size={15} />删除</Button> : null}<Button type="button" className="configuration-secondary-action" disabled={busy} onClick={closeEditor}>取消</Button><Button variant="primary" type="button" className="configuration-primary-action" loading={busy} disabled={!online || !draft.name.trim() || !draft.channelId || !isDirty} onClick={() => void save()}><Save size={15} />{selected ? "保存修改" : "创建接口"}</Button></div></>}>
+        {message ? <p className="configuration-help" role="status">{message}</p> : null}
         <fieldset className="aigc-config-fields" disabled={busy}>
         <h3 className="aigc-config-form-heading"><small>01</small>基本信息</h3>
         <div className="aigc-form-stack"><AigcInterfaceBasicFields draft={draft} onChange={setDraft} /></div>
@@ -270,20 +274,13 @@ export function AigcInterfacesPage() {
         <h3 className="aigc-config-form-heading"><small>02</small>执行配置</h3>
         <div className="aigc-fieldset">
           <div className="aigc-fieldset__heading"><strong>协议</strong><small>选择接口使用的第三方协议，能力会随协议变化</small></div>
-          <div className="aigc-protocol-grid aigc-protocol-grid--compact">
-            {(["openai", "grok", "comfyui"] as const).map((protocol) => (
-              <button
-                type="button"
-                key={protocol}
-                className={draft.protocol === protocol ? "aigc-overview-card aigc-protocol-card is-selected" : "aigc-overview-card aigc-protocol-card"}
-                onClick={() => changeProtocol(protocol)}
-              >
-                <span className="aigc-protocol-card__name">{interfaceProtocolName(protocol)}</span>
-                <span className="aigc-protocol-card__type">{protocol}</span>
-                <small>{interfaceProtocolDescription(protocol)}</small>
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="协议"
+            value={draft.protocol}
+            options={(["openai", "grok", "comfyui"] as const).map((id) => ({ id, label: interfaceProtocolName(id) }))}
+            onChange={changeProtocol}
+          />
+          <p className="configuration-help">{interfaceProtocolDescription(draft.protocol)}</p>
         </div>
 
         <div className="aigc-fieldset">

@@ -216,7 +216,7 @@ describe("AigcWorkbenchPage 创作台", () => {
     expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ revision: "r1", confirmationToken: "checked-loss" });
   });
 
-  it.each(["检查失败", "版本冲突", "无效 JSON"])("替换%s通过全局错误展示且保留旧工作流", async (scenario) => {
+  it.each(["检查失败", "版本冲突", "无效 JSON"] as const)("替换%s通过全局错误展示且保留旧工作流", async (scenario) => {
     const workflow = {
       id: "workflow-error", name: "文生图", fileName: "old.json", originalHash: "hash", nodes: [], edges: [], inputMappings: [], outputMappings: [],
       createdAt: "2026-09-08T00:00:00.000Z", updatedAt: "2026-09-08T00:00:00.000Z",
@@ -237,8 +237,16 @@ describe("AigcWorkbenchPage 创作台", () => {
     const file = { name: "new.json", text: async () => scenario === "无效 JSON" ? "{" : "{}" } as File;
     fireEvent.change(screen.getByRole("button", { name: "替换原始工作流" }).nextElementSibling!, { target: { files: [file] } });
     if (scenario === "版本冲突") fireEvent.click(await screen.findByRole("button", { name: "确认替换" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(scenario === "检查失败" ? "无法识别 ComfyUI 工作流格式" : scenario === "版本冲突" ? "工作流版本已变化" : "JSON 格式无效");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const message = {
+      检查失败: "无法识别 ComfyUI 工作流格式",
+      版本冲突: "工作流版本已变化",
+      "无效 JSON": "JSON 格式无效",
+    }[scenario];
+    // 通知播报区预先挂载，等待错误内容到达并随确认框关闭移回页面。
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(message);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
     expect(screen.getAllByText("old.json").length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.getByRole("button", { name: "替换原始工作流" })).toBeEnabled());
     if (scenario !== "版本冲突") expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/replace"))).toBe(false);

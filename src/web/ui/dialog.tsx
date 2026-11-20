@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { useErrorToastModal } from "../error-toast-provider";
 import { useViewportScrollLock } from "../use-viewport-scroll-lock";
 import { X } from "lucide-react";
 import { Button, IconButton, TextField } from "./controls";
@@ -14,6 +15,7 @@ import "./dialog.css";
 /** 父级控制挂载和关闭，原生模态层负责焦点范围及关闭后的恢复。 */
 export function Dialog({
   title,
+  description,
   children,
   footer,
   headerActions,
@@ -29,6 +31,7 @@ export function Dialog({
   interactive = true,
 }: {
   title: string;
+  description?: string;
   children: ReactNode;
   footer?: ReactNode;
   headerActions?: ReactNode;
@@ -45,6 +48,8 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     id = useId();
+  const toastModal = useErrorToastModal();
+  const registerToastModal = toastModal?.registerModal;
   const hasHeaderActions = headerActions !== undefined;
   const closeButton = onClose && (
     <IconButton label={closeLabel} data-initial-focus={hasHeaderActions ? true : undefined} disabled={busy} onClick={onClose}>
@@ -60,12 +65,21 @@ export function Dialog({
         ? document.activeElement
         : null;
     node.showModal();
+    const unregisterToastModal = registerToastModal?.(node);
     node.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
     return () => {
+      unregisterToastModal?.();
       node.close();
-      if (previous?.isConnected) previous.focus();
+      if (!previous?.isConnected) return;
+      previous.focus();
+      if (document.activeElement !== previous) {
+        // 放弃修改会同时关闭两层模态，等上层退出后再尝试恢复入口。
+        queueMicrotask(() => {
+          if (previous.isConnected && document.activeElement === document.body) previous.focus();
+        });
+      }
     };
-  }, [interactive]);
+  }, [interactive, registerToastModal]);
   return (
     <dialog
       className={["bp-dialog", drawer && "bp-dialog--drawer", className]
@@ -79,6 +93,7 @@ export function Dialog({
       aria-modal={interactive || undefined}
       aria-busy={busy}
       aria-labelledby={id}
+      aria-describedby={description ? `${id}-description` : undefined}
       onKeyDown={(event) => {
         if (event.defaultPrevented) return;
         const dialog = event.currentTarget;
@@ -100,7 +115,7 @@ export function Dialog({
         );
         const first = controls[0], last = controls.at(-1);
         const current = document.activeElement;
-        if (event.shiftKey ? current === first : current === last) {
+        if (current === dialog || (event.shiftKey ? current === first : current === last)) {
           event.preventDefault();
           (event.shiftKey ? last : first)?.focus();
         }
@@ -124,13 +139,17 @@ export function Dialog({
       }}
     >
       <div className="bp-dialog__header">
-        <h2 className="bp-dialog__title" id={id}>
-          {title}
-        </h2>
+        {description ? (
+          <div>
+            <h2 className="bp-dialog__title" id={id}>{title}</h2>
+            <p className="bp-dialog__description" id={`${id}-description`}>{description}</p>
+          </div>
+        ) : <h2 className="bp-dialog__title" id={id}>{title}</h2>}
         {hasHeaderActions ? <div className="bp-dialog__actions">{headerActions}{closeButton}</div> : closeButton}
       </div>
       <div className="bp-dialog__body" style={bodyStyle}>{children}</div>
       {footer && <div className="bp-dialog__footer">{footer}</div>}
+      {toastModal?.activeModal === ref.current ? toastModal?.toast : null}
     </dialog>
   );
 }

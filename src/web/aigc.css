@@ -145,30 +145,6 @@
   font-size: 13px;
 }
 
-/* AIGC 三段式配置页：协议选择、资源列表、编辑表单。 */
-.aigc-protocol-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: 18px;
-}
-
-.aigc-protocol-grid--compact {
-  padding-top: 0;
-}
-
-.aigc-protocol-card {
-  min-height: 108px;
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.aigc-protocol-card.is-selected {
-  border-color: var(--eye);
-  background: var(--accent-soft);
-}
-
 .aigc-channel-list {
   display: grid;
   gap: 9px;
@@ -833,7 +809,6 @@ audio.aigc-media-input-preview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .aigc-protocol-grid,
   .aigc-form-grid {
     grid-template-columns: 1fr;
   }
