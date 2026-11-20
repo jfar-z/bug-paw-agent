@@ -1,36 +1,8 @@
 /* 聊天工作台专属样式，由聊天页面按需加载。 */
 
-.agent-model-menu {
-  position: relative;
-}
-
-.agent-model-menu__trigger {
-  display: grid;
+.agent-model-menu .bp-select__trigger {
   min-width: 190px;
-  min-height: 42px;
-  grid-template-columns: 28px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 9px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  color: var(--text-primary);
-  background: var(--surface);
-  text-align: left;
-  transition: 160ms ease;
-  transition-property: border-color, background, box-shadow;
-}
-
-.agent-model-menu__trigger:hover,
-.agent-model-menu__trigger[aria-expanded="true"] {
-  border-color: var(--border-strong);
-  background: var(--surface-hover);
-  box-shadow: var(--shadow-soft);
-}
-
-.agent-model-menu__trigger:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
+  font-weight: 650;
 }
 
 .agent-model-menu__avatar {
@@ -44,101 +16,12 @@
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 750;
+  object-fit: cover;
 }
 
-.agent-model-menu__current,
-.agent-model-menu__agent > span:last-child,
-.agent-model-menu__options button > span {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.agent-model-menu__current strong,
-.agent-model-menu__agent strong,
-.agent-model-menu__options strong {
-  overflow: hidden;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-model-menu__current small,
-.agent-model-menu__agent small,
-.agent-model-menu__options small {
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-model-menu__popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 30;
-  width: min(272px, calc(100vw - 24px));
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: var(--shadow-float);
-  backdrop-filter: blur(20px);
-}
-
-.agent-model-menu__agent {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 9px 11px;
-  border-bottom: 1px solid var(--border);
-}
-
-.agent-model-menu__options {
-  display: grid;
-  max-height: min(360px, 55vh);
-  gap: 3px;
-  padding-top: 7px;
-  overflow-y: auto;
-}
-
-.agent-model-menu__options button {
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) 18px;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--text-primary);
-  background: transparent;
-  text-align: left;
-}
-
-/* Agent 项需固定头像与选中标记列，避免名称被双列模型布局推到最右侧。 */
-
-.agent-model-menu__options button.agent-model-menu__agent-option {
-  grid-template-columns: 28px minmax(0, 1fr) 18px;
-}
-
-.agent-model-menu__options button:hover,
-.agent-model-menu__options button:focus-visible,
-.agent-model-menu__options button[aria-selected="true"] {
-  background: var(--surface-hover);
-}
-
-.agent-model-menu__options button[aria-selected="true"] > svg {
-  color: var(--fg);
-}
-
-.agent-model-menu__empty {
-  margin: 8px;
-  color: var(--text-tertiary);
-  font-size: 11px;
+/* 抽屉中的图标只是装饰，触摸直接命中按键，避免点击落在 SVG 上。 */
+.quick-workspace-drawer .bp-button__content {
+  pointer-events: none;
 }
 
 .live-tool-call {
@@ -1995,56 +1878,11 @@ img.message-avatar {
   font-size: 10px;
 }
 
-.attachment-upload-item button {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  color: var(--text-tertiary);
-  background: transparent;
-}
-
-.attachment-upload-item button:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
 .attachment-picker__button {
   position: absolute;
   bottom: 13px;
   left: 52px;
   z-index: 2;
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--text-secondary);
-}
-
-.attachment-picker__button:hover {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-.attachment-picker__button:has(input:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.attachment-picker__button input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.attachment-picker__button:has(input:disabled) {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .is-spinning {
@@ -2755,7 +2593,7 @@ img.message-avatar {
   }
 
   .live-chat-header .agent-model-menu,
-  .live-chat-header .agent-model-menu__trigger {
+  .live-chat-header .agent-model-menu .bp-select__trigger {
     width: 100%;
     min-width: 0;
   }

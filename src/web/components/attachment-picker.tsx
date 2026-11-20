@@ -1,6 +1,6 @@
 import { File, LoaderCircle, Paperclip, X } from "lucide-react";
-import type { ChangeEvent } from "react";
 import type { WorkspaceFileSummary } from "../../shared/contracts";
+import { FilePickerButton, IconButton } from "../ui/controls";
 
 export interface AttachmentUploadItem {
   localId: string;
@@ -42,9 +42,9 @@ export function AttachmentPicker({
             <div className={`attachment-upload-item is-${item.status}`} key={item.localId}>
               {item.status === "uploading" ? <LoaderCircle className="is-spinning" size={15} aria-hidden="true" /> : <File size={15} aria-hidden="true" />}
               <span><strong>{item.file.name}</strong><small>{statusText(item)}</small></span>
-              <button type="button" aria-label={`移除 ${item.file.name}`} onClick={() => onRemove(item.localId)} disabled={disabled || item.status === "uploading"}>
+              <IconButton size="sm" label={`移除 ${item.file.name}`} onClick={() => onRemove(item.localId)} disabled={disabled || item.status === "uploading"}>
                 <X size={14} aria-hidden="true" />
-              </button>
+              </IconButton>
             </div>
           ))}
         </div>
@@ -63,12 +63,7 @@ export function AttachmentPickerButton({
   onFilesSelected,
   onError,
 }: Omit<AttachmentPickerProps, "onRemove" | "showButton">) {
-  function selectFiles(event: ChangeEvent<HTMLInputElement>): void {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    if (files.length === 0) {
-      return;
-    }
+  function selectFiles(files: File[]): void {
     const validationError = validateAttachmentSelection(items.length, files, maxFiles, maxFileSize);
     if (validationError) {
       onError(validationError);
@@ -77,13 +72,15 @@ export function AttachmentPickerButton({
     onFilesSelected(files);
   }
 
-  return (
-    <label className="attachment-picker__button" title="添加图片、音视频或文件">
-      <Paperclip size={17} aria-hidden="true" />
-      <span className="visually-hidden">添加附件</span>
-      <input type="file" aria-label="添加附件" multiple disabled={disabled} onChange={selectFiles} />
-    </label>
-  );
+  return <FilePickerButton
+    className="attachment-picker__button"
+    label="添加附件"
+    title="添加图片、音视频或文件"
+    icon={<Paperclip size={17} />}
+    multiple
+    disabled={disabled}
+    onFilesSelected={selectFiles}
+  />;
 }
 
 /** 统一校验文件选择、剪贴板与拖放入口的附件边界。 */

@@ -207,9 +207,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     } else setStandaloneSidebarOpen(open);
   };
   const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [workspacePreviewOpen, setWorkspacePreviewOpen] = useState(false);
+  const [workspacePreviewCloseRequest, setWorkspacePreviewCloseRequest] = useState(0);
   const [workspaceLocationRequest, setWorkspaceLocationRequest] = useState<{ id: number; path: string }>();
   const [workspaceMessage, setWorkspaceMessage] = useState("");
-  const workspaceTriggerRef = useRef<HTMLElement | undefined>(undefined);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [archivedSessions, setArchivedSessions] = useState<SessionSummary[]>([]);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -789,10 +790,15 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     cancelSessionSelection();
     setSidebarOpen(false);
   };
-  const closeResources = () => {
+  const closeResources = useCallback(() => {
     setResourcesOpen(false);
-    window.setTimeout(() => workspaceTriggerRef.current?.focus(), 0);
-  };
+    setWorkspacePreviewOpen(false);
+  }, []);
+  /** 手势、系统返回和 Escape 先退出预览，再关闭抽屉。 */
+  const closeResourcesLayer = useCallback(() => {
+    if (workspacePreviewOpen) setWorkspacePreviewCloseRequest((count) => count + 1);
+    else closeResources();
+  }, [closeResources, workspacePreviewOpen]);
   /** 普通入口只打开当前目录，避免重放上一次 Markdown 文件定位。 */
   const openResources = () => {
     closeSidebar();
@@ -802,7 +808,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
   };
   const openDrawer = (drawer: MobileWorkspaceDrawer) => {
     if (drawer === "sessions") {
-      setResourcesOpen(false);
+      closeResources();
       setSidebarOpen(true);
     } else {
       openResources();
@@ -811,7 +817,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
   const workspaceSwipe = useMobileWorkspaceSwipe({
     openDrawer: sidebarOpen ? "sessions" : resourcesOpen ? "resources" : undefined,
     onOpenDrawer: openDrawer,
-    onCloseDrawer: (drawer) => drawer === "sessions" ? closeSidebar() : closeResources(),
+    onCloseDrawer: (drawer) => drawer === "sessions" ? closeSidebar() : closeResourcesLayer(),
   });
 
   const resetToDraft = (draftAgent: AgentProfileDocument | undefined) => {
@@ -1518,10 +1524,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
     const intent = classifyDataFileLink(href);
     if (intent.kind === "passthrough") return false;
     closeSidebar();
-    setResourcesOpen(false);
+    closeResources();
     setPreviewFilePath(intent.path);
     return true;
-  }, []);
+  }, [closeResources]);
 
   useEffect(() => {
     const profile = activeAgent?.profile;
@@ -1835,7 +1841,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
               disabled={streaming || isOpeningSession}
               onSelectAgent={(agentId) => void selectAgent(agentId)}
             />
-            <IconButton className="quick-workspace-open-button" label="打开快捷资源管理" title="快捷资源管理" disabled={!activeAgentId} onClick={(event) => { workspaceTriggerRef.current = event.currentTarget; setWorkspaceMessage(""); openDrawer("resources"); }}><FolderOpen size={18} aria-hidden="true" /></IconButton>
+            <IconButton className="quick-workspace-open-button" label="打开快捷资源管理" title="快捷资源管理" disabled={!activeAgentId} onClick={(event) => {
+              event.currentTarget.focus({ preventScroll: true });
+              openDrawer("resources");
+            }}><FolderOpen size={18} aria-hidden="true" /></IconButton>
             <IconButton
               className="chat-new-session-button"
               label="新建会话"
@@ -1942,8 +1951,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         agentName={activeAgent?.profile.name}
         locationRequest={workspaceLocationRequest}
         message={workspaceMessage}
-        swiping={workspaceSwipe.resourceTranslatePercent !== undefined}
         swipeTranslatePercent={workspaceSwipe.resourceTranslatePercent}
+        previewCloseRequest={workspacePreviewCloseRequest}
+        onPreviewOpenChange={setWorkspacePreviewOpen}
+        onBack={closeResourcesLayer}
         onClose={closeResources}
       />
       <ArchivedSessionsDialog

@@ -76,4 +76,21 @@ describe("公共控件交互", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
+  it("直接选择时聚焦列表并通过键盘选中当前项", () => {
+    const change = vi.fn();
+    render(<SearchSelect ariaLabel="切换 Agent" searchable={false} options={[
+      { value: "a", label: "甲", description: "/work/alpha" },
+      { value: "b", label: "乙", description: "/work/beta" },
+    ]} onChange={change} />);
+    const trigger = screen.getByRole("button", { name: "切换 Agent" });
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const list = screen.getByRole("listbox", { name: "切换 Agent" });
+    expect(list).toHaveFocus();
+    fireEvent.keyDown(list, { key: "End" });
+    expect(list).toHaveAttribute("aria-activedescendant", screen.getByRole("option", { name: /^乙/ }).id);
+    fireEvent.keyDown(list, { key: "Enter" });
+    expect(change).toHaveBeenCalledWith("b");
+    expect(trigger).toHaveFocus();
+  });
+
 });

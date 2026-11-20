@@ -73,6 +73,37 @@ export function IconButton({
   );
 }
 
+/** 由公共图标按钮打开系统文件选择器，重置输入以允许再次选择同一文件。 */
+export function FilePickerButton({
+  label,
+  title,
+  icon,
+  className,
+  disabled,
+  multiple,
+  onFilesSelected,
+}: {
+  label: string;
+  title?: string;
+  icon: ReactNode;
+  className?: string;
+  disabled?: boolean;
+  multiple?: boolean;
+  onFilesSelected: (files: File[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return <>
+    <IconButton label={label} title={title} className={className} disabled={disabled} onClick={() => inputRef.current?.click()}>
+      {icon}
+    </IconButton>
+    <input ref={inputRef} type="file" hidden disabled={disabled} multiple={multiple} onChange={(event) => {
+      const files = Array.from(event.currentTarget.files ?? []);
+      event.currentTarget.value = "";
+      if (files.length) onFilesSelected(files);
+    }} />
+  </>;
+}
+
 export const TextField = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement>

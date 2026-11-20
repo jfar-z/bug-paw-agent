@@ -52,6 +52,7 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
   const [entries, setEntries] = useState<WorkspaceEntry[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [preview, setPreview] = useState<WorkspaceEntry>();
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [highlightedPath, setHighlightedPath] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -120,6 +121,7 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
       if (location.kind === "file") {
         setEntries((current) => current.some((entry) => entry.path === location.entry.path) ? current : [...current, location.entry]);
         setHighlightedPath(location.entry.path);
+        previewTriggerRef.current = null;
         setPreview(location.entry);
       } else {
         setPreview(undefined);
@@ -254,10 +256,14 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
     enterDirectory(entry.path);
   };
 
+  const previewPanel = preview && <WorkspaceFilePreview key={preview.path}
+    agentId={agentId} entry={preview} mode={mode === "quick" ? "overlay" : "side"}
+    onClose={() => setPreview(undefined)} returnFocus={previewTriggerRef.current}
+    fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} />;
   const main = <section className={mode === "page" ? "workspace-resources-page__main" : "workspace-browser workspace-browser--quick"} style={quickScrollStyle}>
     {heading}
     {error ? <p className="configuration-inline-error">{error}</p> : null}
-    {hasSource ? <>
+    {hasSource ? <div className="workspace-browser__listing" inert={mode === "quick" && Boolean(preview)}>
       <div className="workspace-resources-page__toolbar">
         <SearchField className="workspace-search" label="搜索文件名" placeholder={searchPlaceholder} value={query} onChange={setQuery} />
         {dataSource?.showHiddenToggle === false ? null : <label className="workspace-hidden-toggle"><Checkbox checked={includeHidden} onChange={(event) => setIncludeHidden(event.target.checked)} />显示隐藏文件</label>}
@@ -288,19 +294,22 @@ export function WorkspaceBrowser({ agentId, mode, heading, locationRequest, onPr
           { id: "actions", label: "操作", className: "workspace-entry-actions-cell", cell: (entry) =>
             <div className="workspace-entry-actions">
               {entry.kind === "file" && <>
-                <IconButton size="sm" label={`预览 ${entry.name}`} onClick={() => setPreview(entry)}><Eye /></IconButton>
+                <IconButton size="sm" label={`预览 ${entry.name}`} onClick={(event) => {
+                  previewTriggerRef.current = event.currentTarget;
+                  setPreview(entry);
+                }}><Eye /></IconButton>
                 <a href={dataSource?.fileUrl(entry, true) ?? workspaceFileUrl(agentId, entry.path, true)} download={entry.name}>下载</a>
               </>}
               <IconButton size="sm" label={`重命名 ${entry.name}`} disabled={!online} onClick={() => openRenameDialog(entry)}><Pencil /></IconButton>
               <IconButton size="sm" label={`移动 ${entry.name}`} disabled={!online} onClick={() => openMoveDialog(entry)}><MoveRight /></IconButton>
             </div> },
         ]} />
-      {mode === "quick" && preview ? <WorkspaceFilePreview agentId={agentId} entry={preview} mode="overlay" onClose={() => setPreview(undefined)} fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} /> : null}
-    </> : null}
+    </div> : null}
+    {mode === "quick" && previewPanel}
   </section>;
 
   return <>{main}
-    {mode === "page" && preview ? <WorkspaceFilePreview agentId={agentId} entry={preview} mode="side" onClose={() => setPreview(undefined)} fileUrl={dataSource?.fileUrl} getText={dataSource?.getText} /> : null}
+    {mode === "page" && previewPanel}
     {renameEntry ? <Dialog title="重命名文件" busy={editingEntry} onClose={() => setRenameEntry(undefined)}
       footer={<>
         <Button disabled={editingEntry} onClick={() => setRenameEntry(undefined)}>取消</Button>

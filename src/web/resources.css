@@ -13,7 +13,7 @@
 
 .workspace-agent-navigation__header { padding: 22px 22px 15px; }
 
-.workspace-resources-page__heading > div > span, .workspace-file-preview header span { color: var(--fg); font-family: var(--font-mono); font-size: 11px; letter-spacing: .09em; }
+.workspace-resources-page__heading > div > span { color: var(--fg); font-family: var(--font-mono); font-size: 11px; letter-spacing: .09em; }
 
 .workspace-agent-navigation__close { display: none; }
 
@@ -92,9 +92,9 @@
 
 .workspace-file-preview { display: flex; width: min(420px, 36vw); min-width: 280px; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); overflow: auto; }
 
-.workspace-file-preview header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--border); }
+.workspace-file-preview header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
 
-.workspace-file-preview header div { display: grid; gap: 4px; min-width: 0; }
+.workspace-file-preview__actions { display: flex; flex: none; gap: 4px; }
 
 .workspace-file-preview header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -107,25 +107,13 @@
 .workspace-file-preview__body pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
 
 .workspace-file-preview > a { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: auto 18px 18px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-secondary); font-size: 10px; text-decoration: none; }
+@media (pointer: coarse) { .workspace-file-preview > a { min-height: var(--bp-touch-target); } }
 
-.quick-workspace-drawer { position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; display: flex; width: min(46vw, 680px); flex-direction: column; border-left: 1px solid var(--border); background: var(--surface); transform: translateX(102%); transition: transform 200ms cubic-bezier(.2, .8, .2, 1); }
-
-.quick-workspace-drawer.is-open { transform: translateX(0); }
-
-.quick-workspace-drawer.is-swiping { transition: none; }
-
-/* 快捷抽屉保留独立标题结构，避免侧边栏标题组件调整后破坏三段信息层级。 */
-.quick-workspace-drawer__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 22px 15px; }
-
-.quick-workspace-drawer__header > div { display: grid; min-width: 0; gap: 3px; }
-
-.quick-workspace-drawer__header span { color: var(--fg); font-family: var(--font-mono); font-size: 11px; letter-spacing: .09em; }
-
-.quick-workspace-drawer__header strong { font-size: 15px; }
-
-.quick-workspace-drawer__header small { overflow: hidden; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-
-.quick-workspace-drawer__header > .icon-button { flex: 0 0 auto; }
+.bp-dialog.quick-workspace-drawer { display: flex; width: min(46vw, 680px); max-width: 100%; flex-direction: column; padding: 0; border-width: 0 0 0 1px; touch-action: pan-y; }
+.quick-workspace-drawer > .bp-dialog__header { margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.quick-workspace-drawer > .bp-dialog__body { display: flex; min-height: 0; max-height: none; flex: 1; flex-direction: column; }
+.quick-workspace-drawer .quick-workspace-drawer__agent { margin: 0; padding: 0 18px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.workspace-browser__listing { display: contents; }
 
 .workspace-browser--quick { position: relative; display: flex; min-height: 0; flex: 1; flex-direction: column; padding: 18px; overflow: hidden; }
 
@@ -140,7 +128,7 @@
 
 @media (max-width: 760px) {
   .quick-workspace-open-button { display: none; }
-  .quick-workspace-drawer { width: 100%; border-left: 0; }
+  .bp-dialog.quick-workspace-drawer { width: 100%; border-left: 0; }
   .workspace-resources-page { display: block; height: 100%; overflow: auto; }
   .workspace-agent-navigation { display: none; }
   .workspace-agent-navigation__scrim { display: block; }

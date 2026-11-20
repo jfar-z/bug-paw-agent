@@ -18,6 +18,7 @@ export function Dialog({
   footer,
   headerActions,
   onClose,
+  onEscape,
   closeLabel = "关闭",
   busy = false,
   drawer = false,
@@ -25,12 +26,14 @@ export function Dialog({
   style,
   bodyStyle,
   dismissOnBackdrop = true,
+  interactive = true,
 }: {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
   headerActions?: ReactNode;
   onClose?: () => void;
+  onEscape?: () => void;
   closeLabel?: string;
   busy?: boolean;
   drawer?: boolean | "left" | "right";
@@ -38,6 +41,7 @@ export function Dialog({
   style?: CSSProperties;
   bodyStyle?: CSSProperties;
   dismissOnBackdrop?: boolean | "surface";
+  interactive?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     id = useId();
@@ -47,8 +51,9 @@ export function Dialog({
       <X />
     </IconButton>
   );
-  useViewportScrollLock();
+  useViewportScrollLock(interactive);
   useLayoutEffect(() => {
+    if (!interactive) return;
     const node = ref.current!;
     const previous =
       document.activeElement instanceof HTMLElement
@@ -60,7 +65,7 @@ export function Dialog({
       node.close();
       if (previous?.isConnected) previous.focus();
     };
-  }, []);
+  }, [interactive]);
   return (
     <dialog
       className={["bp-dialog", drawer && "bp-dialog--drawer", className]
@@ -69,7 +74,9 @@ export function Dialog({
       data-side={drawer === "right" ? "right" : undefined}
       ref={ref}
       style={style}
-      aria-modal="true"
+      open={interactive ? undefined : true}
+      inert={!interactive || undefined}
+      aria-modal={interactive || undefined}
       aria-busy={busy}
       aria-labelledby={id}
       onKeyDown={(event) => {
@@ -91,8 +98,9 @@ export function Dialog({
         }
       }}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
-        if (!busy) onClose?.();
+        if (!busy) (onEscape ?? onClose)?.();
       }}
       onClick={(e) => {
         if (!dismissOnBackdrop || e.target !== ref.current || busy) return;

@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from "react";
 import "./search-select.css";
 
@@ -17,6 +18,7 @@ export interface SearchSelectOption<T extends SearchSelectValue> {
   value: T;
   label: string;
   description?: string;
+  icon?: ReactNode;
   disabled?: boolean;
 }
 
@@ -32,6 +34,8 @@ interface SearchSelectProps<T extends SearchSelectValue> {
   options: readonly SearchSelectOption<T>[];
   value?: T;
   placeholder?: string;
+  placeholderIcon?: ReactNode;
+  searchable?: boolean;
   disabled?: boolean;
   onChange?: (value: T) => void;
 }
@@ -49,6 +53,8 @@ export function SearchSelect<T extends SearchSelectValue>({
   options,
   value,
   placeholder = "请选择",
+  placeholderIcon,
+  searchable = true,
   disabled = false,
   onChange,
   ...accessibility
@@ -57,6 +63,7 @@ export function SearchSelect<T extends SearchSelectValue>({
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -113,7 +120,7 @@ export function SearchSelect<T extends SearchSelectValue>({
 
   useEffect(() => {
     if (!open) return;
-    searchRef.current?.focus({ preventScroll: true });
+    (searchRef.current ?? listRef.current)?.focus({ preventScroll: true });
     const closeOutside = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) closeMenu();
     };
@@ -128,7 +135,7 @@ export function SearchSelect<T extends SearchSelectValue>({
   }, [query, open]);
 
   useEffect(() => {
-    const list = popupRef.current?.querySelector<HTMLElement>(".bp-select__options");
+    const list = listRef.current;
     const item = list?.querySelector<HTMLElement>(".is-active");
     if (!list || !item) return;
     const bounds = list.getBoundingClientRect();
@@ -166,7 +173,8 @@ export function SearchSelect<T extends SearchSelectValue>({
         setActiveIndex(index);
         break;
       }
-    } else if (event.key === "Enter" && event.target === searchRef.current) {
+    } else if ((event.key === "Enter" || (!searchable && event.key === " ")) &&
+      (event.target === searchRef.current || event.target === listRef.current)) {
       event.preventDefault();
       const option = filteredOptions[activeIndex];
       if (option) choose(option);
@@ -200,6 +208,7 @@ export function SearchSelect<T extends SearchSelectValue>({
         }}
         onClick={() => (open ? closeMenu() : setOpen(true))}
       >
+        {(selected?.icon ?? placeholderIcon) && <span className="bp-select__icon" aria-hidden="true">{selected?.icon ?? placeholderIcon}</span>}
         <span className={selected ? undefined : "is-placeholder"}>
           {selected?.label ?? placeholder}
         </span>
@@ -207,7 +216,7 @@ export function SearchSelect<T extends SearchSelectValue>({
       </button>
       {open ? (
         <div className="bp-select__popover" ref={popupRef} popover={typeof HTMLElement.prototype.showPopover === "function" ? "manual" : undefined} onKeyDown={handlePopupKeyDown}>
-          <label className="bp-select__search">
+          {searchable && <label className="bp-select__search">
             <Search size={14} aria-hidden="true" />
             <input
               ref={searchRef}
@@ -220,12 +229,15 @@ export function SearchSelect<T extends SearchSelectValue>({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-          </label>
+          </label>}
           <div
             id={listboxId}
             className="bp-select__options"
+            ref={listRef}
             role="listbox"
             aria-label={ariaLabel}
+            tabIndex={searchable ? undefined : -1}
+            aria-activedescendant={!searchable && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
           >
             {filteredOptions.map((option, index) => (
               <button
@@ -241,6 +253,7 @@ export function SearchSelect<T extends SearchSelectValue>({
                 onPointerMove={() => { if (!option.disabled) setActiveIndex(index); }}
                 onClick={() => choose(option)}
               >
+                {option.icon && <span className="bp-select__icon" aria-hidden="true">{option.icon}</span>}
                 <span>
                   <strong>{option.label}</strong>
                   {option.description ? (

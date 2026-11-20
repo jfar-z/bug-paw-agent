@@ -7,8 +7,9 @@ let releaseViewport: (() => void) | undefined;
 /**
  * 在全屏对话页生命周期内关闭浏览器根滚动，并在卸载时恢复原值。
  */
-export function useViewportScrollLock(): void {
+export function useViewportScrollLock(enabled = true): void {
   useLayoutEffect(() => {
+    if (!enabled) return;
     if (activeLocks === 0) releaseViewport = lockViewport();
     activeLocks += 1;
     return () => {
@@ -17,7 +18,7 @@ export function useViewportScrollLock(): void {
       releaseViewport?.();
       releaseViewport = undefined;
     };
-  }, []);
+  }, [enabled]);
 }
 
 function lockViewport(): () => void {

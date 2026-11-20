@@ -1,14 +1,16 @@
 import { ChevronLeft, Download, Maximize2, Minimize2, X } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { WorkspaceEntry, WorkspaceTextPreview } from "../../shared/contracts";
 import { api, workspaceFileUrl } from "../api";
 import { useApiTask } from "../api-task-provider";
+import { Button, IconButton } from "../ui/controls";
 
 interface WorkspaceFilePreviewProps {
   agentId: string;
   entry: WorkspaceEntry;
   mode: "side" | "overlay";
   onClose: () => void;
+  returnFocus?: HTMLElement | null;
   fileUrl?: (entry: WorkspaceEntry, download: boolean) => string;
   allowHtmlPreview?: boolean;
   getText?: (path: string) => Promise<WorkspaceTextPreview>;
@@ -17,7 +19,7 @@ interface WorkspaceFilePreviewProps {
 /**
  * 在资源管理页中按文件类型展示只读媒体或文本预览。
  */
-export function WorkspaceFilePreview({ agentId, entry, mode, onClose, fileUrl, getText, allowHtmlPreview = true }: WorkspaceFilePreviewProps) {
+export function WorkspaceFilePreview({ agentId, entry, mode, onClose, returnFocus, fileUrl, getText, allowHtmlPreview = true }: WorkspaceFilePreviewProps) {
   const { runApiTask } = useApiTask();
   const [text, setText] = useState<WorkspaceTextPreview>();
   const [error, setError] = useState("");
@@ -34,6 +36,20 @@ export function WorkspaceFilePreview({ agentId, entry, mode, onClose, fileUrl, g
     ? { width: "100%", minWidth: 0, height: "100%", zIndex: 2, touchAction: "pan-y", ...(isFullscreen ? { border: 0 } : {}) }
     : isFullscreen ? { width: "100%", minWidth: 0, height: "100%", border: 0 } : undefined;
   const previewBodyStyle: CSSProperties = { flex: 1, ...(mode === "overlay" ? { touchAction: "pan-y" } : {}) };
+
+  useLayoutEffect(() => {
+    const preview = previewRef.current;
+    const trigger = returnFocus ?? document.activeElement;
+    preview?.querySelector<HTMLElement>("[data-preview-close]")?.focus({ preventScroll: true });
+    return () => {
+      if (!(trigger instanceof HTMLElement) || !preview) return;
+      if (document.activeElement !== document.body && !preview.contains(document.activeElement)) return;
+      // 覆盖和窄屏布局先恢复文件列表，再交还焦点，避免聚焦尚未显示的文件行。
+      requestAnimationFrame(() => {
+        if (trigger.isConnected && document.activeElement === document.body) trigger.focus({ preventScroll: true });
+      });
+    };
+  }, [returnFocus]);
 
   useEffect(() => {
     if (isMedia || (isHtml && htmlView === "page")) return;
@@ -80,7 +96,18 @@ export function WorkspaceFilePreview({ agentId, entry, mode, onClose, fileUrl, g
   };
 
   return <aside ref={previewRef} className={`workspace-file-preview workspace-file-preview--${mode}`} style={previewStyle} aria-label={`${entry.name} 预览`}>
-    <header><div><span>PREVIEW</span><strong>{entry.name}</strong></div><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{isHtml ? <button type="button" aria-label={htmlView === "page" ? "查看源码" : "查看页面"} style={{ minHeight: 32, padding: "0 9px", border: "1px solid var(--border)", borderRadius: 7, color: "var(--text-secondary)", background: "transparent", fontSize: 10 }} onClick={() => setHtmlView((current) => current === "page" ? "source" : "page")}>{htmlView === "page" ? "源码" : "页面"}</button> : null}<button type="button" className="icon-button" aria-label={isFullscreen ? "退出全屏预览" : "全屏预览"} onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}</button><button type="button" className="icon-button" aria-label={mode === "overlay" ? "返回文件列表" : "关闭预览"} onClick={onClose}>{mode === "overlay" ? <ChevronLeft size={18} aria-hidden="true" /> : <X size={18} aria-hidden="true" />}</button></span></header>
+    <header>
+      <strong title={entry.name}>{entry.name}</strong>
+      <span className="workspace-file-preview__actions">
+        {isHtml && <Button aria-label={htmlView === "page" ? "查看源码" : "查看页面"} onClick={() => setHtmlView((current) => current === "page" ? "source" : "page")}>{htmlView === "page" ? "源码" : "页面"}</Button>}
+        <IconButton label={isFullscreen ? "退出全屏预览" : "全屏预览"} onClick={toggleFullscreen}>
+          {isFullscreen ? <Minimize2 /> : <Maximize2 />}
+        </IconButton>
+        <IconButton label={mode === "overlay" ? "返回文件列表" : "关闭预览"} data-preview-close onClick={onClose}>
+          {mode === "overlay" ? <ChevronLeft /> : <X />}
+        </IconButton>
+      </span>
+    </header>
     <div className="workspace-file-preview__body" style={previewBodyStyle}>
       {mediaType.startsWith("image/") ? <img src={source} alt={entry.name} /> : null}
       {mediaType.startsWith("video/") ? <video src={source} controls /> : null}

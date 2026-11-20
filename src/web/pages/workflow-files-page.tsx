@@ -26,6 +26,7 @@ export function WorkflowFilesPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [cleanupResult, setCleanupResult] = useState("");
   const sequence = useRef(0), pending = useRef(false);
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const constantUploadInput = useRef<HTMLInputElement>(null);
   const reload = useCallback(async () => {
     const ticket = ++sequence.current;
@@ -155,7 +156,10 @@ export function WorkflowFilesPage() {
             { id: "created", label: "创建时间", cell: (file) => new Date(file.createdAt).toLocaleString("zh-CN") },
             { id: "status", label: "状态", cell: (file) => file.blockedReason ?? "可删除" },
             { id: "actions", label: "操作", cell: (file) => <div className="workspace-entry-actions">
-              <IconButton label={`预览 ${file.name}`} onClick={() => setPreview(file)}><Eye /></IconButton>
+              <IconButton label={`预览 ${file.name}`} onClick={(event) => {
+                previewTriggerRef.current = event.currentTarget;
+                setPreview(file);
+              }}><Eye /></IconButton>
               <a href={fileUrl({ path: file.assetId }, true)} aria-label={`下载 ${file.name}`} download={file.name}>下载</a>
             </div> },
           ]} />
@@ -166,7 +170,8 @@ export function WorkflowFilesPage() {
       </section>
       <footer className="workflow-file-pagination"><span>{data ? `共 ${data.total} 个文件 · 第 ${page} 页` : ""}</span><Button disabled={page === 1 || loading} onClick={() => setPage(page - 1)}>上一页</Button><Button disabled={!data || page * 50 >= data.total || loading} onClick={() => setPage(page + 1)}>下一页</Button></footer>
     </section>
-    {previewEntry && <WorkspaceFilePreview agentId="" entry={previewEntry} mode="side" allowHtmlPreview={false} onClose={() => setPreview(undefined)} fileUrl={fileUrl} getText={api.getWorkflowFileText}/>}
+    {previewEntry && <WorkspaceFilePreview key={previewEntry.path} agentId="" entry={previewEntry} mode="side" allowHtmlPreview={false}
+      onClose={() => setPreview(undefined)} returnFocus={previewTriggerRef.current} fileUrl={fileUrl} getText={api.getWorkflowFileText}/>}
     {clearingDirectory && <ConfirmDialog
       title="清理目录"
       description={`将永久删除“${clearingDirectory === "runtime" ? "运行文件" : "文件常量"}”目录内所有可删除文件，覆盖全部分页，不受搜索和筛选条件限制。文件内容无法恢复。`}

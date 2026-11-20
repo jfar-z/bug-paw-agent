@@ -927,7 +927,10 @@ it("上传附件后携带相对路径发送并在用户消息中展示媒体", a
     await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
     const file = new File(["image"], "图片.png", { type: "image/png" });
 
-    fireEvent.change(screen.getByLabelText("添加附件"), { target: { files: [file] } });
+    const picker = screen.getByRole("button", { name: "添加附件" });
+    const input = picker.parentElement?.querySelector("input[type=file]");
+    expect(input).toBeInTheDocument();
+    fireEvent.change(input!, { target: { files: [file] } });
     await waitFor(() => expect(screen.getByText("5 B")).toBeInTheDocument());
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "分析图片" } });
     fireEvent.click(screen.getByRole("button", { name: "发送消息" }));

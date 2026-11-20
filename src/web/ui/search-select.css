@@ -103,6 +103,11 @@
   min-width: 0;
 }
 
+/* 前置图标保持独立尺寸，名称及说明在剩余空间内省略。 */
+.bp-select__icon { flex: none; }
+.bp-select__icon + span { flex: 1; }
+.bp-select__options > button.is-active { outline: 1px solid var(--focus); outline-offset: -1px; }
+
 .bp-select__options strong {
   font-size: 11px;
 }
