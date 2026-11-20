@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { useViewportScrollLock } from "../use-viewport-scroll-lock";
@@ -20,6 +21,9 @@ export function Dialog({
   busy = false,
   drawer = false,
   className = "",
+  style,
+  bodyStyle,
+  dismissOnBackdrop = true,
 }: {
   title: string;
   children: ReactNode;
@@ -29,6 +33,9 @@ export function Dialog({
   busy?: boolean;
   drawer?: boolean | "left" | "right";
   className?: string;
+  style?: CSSProperties;
+  bodyStyle?: CSSProperties;
+  dismissOnBackdrop?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null),
     id = useId();
@@ -53,15 +60,34 @@ export function Dialog({
         .join(" ")}
       data-side={drawer === "right" ? "right" : undefined}
       ref={ref}
+      style={style}
       aria-modal="true"
       aria-busy={busy}
       aria-labelledby={id}
+      onKeyDown={(event) => {
+        if (event.defaultPrevented || event.key !== "Tab") return;
+        const dialog = event.currentTarget;
+        if (!(event.target instanceof Element) || event.target.closest("dialog") !== dialog) return;
+        // 模态层屏蔽背景，首尾循环同时阻止焦点跳到浏览器地址栏。
+        const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
+          "button, input, select, textarea, a[href], summary, [tabindex], [contenteditable='true'], audio[controls], video[controls]",
+        )).filter((node) =>
+          node.tabIndex >= 0 && !node.matches(":disabled") &&
+          node.getClientRects().length > 0 && getComputedStyle(node).visibility === "visible",
+        );
+        const first = controls[0], last = controls.at(-1);
+        const current = document.activeElement;
+        if (event.shiftKey ? current === first : current === last) {
+          event.preventDefault();
+          (event.shiftKey ? last : first)?.focus();
+        }
+      }}
       onCancel={(e) => {
         e.preventDefault();
         if (!busy) onClose?.();
       }}
       onClick={(e) => {
-        if (e.target !== ref.current || busy) return;
+        if (!dismissOnBackdrop || e.target !== ref.current || busy) return;
         const r = e.currentTarget.getBoundingClientRect();
         if (
           e.clientX < r.left ||
@@ -82,7 +108,7 @@ export function Dialog({
           </IconButton>
         )}
       </div>
-      <div className="bp-dialog__body">{children}</div>
+      <div className="bp-dialog__body" style={bodyStyle}>{children}</div>
       {footer && <div className="bp-dialog__footer">{footer}</div>}
     </dialog>
   );

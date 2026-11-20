@@ -1,8 +1,8 @@
-import { IconButton, Button, NumberField, TextField } from "../../ui/controls";
+import { Button, NumberField, TextField } from "../../ui/controls";
 import { Checkbox } from "../../ui/choice";
 import { SearchSelect } from "../../ui/search-select";
-import { ChevronDown, ChevronUp, ExternalLink, Trash2, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { ChevronDown, ChevronUp, ExternalLink, Trash2 } from "lucide-react";
+import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 
 import type {
   SearchProviderConfig,
@@ -13,7 +13,7 @@ import type {
 import { api } from "../../api";
 import { useApiTask } from "../../api-task-provider";
 import { webResearchExpected } from "../../web-research-error-policy";
-import { ConfirmDialog } from "../../ui/dialog";
+import { ConfirmDialog, Dialog } from "../../ui/dialog";
 import { SecretInput } from "../../ui/secret-input";
 
 /** 直连搜索服务的官方 API Key 获取入口。 */
@@ -46,6 +46,8 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+  const formId = useId();
   const configured = hasCredential(props.document, draft.id);
   const needsCredential = draft.type !== "searxng";
   const apiKeyPortal = draft.type === "bocha" || draft.type === "tavily"
@@ -104,10 +106,12 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (pending.current || !props.online) return;
     setError("");
     if (!draft.name.trim()) return setError("实例名称不能为空");
     if (draft.connectionMode === "custom" && !draft.baseUrl?.trim()) return setError("SearXNG 地址不能为空");
     if (draft.enabled && !finalCredentialAvailable) return setError("启用直连搜索服务前必须配置 API Key");
+    pending.current = true;
     setBusy(true);
     try {
       const result = await runApiTask(
@@ -130,11 +134,14 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
       clearSecret();
       props.onSaved(result.data);
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
 
   const testConnection = async () => {
+    if (pending.current || !props.online) return;
+    pending.current = true;
     setBusy(true);
     setError("");
     try {
@@ -144,11 +151,14 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
       );
       if (result.status === "success") setMessage(result.data.message);
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
 
   const remove = async () => {
+    if (pending.current || !props.online) return;
+    pending.current = true;
     setBusy(true);
     setError("");
     try {
@@ -163,28 +173,35 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
       clearSecret();
       props.onDeleted();
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
 
   const title = props.mode === "create" ? "添加搜索渠道" : "配置搜索渠道";
   return <>
-    <div className="configuration-dialog-backdrop" role="presentation">
-      <form className="configuration-dialog configuration-form-card" role="dialog" aria-modal="true" aria-labelledby="search-provider-dialog-title" onSubmit={submit}>
-        <header>
-          <div><span>SEARCH PROVIDER</span><h2 id="search-provider-dialog-title">{title}</h2><p>渠道配置与凭证会作为一个事务保存。</p></div>
-          <IconButton label="关闭配置搜索渠道" disabled={busy} onClick={close}><X size={18} aria-hidden="true" /></IconButton>
-        </header>
-
-        {props.mode === "create" ? <label><span>渠道类型</span><SearchSelect
+    <Dialog title={title} closeLabel="关闭配置搜索渠道" onClose={close} busy={busy} style={{ width: 560 }}
+      footer={<div style={{ display: "flex", width: "100%", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--bp-space-2)" }}>
+        {props.mode === "edit" && <>
+          <Button variant="danger" disabled={busy || !props.online} onClick={() => setDeleteOpen(true)} icon={<Trash2 aria-hidden />}>删除渠道</Button>
+          <Button title={dirty ? "请先保存当前修改" : undefined} disabled={busy || !props.online || dirty} onClick={() => void testConnection()}>测试连接</Button>
+        </>}
+        <Button disabled={busy} onClick={close}>取消</Button>
+        <Button variant="primary" type="submit" form={formId} loading={busy} disabled={!props.online || !draft.name.trim() || (draft.enabled && !finalCredentialAvailable)}>
+          {props.mode === "create" ? "添加渠道" : "保存渠道"}
+        </Button>
+      </div>}>
+      <p className="configuration-help">渠道配置与凭证会作为一个事务保存。</p>
+      <form id={formId} className="bp-field" onSubmit={submit}>
+        {props.mode === "create" ? <label className="bp-field"><span>渠道类型</span><SearchSelect
           ariaLabel="渠道类型"
           value={templateId}
           onChange={(next) => selectTemplate(next)}
           options={templates.map((template) => ({ value: template.id, label: template.name }))}
         /></label> : null}
-        <label><span>实例名称</span><TextField aria-label="实例名称" autoFocus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
-        {draft.connectionMode === "custom" ? <label><span>SearXNG 地址</span><TextField aria-label="SearXNG 地址" placeholder="https://search.example.com" value={draft.baseUrl ?? ""} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></label> : null}
-        {needsCredential ? <label>
+        <label className="bp-field"><span>实例名称</span><TextField aria-label="实例名称" data-initial-focus value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
+        {draft.connectionMode === "custom" ? <label className="bp-field"><span>SearXNG 地址</span><TextField aria-label="SearXNG 地址" placeholder="https://search.example.com" value={draft.baseUrl ?? ""} onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))} /></label> : null}
+        {needsCredential ? <label className="bp-field">
           <span>API Key<small>{configured && credential.action !== "remove" ? "已保存；小眼睛按需读取" : "尚未配置"}</small></span>
           <span className="api-key-field">
             <SecretInput aria-label={`${draft.name} API Key`} autoComplete="new-password" placeholder={configured ? "已配置" : "请输入 API Key"} value={secretValue} visible={secretVisible} onVisibilityChange={(visible) => void toggleSecret(visible)} onChange={(event) => changeSecret(event.target.value)} />
@@ -192,12 +209,17 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
           </span>
         </label> : null}
         {needsCredential && configured ? <div className="configuration-button-row"><Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" onClick={() => { setCredential({ action: "remove" }); setDraft((current) => ({ ...current, enabled: false })); clearSecret(); }}>{credential.action === "remove" ? "已标记移除凭证" : "移除已保存凭证"}</Button></div> : null}
-        <label className="configuration-capability-toggle"><span>立即参与路由<small>启用后会按列表顺序参与故障切换。</small></span><Checkbox aria-label="立即参与路由" checked={draft.enabled} disabled={needsCredential && !finalCredentialAvailable} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /></label>
+        <div className="bp-field">
+          <Checkbox label="立即参与路由" aria-describedby={formId + "-routing"} checked={draft.enabled}
+            disabled={needsCredential && !finalCredentialAvailable}
+            onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} />
+          <small className="configuration-help" id={formId + "-routing"}>启用后会按列表顺序参与故障切换。</small>
+        </div>
 
         <Button type="button" className="configuration-secondary-action" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((current) => !current)}>{advancedOpen ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}{advancedOpen ? "收起高级设置" : "展开高级设置"}</Button>
-        {advancedOpen ? <div>
-          <label><span>请求超时（毫秒）</span><NumberField aria-label="请求超时（毫秒）" min={1000} max={60000} value={draft.timeoutMs} onChange={(event) => setDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
-          <label><span>联网出口</span><SearchSelect
+        {advancedOpen ? <div className="bp-field">
+          <label className="bp-field"><span>请求超时（毫秒）</span><NumberField aria-label="请求超时（毫秒）" min={1000} max={60000} value={draft.timeoutMs} onChange={(event) => setDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /></label>
+          <label className="bp-field"><span>联网出口</span><SearchSelect
             ariaLabel="联网出口"
             value={draft.egressProfileId ?? "direct"}
             onChange={(next) => setDraft((current) => ({ ...current, egressProfileId: next }))}
@@ -207,12 +229,8 @@ export function SearchProviderDialog(props: SearchProviderDialogProps) {
 
         {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
         {message ? <p className="configuration-help" role="status">{message}</p> : null}
-        <footer>
-          <div className="configuration-button-row">{props.mode === "edit" ? <><button type="button" className="danger-button" disabled={busy || !props.online} onClick={() => setDeleteOpen(true)}><Trash2 size={14} aria-hidden="true" />删除渠道</button><Button type="button" className="configuration-secondary-action" title={dirty ? "请先保存当前修改" : undefined} disabled={busy || !props.online || dirty} onClick={() => void testConnection()}>测试连接</Button></> : null}</div>
-          <div className="configuration-button-row"><Button type="button" className="configuration-secondary-action" disabled={busy} onClick={close}>取消</Button><Button variant="primary" type="submit" className="configuration-primary-action" disabled={busy || !props.online || !draft.name.trim() || (draft.enabled && !finalCredentialAvailable)}>{busy ? "保存中…" : props.mode === "create" ? "添加渠道" : "保存渠道"}</Button></div>
-        </footer>
       </form>
-    </div>
+    </Dialog>
     {deleteOpen ? <ConfirmDialog title="删除搜索渠道" description={`将删除“${draft.name}”及其已保存凭证。`} confirmLabel="确认删除" busy={busy} onCancel={() => setDeleteOpen(false)} onConfirm={() => void remove()} /> : null}
   </>;
 }

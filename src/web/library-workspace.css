@@ -26,9 +26,7 @@
 
 .knowledge-base-navigation nav small { color: var(--text-tertiary); font: 11px var(--font-mono); }
 
-.knowledge-base-navigation__create { width: 100%; margin-top: 12px; padding: 9px 8px; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-secondary); background: transparent; font-size: 10px; cursor: pointer; }
-
-.knowledge-base-navigation__create:hover { color: var(--fg); border-color: var(--fg); }
+.knowledge-base-navigation > .knowledge-base-navigation__create { width: 100%; margin-top: 12px; border-color: var(--border); }
 
 .knowledge-base-workspace { min-width: 0; padding: clamp(22px, 3vw, 42px); overflow: auto; }
 
@@ -50,7 +48,6 @@
   .knowledge-base-navigation header { padding: 0; }
   .knowledge-base-navigation nav { grid-column: auto; display: grid; align-content: start; gap: 5px; min-height: 0; margin-top: 12px; overflow-x: hidden; overflow-y: auto; }
   .knowledge-base-navigation nav button { width: 100%; }
-  .knowledge-base-navigation__create { align-self: end; width: 100%; margin: 12px 0 0; }
   .knowledge-base-workspace { padding: 20px 14px 28px; overflow: visible; }
   .knowledge-base-workspace__heading { display: grid; gap: 14px; }
   .knowledge-base-workspace__actions { display: grid; grid-template-columns: 1fr 1fr; }

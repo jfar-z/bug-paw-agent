@@ -16,29 +16,6 @@
   font-weight: 650;
 }
 
-.agent-directory-field__mode {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.agent-directory-field__mode button {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  background: var(--surface);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.agent-directory-field__mode button.is-active {
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  color: var(--accent-strong);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-
 .agent-directory-field p {
   margin: 0;
   padding: 10px 12px;

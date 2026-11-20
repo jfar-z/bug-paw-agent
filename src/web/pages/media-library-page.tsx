@@ -1,6 +1,6 @@
 import { Button, IconButton } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
-import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Trash2, Upload } from "lucide-react";
+import { Film, Images, LibraryBig, MoreHorizontal, Music2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "../ui/menu";
 import type { MediaCategory, MediaDeleteItemResult, MediaFile, MediaLibrary } from "../../shared/media-library-contracts";
@@ -16,7 +16,6 @@ import { navigateTo } from "../router";
 import { MOBILE_BACK_REQUEST_EVENT } from "../use-mobile-back-navigation";
 import { useOnlineStatus } from "../use-online-status";
 import { MediaDeleteDialog, MediaLibraryEditDialog, MediaNameDialog } from "./media-library-dialogs";
-import "../configuration-dialog.css";
 import "../library-workspace.css";
 import "../media-library.css";
 
@@ -111,12 +110,13 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
 
   const closeLibraryAction = () => setLibraryAction(undefined);
 
-  const createButton = (className: string) => (
-    <button type="button" data-media-create className={className} disabled={!online} onClick={() => {
+  const createButton = (sidebar = false) => (
+    <Button variant={sidebar ? "ghost" : "primary"} data-media-create
+      className={sidebar ? "knowledge-base-navigation__create" : undefined} icon={sidebar ? <Plus aria-hidden /> : undefined} disabled={!online} onClick={() => {
       if (open) document.querySelector<HTMLButtonElement>(".workbench-secondary-menu")?.focus();
       close();
       setCreating(true);
-    }}>创建媒体库</button>
+    }}>创建媒体库</Button>
   );
 
   return <section className={bases.length ? "knowledge-base-page media-library" : "knowledge-base-page knowledge-base-page--empty media-library"}>
@@ -137,7 +137,7 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
             ]} />
         </div>)}
       </nav>
-      {createButton("knowledge-base-navigation__create")}
+      {createButton(true)}
     </aside>}
     {open && <button type="button" className="knowledge-base-navigation__scrim media-library-scrim" aria-label="关闭媒体库抽屉" onClick={() => {
       close();
@@ -152,18 +152,18 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
           {libraries.status === "loading" ? <p role="status">正在读取媒体库…</p> :
             libraries.status === "error" ? <>
               <p role="alert">无法读取媒体库列表。</p>
-              <Button type="button" className="configuration-secondary-action" onClick={reload}>重新读取媒体库</Button>
+              <Button type="button" onClick={reload}>重新读取媒体库</Button>
             </> : libraryId ? <>
               <p role="status">此媒体库已不存在。</p>
-              <Button type="button" className="configuration-secondary-action" onClick={() => select(undefined, true)}>返回媒体库</Button>
+              <Button type="button" onClick={() => select(undefined, true)}>返回媒体库</Button>
             </> : bases.length ? <>
               <p>选择一个媒体库，查看其中的视频、图片和音频。</p>
               <div className="media-library-landing__choices">{bases.map((base) => (
-                <Button type="button" key={base.id} className="configuration-secondary-action" onClick={() => select(base.id)}>{base.name}</Button>
+                <Button type="button" key={base.id} onClick={() => select(base.id)}>{base.name}</Button>
               ))}</div>
             </> : <>
               <p>创建媒体库，集中保存视频、图片和音频。</p>
-              {createButton("configuration-primary-action")}
+              {createButton()}
             </>}
         </div>
       </section>}
@@ -171,6 +171,14 @@ export function MediaLibraryPage({ libraryId, fileId }: { libraryId?: string; fi
       setLibraries((current) => ({ status: "ready", items: [...(current.status === "ready" ? current.items : []), library] }));
       setCreating(false);
       select(library.id);
+      if (bases.length) return;
+      // 空态创建成功后原入口结束挂载，焦点转向可见的库导航。
+      requestAnimationFrame(() => {
+        const target = window.matchMedia("(max-width: 760px)").matches
+          ? ".workbench-secondary-menu"
+          : ".media-library-navigation [data-media-create]";
+        document.querySelector<HTMLButtonElement>(target)?.focus({ preventScroll: true });
+      });
     }} />}
     {libraryAction?.kind === "edit" && <MediaLibraryEditDialog id={libraryAction.id} online={online} onClose={closeLibraryAction}
       onSaved={(updated) => {
@@ -322,7 +330,7 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
     <header className="knowledge-base-workspace__heading">
       <div><h1>{library.name}</h1><p>{library.fileCount} 个文件</p></div>
       <div className="knowledge-base-workspace__actions">
-        <Button variant="primary" type="button" data-media-upload className="configuration-primary-action" disabled={!online || files.status === "loading"}
+        <Button variant="primary" type="button" data-media-upload disabled={!online || files.status === "loading"}
           onClick={() => setDialog({ kind: "upload" })}><Upload size={16} aria-hidden="true" />上传文件</Button>
       </div>
     </header>
@@ -344,19 +352,19 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
         {categoryOrder.map((key) => {
           const { icon: Icon, label } = categories[key];
           const count = items.filter((file) => file.category === key).length;
-          return <Button type="button" key={key} className="configuration-secondary-action" aria-pressed={category === key}
+          return <Button type="button" key={key} aria-pressed={category === key}
             disabled={deleting} onClick={() => chooseCategory(key)}>
             <Icon size={16} aria-hidden="true" />{label}{files.status === "ready" && <small>{count}</small>}
           </Button>;
         })}
-        {visibleFiles.length > 0 && <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger"
+        {visibleFiles.length > 0 && <Button variant="danger" type="button"
           disabled={!online || deleting || !selectedFiles.length || selectedFiles.length > 5000} onClick={() => setDeleteFiles(selectedFiles)}>
           批量删除（已选 {selectedFiles.length} 项）
         </Button>}
       </div>
       {files.status === "loading" ? <p className="media-library-file-state" role="status">正在读取文件…</p> :
         files.status === "error" ? <div className="media-library-file-state"><p role="alert">无法读取库内文件。</p>
-          <Button type="button" className="configuration-secondary-action" onClick={reload}>重新读取文件</Button></div> :
+          <Button type="button" onClick={reload}>重新读取文件</Button></div> :
         visibleFiles.length ? <ul className="media-library-grid">
           {visibleFiles.map((file) => <li key={file.id}>
             <button type="button" className="media-library-file" aria-label={"预览 " + file.name}
@@ -376,7 +384,7 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
           </li>)}
         </ul> : <div className="media-library-file-state">
           <p>{items.length ? "此类别暂无" + categories[category].label + "。" : "此媒体库尚无文件。"}</p>
-          {!items.length && <Button type="button" className="configuration-secondary-action" disabled={!online}
+          {!items.length && <Button type="button" disabled={!online}
             onClick={() => setDialog({ kind: "upload" })}>上传文件</Button>}
         </div>}
     </section>

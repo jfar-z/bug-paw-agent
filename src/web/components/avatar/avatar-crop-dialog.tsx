@@ -1,6 +1,7 @@
 import { Button } from "../../ui/controls";
-import { ImagePlus, X } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Dialog } from "../../ui/dialog";
+import { ImagePlus } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 
 import type { AvatarCropArea } from "../../../shared/avatar-contracts";
@@ -14,12 +15,6 @@ export interface AvatarCropDialogProps {
   onConfirm(crop: AvatarCropArea): void;
 }
 
-const FOCUSABLE_SELECTOR = [
-  "button:not([disabled])",
-  "input:not([disabled])",
-  "[href]",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
 const MOBILE_MEDIA_QUERY = "(max-width: 760px)";
 
 /** 在桌面模态框或移动端全屏编辑器中完成固定 1:1 头像裁剪。 */
@@ -27,10 +22,7 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [cropArea, setCropArea] = useState<AvatarCropArea>();
-  const dialogRef = useRef<HTMLElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [objectUrl, setObjectUrl] = useState("");
   const mobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const styles = cropDialogStyles(mobile);
@@ -47,35 +39,6 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
     setCropArea(undefined);
   }, [file]);
 
-  useEffect(() => {
-    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    closeRef.current?.focus();
-    return () => returnFocusRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [busy, onCancel]);
-
-  const trapFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Tab") return;
-    const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
   const replaceFile = (event: ChangeEvent<HTMLInputElement>) => {
     const replacement = event.target.files?.[0];
     event.target.value = "";
@@ -83,122 +46,90 @@ export function AvatarCropDialog({ file, busy, error, onCancel, onReplace, onCon
   };
 
   return (
-    <div className="configuration-dialog-backdrop" role="presentation" style={styles.backdrop}>
-      <section
-        ref={dialogRef}
-        className={`configuration-dialog${mobile ? " avatar-crop-dialog--mobile" : ""}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="avatar-crop-title"
-        style={styles.dialog}
-        onKeyDown={trapFocus}
-      >
-        <header style={styles.header}>
-          <div>
-            <h2 id="avatar-crop-title" style={styles.title}>调整头像</h2>
-            <p style={styles.description}>拖动图片选择范围，使用滑杆缩放；上传后会自动压缩。</p>
-          </div>
-          <button
-            ref={closeRef}
-            type="button"
-            className="icon-button"
-            aria-label="关闭头像裁剪"
-            disabled={busy}
-            style={styles.closeButton}
-            onClick={onCancel}
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-        </header>
-
-        <div style={styles.body}>
-          <div style={styles.editor}>
-            <div aria-label="头像裁剪画布" style={styles.stage}>
-              {objectUrl ? (
-                <Cropper
-                  image={objectUrl}
-                  crop={cropPosition}
-                  zoom={zoom}
-                  aspect={1}
-                  cropShape="rect"
-                  showGrid
-                  restrictPosition
-                  roundCropAreaPixels
-                  objectFit="contain"
-                  style={{ cropAreaStyle: styles.cropArea }}
-                  onCropChange={setCropPosition}
-                  onZoomChange={setZoom}
-                  onCropComplete={(area: Area) => setCropArea(toCropArea(area))}
-                />
-              ) : null}
-            </div>
-            <label style={styles.zoomControl}>
-              <span>缩放</span>
-              <input
-                type="range"
-                min={1}
-                max={3}
-                step={0.01}
-                value={zoom}
-                aria-label="头像缩放"
-                style={styles.zoomInput}
-                onChange={(event) => setZoom(Number(event.target.value))}
+    <Dialog title="调整头像" closeLabel="关闭头像裁剪" busy={busy} onClose={onCancel}
+      dismissOnBackdrop={false} style={styles.dialog} bodyStyle={styles.scrollArea} footer={
+        <div style={styles.footer}>
+          <Button disabled={busy} style={styles.footerButton} onClick={onCancel}>取消</Button>
+          <Button variant="primary" loading={busy} disabled={!cropArea} style={styles.footerButton}
+            onClick={() => cropArea && onConfirm(cropArea)}>裁剪并上传</Button>
+        </div>
+      }>
+      <p style={styles.description}>拖动图片选择范围，使用滑杆缩放。上传后会自动压缩。</p>
+      <div style={styles.body}>
+        <div style={styles.editor}>
+          <div aria-label="头像裁剪画布" style={styles.stage}>
+            {objectUrl ? (
+              <Cropper
+                image={objectUrl}
+                crop={cropPosition}
+                zoom={zoom}
+                aspect={1}
+                cropShape="rect"
+                showGrid
+                restrictPosition
+                roundCropAreaPixels
+                objectFit="contain"
+                style={{ cropAreaStyle: styles.cropArea }}
+                onCropChange={setCropPosition}
+                onZoomChange={setZoom}
+                onCropComplete={(area: Area) => setCropArea(toCropArea(area))}
               />
-              <output style={styles.zoomOutput}>{Math.round(zoom * 100)}%</output>
-            </label>
+            ) : null}
           </div>
-
-          <aside aria-label="头像效果预览" style={styles.previewPanel}>
-            <div style={styles.preview}>
-              {objectUrl ? (
-                <img
-                  src={objectUrl}
-                  alt="圆角方形头像预览"
-                  style={{ ...styles.previewImage, ...previewStyle(cropArea) }}
-                />
-              ) : null}
-            </div>
-            <strong style={styles.previewTitle}>圆角方形头像</strong>
-            <small style={styles.previewHelp}>透明 PNG 会保留透明通道，最终统一保存为 WebP。</small>
-            <Button
-              type="button"
-              className="configuration-secondary-action"
-              disabled={busy}
-              style={styles.replaceButton}
-              onClick={() => replaceInputRef.current?.click()}
-            >
-              <ImagePlus size={16} aria-hidden="true" />
-              重新选择
-            </Button>
+          <label style={styles.zoomControl}>
+            <span>缩放</span>
             <input
-              ref={replaceInputRef}
-              className="visually-hidden"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              aria-label="重新选择头像"
-              tabIndex={-1}
-              disabled={busy}
-              onChange={replaceFile}
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              aria-label="头像缩放"
+              style={styles.zoomInput}
+              onChange={(event) => setZoom(Number(event.target.value))}
             />
-          </aside>
+            <output style={styles.zoomOutput}>{Math.round(zoom * 100)}%</output>
+          </label>
         </div>
 
-        {error ? <div className="configuration-inline-error" role="alert">{error}</div> : null}
-
-        <footer style={styles.footer}>
-          <Button type="button" className="configuration-secondary-action" disabled={busy} style={styles.footerButton} onClick={onCancel}>取消</Button>
-          <Button variant="primary"
+        <aside aria-label="头像效果预览" style={styles.previewPanel}>
+          <div style={styles.preview}>
+            {objectUrl ? (
+              <img
+                src={objectUrl}
+                alt="圆角方形头像预览"
+                style={{ ...styles.previewImage, ...previewStyle(cropArea) }}
+              />
+            ) : null}
+          </div>
+          <strong style={styles.previewTitle}>圆角方形头像</strong>
+          <small style={styles.previewHelp}>透明 PNG 会保留透明通道，最终统一保存为 WebP。</small>
+          <Button
             type="button"
-            className="configuration-primary-action"
-            disabled={busy || !cropArea}
-            style={styles.footerButton}
-            onClick={() => cropArea && onConfirm(cropArea)}
+            className="configuration-secondary-action"
+            disabled={busy}
+            style={styles.replaceButton}
+            onClick={() => replaceInputRef.current?.click()}
           >
-            {busy ? "上传中…" : "裁剪并上传"}
+            <ImagePlus size={16} aria-hidden="true" />
+            重新选择
           </Button>
-        </footer>
-      </section>
-    </div>
+          <input
+            ref={replaceInputRef}
+            className="visually-hidden"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            aria-label="重新选择头像"
+            tabIndex={-1}
+            disabled={busy}
+            onChange={replaceFile}
+          />
+        </aside>
+      </div>
+
+      {error ? <div className="configuration-inline-error" role="alert">{error}</div> : null}
+
+    </Dialog>
   );
 }
 
@@ -233,31 +164,19 @@ function cropDialogStyles(mobile: boolean): Record<string, CSSProperties> {
     background: "repeating-conic-gradient(var(--border) 0 25%, var(--surface-soft) 0 50%) 0 / 16px 16px",
   };
   return {
-    backdrop: {
-      zIndex: 120,
-      display: mobile ? "block" : "grid",
-      padding: mobile ? 0 : 20,
-      background: mobile ? "var(--surface)" : "color-mix(in srgb, var(--canvas) 62%, transparent)",
-      backdropFilter: mobile ? "none" : "blur(10px)",
-    },
     dialog: {
-      display: "grid",
-      width: mobile ? "100%" : "min(880px, 100%)",
-      minHeight: mobile ? "100dvh" : undefined,
+      width: mobile ? "100%" : 880,
+      maxWidth: mobile ? "100%" : "calc(100vw - 40px)",
+      height: mobile ? "100dvh" : undefined,
       maxHeight: mobile ? "100dvh" : "calc(100dvh - 40px)",
-      gridTemplateRows: mobile ? "auto minmax(0, 1fr) auto auto" : undefined,
-      gap: mobile ? 14 : 18,
       padding: mobile ? "14px 16px calc(14px + env(safe-area-inset-bottom))" : 22,
-      overflowY: "auto",
       overscrollBehavior: "contain",
       border: mobile ? 0 : undefined,
       borderRadius: mobile ? 0 : 14,
       boxShadow: mobile ? "none" : undefined,
     },
-    header: { justifyContent: "space-between" },
-    title: { fontSize: 20 },
-    description: { display: mobile ? "none" : undefined, marginTop: 5, color: "var(--text-secondary)", fontSize: 12 },
-    closeButton: { flex: "0 0 auto", width: 44, height: 44 },
+    scrollArea: { maxHeight: mobile ? "calc(100dvh - 145px)" : "calc(100dvh - 206px)" },
+    description: { display: mobile ? "none" : undefined, color: "var(--text-secondary)", fontSize: 12 },
     body: {
       display: "grid",
       gridTemplateColumns: mobile ? "1fr" : "minmax(0, 1fr) 220px",
@@ -312,8 +231,7 @@ function cropDialogStyles(mobile: boolean): Record<string, CSSProperties> {
       alignItems: "center",
       justifyContent: "flex-end",
       gap: 16,
-      paddingTop: 16,
-      borderTop: "1px solid var(--border)",
+      width: "100%",
     },
     footerButton: { width: mobile ? "100%" : undefined, minWidth: mobile ? 0 : 112, minHeight: 44 },
   };

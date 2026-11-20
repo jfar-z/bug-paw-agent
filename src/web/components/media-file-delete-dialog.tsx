@@ -23,7 +23,7 @@ export function MediaFileDeleteDialog({ libraryName, files, busy, online, onCanc
 
   return <ConfirmDialog title={"删除 " + files.length + " 个媒体文件"}
     description={"媒体库「" + libraryName + "」中的以下文件将永久删除，且无法恢复。"}
-    confirmLabel="永久删除" confirmClassName="configuration-secondary-action configuration-secondary-action--danger"
+    confirmLabel="永久删除"
     busy={busy} confirmDisabled={!online} onCancel={onCancel} onConfirm={onConfirm}>
     <ul>{files.map((file) => <li key={file.id}>{file.name}</li>)}</ul>
   </ConfirmDialog>;

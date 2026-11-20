@@ -113,8 +113,8 @@ export function MediaNameDialog(props: MediaNameDialogProps) {
       editingFile ? "编辑主文件名。扩展名会保留。" : "输入名称来创建一个空媒体库。"}
     busy={busy} onClose={onClose} returnFocusSelector={library ? "[data-media-upload]" : "[data-media-create]"}
     footer={<>
-      <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>取消</Button>
-      <Button variant="primary" type="submit" form={formId} className="configuration-primary-action" disabled={busy || !online || (uploading && !upload)}>
+      <Button type="button" disabled={busy} onClick={onClose}>取消</Button>
+      <Button variant="primary" type="submit" form={formId} disabled={busy || !online || (uploading && !upload)}>
         {busy ? uploading ? "正在上传并处理…" : "正在保存…" : action}
       </Button>
     </>}>
@@ -234,20 +234,20 @@ export function MediaLibraryEditDialog({ id, online, onClose, onSaved }: {
     description={"备注可留空，最多 " + MEDIA_LIBRARY_NOTE_MAX_LENGTH + " 个字符。"}
     busy={busy} onClose={onClose} returnFocusSelector="[data-media-create]"
     footer={<>
-      <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>取消</Button>
-      <Button variant="primary" type="submit" form={formId} className="configuration-primary-action"
+      <Button type="button" disabled={busy} onClick={onClose}>取消</Button>
+      <Button variant="primary" type="submit" form={formId}
         disabled={busy || !online || snapshot.status !== "ready" || !!conflict}>{busy ? "正在保存…" : "保存"}</Button>
     </>}>
     <form id={formId} className="media-library-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {snapshot.status === "loading" && <p role="status">正在读取最新媒体库信息…</p>}
       {snapshot.status === "missing" && <p role="alert">此媒体库已不存在，无法保存。</p>}
-      {snapshot.status === "error" && <Button type="button" className="configuration-secondary-action" disabled={!online}
+      {snapshot.status === "error" && <Button type="button" disabled={!online}
         onClick={reload}>重新读取媒体库</Button>}
       {conflict && <p role="alert">{conflict}。请查看最新库信息，确认后再保存草稿。</p>}
       {conflict && snapshot.status === "ready" && <div>
         <p>最新名称：{snapshot.library.name}</p>
         <p className="media-library-note">最新备注：{snapshot.library.note || "无"}</p>
-        <Button type="button" className="configuration-secondary-action" onClick={() => {
+        <Button type="button" onClick={() => {
           setConflict("");
           nameInput.current?.focus();
         }}>已核对，继续编辑</Button>
@@ -353,8 +353,8 @@ export function MediaDeleteDialog({ id, online, onClose, onDeleted, onMissing, o
     description="媒体库及其中的所有视频、图片和音频都将永久删除，且无法恢复。"
     busy={busy} onClose={onClose} returnFocusSelector="[data-media-create]"
     footer={<>
-      <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={onClose}>取消</Button>
-      <Button variant="danger" type="submit" form={formId} className="configuration-secondary-action configuration-secondary-action--danger"
+      <Button type="button" disabled={busy} onClick={onClose}>取消</Button>
+      <Button variant="danger" type="submit" form={formId}
         disabled={!canDelete}>{busy ? "正在删除…" : "永久删除媒体库"}</Button>
     </>}>
     <form id={formId} className="media-library-form" onSubmit={(event) => { event.preventDefault(); void remove(); }}>
@@ -364,7 +364,7 @@ export function MediaDeleteDialog({ id, online, onClose, onDeleted, onMissing, o
         <label>输入媒体库名称以确认
           <TextField value={name} disabled={busy} onChange={(event) => setName(event.target.value)} />
         </label>
-      </> : <Button type="button" className="configuration-secondary-action" onClick={() => {
+      </> : <Button type="button" onClick={() => {
         setLoading(true);
         setRetry((value) => value + 1);
       }}>重新读取删除范围</Button>}

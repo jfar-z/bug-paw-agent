@@ -1,7 +1,7 @@
 import { Button, IconButton, SearchField, TextField, Textarea } from "../ui/controls";
 import { Checkbox } from "../ui/choice";
 import { useWorkbenchNavigation } from "../layouts/workbench-shell";
-import { BookOpen, FileSearch, FileText, Pencil, Trash2, Upload, Users, X } from "lucide-react";
+import { BookOpen, FileSearch, FileText, Pencil, Plus, Trash2, Upload, Users, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { AgentProfileDocument } from "../../shared/agent-contracts";
 import { api, type KnowledgeBaseDetail, type KnowledgeDocumentChunk, type KnowledgeDocumentSummary, type KnowledgeSearchResult } from "../api";
@@ -75,6 +75,22 @@ export function KnowledgeBasePage() {
     return true;
   };
 
+  const finishCreation = (base: KnowledgeBaseDetail) => {
+    const normalized = normalizeKnowledgeBase(base);
+    setBases((current) => [...current, normalized]);
+    setSelectedId(normalized.id);
+    closeNavigation();
+    setCreateOpen(false);
+    if (bases.length && !mobileNavigationOpen) return;
+    // 首次创建会替换空态入口，移动端关闭抽屉后回到顶部导航。
+    requestAnimationFrame(() => {
+      const target = window.matchMedia("(max-width: 760px)").matches
+        ? ".workbench-secondary-menu"
+        : ".knowledge-base-navigation__create";
+      document.querySelector<HTMLButtonElement>(target)?.focus({ preventScroll: true });
+    });
+  };
+
   if (!selected && bases.length === 0) {
     return (
       <main className="knowledge-base-page knowledge-base-page--empty">
@@ -98,7 +114,7 @@ export function KnowledgeBasePage() {
 
           {error ? <p className="configuration-inline-error" role="alert">{error}</p> : null}
         </section>
-        {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases([normalized]); setSelectedId(normalized.id); closeNavigation(); setCreateOpen(false); }} /> : null}
+        {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={finishCreation} /> : null}
       </main>
     );
   }
@@ -111,12 +127,12 @@ export function KnowledgeBasePage() {
         <nav aria-label="知识库列表">
           {bases.map((base) => <button key={base.id} type="button" className={base.id === selectedId ? "is-active" : undefined} aria-current={base.id === selectedId ? "page" : undefined} aria-label={`选择知识库 ${base.name}`} onClick={() => { setSelectedId(base.id); closeNavigation(); }}><BookOpen size={16} aria-hidden="true" /><span><strong>{base.name}</strong><small>{base.documents.length} 份资料</small></span></button>)}
         </nav>
-        <button type="button" className="knowledge-base-navigation__create" onClick={() => setCreateOpen(true)}>+ 创建知识库</button>
+        <Button variant="ghost" className="knowledge-base-navigation__create" icon={<Plus aria-hidden />} onClick={() => setCreateOpen(true)}>创建知识库</Button>
       </aside>
       {mobileNavigationOpen ? <button type="button" className="knowledge-base-navigation__scrim" aria-label="关闭知识库抽屉" tabIndex={-1} onClick={() => closeNavigation()} /> : null}
       {selected ? <KnowledgeBaseWorkspace key={selected.id} base={selected} agents={agents} onChanged={(base) => setBases((current) => current.map((item) => item.id === base.id ? base : item))} onDeleteRequested={setBaseToDelete} onError={setError} /> : null}
       {error ? <p className="configuration-inline-error knowledge-base-page__error" role="alert">{error}</p> : null}
-      {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={(base) => { const normalized = normalizeKnowledgeBase(base); setBases((current) => [...current, normalized]); setSelectedId(normalized.id); closeNavigation(); setCreateOpen(false); }} /> : null}
+      {createOpen ? <KnowledgeBaseDialog agents={agents} onCancel={() => setCreateOpen(false)} onCreated={finishCreation} /> : null}
       {baseToDelete ? <DeleteKnowledgeBaseDialog base={baseToDelete} onCancel={() => setBaseToDelete(undefined)} onConfirm={async () => { if (await removeKnowledgeBase(baseToDelete)) setBaseToDelete(undefined); }} /> : null}
     </main>
   );

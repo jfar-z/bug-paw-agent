@@ -550,24 +550,6 @@ textarea:focus-visible {
   background: #514035;
 }
 
-/* 会话操作菜单使用浅色面板，必须覆盖深色侧栏的通用按钮前景。 */
-:root[data-theme="bug"] .session-actions__popover > button {
-  color: var(--text-primary);
-}
-
-:root[data-theme="bug"] .session-actions__popover > button:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface-hover);
-}
-
-:root[data-theme="bug"] .session-actions__popover .is-danger {
-  color: color-mix(in srgb, var(--danger) 90%, var(--deep-brown));
-}
-
-:root[data-theme="bug"] .session-actions__popover .is-danger:hover:not(:disabled) {
-  background: var(--primary-text);
-}
-
 /* 账户信息位于深棕侧栏，使用专用浅色文字保持层级清晰。 */
 :root[data-theme="bug"] .chat-sidebar .account-button strong {
   color: #fff8ee;

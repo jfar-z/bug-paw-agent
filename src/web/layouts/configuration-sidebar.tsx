@@ -2,16 +2,11 @@ import {
   ShieldCheck,
   Activity,
   Bot,
-  BrainCircuit,
   type LucideIcon,
   Boxes,
-  Cable,
-  Globe2,
-  Volume2,
   History,
   KeyRound,
   LayoutDashboard,
-  MonitorPlay,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -53,7 +48,7 @@ export function ConfigurationSidebar({ route, open, onClose, onNavigate }: Confi
         {configurationGroups.map((group, index) => <Fragment key={group.title}>
           {index > 0 ? <p>{group.title}</p> : null}
           {group.entries.map((entry) => {
-            const Icon = icons[entry.key];
+            const Icon = entry.icon ?? icons[entry.key];
             const active = entry.key === "agents" ? agentActive : route.page === entry.route.page;
             return <button key={entry.key} type="button" className={active ? "is-active" : undefined} aria-current={active ? "page" : undefined} onClick={() => go(entry.route)}><Icon size={17} aria-hidden="true" /><span>{entry.title}</span></button>;
           })}
@@ -65,4 +60,4 @@ export function ConfigurationSidebar({ route, open, onClose, onNavigate }: Confi
 }
 
 /** 图标沿用既有配置侧栏体系，入口顺序由共享元数据决定。 */
-const icons: Record<string, LucideIcon> = { security: ShieldCheck, "pi-settings": SlidersHorizontal, resources: Boxes, providers: KeyRound, agents: Bot, "web-research": Globe2, "browser-automation": MonitorPlay, "aigc-channels": Cable, tts: Volume2, "knowledge-retrieval": BrainCircuit, "configuration-operations": History, diagnostics: Activity };
+const icons: Record<string, LucideIcon> = { security: ShieldCheck, "pi-settings": SlidersHorizontal, resources: Boxes, providers: KeyRound, agents: Bot, "configuration-operations": History, diagnostics: Activity };

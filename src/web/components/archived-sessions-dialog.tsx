@@ -1,5 +1,6 @@
 import { Button, IconButton } from "../ui/controls";
-import { ArchiveRestore, Trash2, X } from "lucide-react";
+import { ConfirmDialog, Dialog } from "../ui/dialog";
+import { ArchiveRestore, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { SessionSummary } from "../api";
 
@@ -29,64 +30,58 @@ export function ArchivedSessionsDialog({
   onRestoreAll,
   onDeleteAll,
 }: ArchivedSessionsDialogProps) {
-  const [confirmingId, setConfirmingId] = useState<string>();
   if (!open) {
     return null;
   }
 
-  return (
-    <div className="archive-dialog__backdrop" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) {
-        onClose();
-      }
-    }}>
-      <section className="archive-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-dialog-title">
-        <header>
-          <div><span>会话管理</span><h2 id="archive-dialog-title">已归档会话</h2></div>
-          <IconButton label="关闭已归档会话" onClick={onClose}><X size={18} /></IconButton>
-        </header>
-        <div
-          className="configuration-heading-actions archive-dialog__bulk-bar"
-          style={{ flexWrap: "wrap", padding: "10px 16px", borderBottom: "1px solid var(--border)", background: "var(--panel)" }}
-        >
-          <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>共 {sessions.length} 个会话</span>
-          <div className="configuration-heading-actions" style={{ gap: 8 }}>
-            <Button type="button" className="configuration-secondary-action" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onRestoreAll}>
-              <ArchiveRestore size={16} aria-hidden="true" />
-              全部恢复
-            </Button>
-            <Button variant="danger" type="button" className="configuration-secondary-action configuration-secondary-action--danger" style={{ minHeight: 44 }} disabled={busy || sessions.length === 0} onClick={onDeleteAll}>
-              <Trash2 size={16} aria-hidden="true" />
-              全部删除
-            </Button>
-          </div>
+  return <ArchivedSessionsContent sessions={sessions} busy={busy}
+    onClose={onClose} onOpen={onOpen} onRestore={onRestore} onDelete={onDelete}
+    onRestoreAll={onRestoreAll} onDeleteAll={onDeleteAll} />;
+}
+
+/** 关闭归档列表时一并清理单条删除确认。 */
+function ArchivedSessionsContent({ sessions, busy, onClose, onOpen, onRestore, onDelete, onRestoreAll, onDeleteAll }: Omit<ArchivedSessionsDialogProps, "open">) {
+  const [confirming, setConfirming] = useState<SessionSummary>();
+  const [deleting, setDeleting] = useState(false);
+  return (<>
+    <Dialog title="已归档会话" closeLabel="关闭已归档会话" onClose={onClose} busy={busy} className="archive-dialog">
+      <div className="configuration-heading-actions archive-dialog__bulk-bar">
+        <small>共 {sessions.length} 个会话</small>
+        <div className="configuration-heading-actions">
+          <Button disabled={busy || sessions.length === 0} onClick={onRestoreAll} icon={<ArchiveRestore aria-hidden />}>全部恢复</Button>
+          <Button variant="danger" disabled={busy || sessions.length === 0} onClick={onDeleteAll} icon={<Trash2 aria-hidden />}>全部删除</Button>
         </div>
-        <div className="archive-dialog__list">
-          {sessions.length === 0 && <p className="archive-dialog__empty">还没有归档会话。</p>}
-          {sessions.map((session) => {
-            const title = session.name || session.firstMessage || "新对话";
-            return (
-              <article className="archive-dialog__row" key={session.id}>
-                <button type="button" className="archive-dialog__open" aria-label={`打开${title}`} disabled={busy} onClick={() => void onOpen(session.id)}>
-                  <strong>{title}</strong>
-                  <span>{session.messageCount} 条消息</span>
-                </button>
-                {confirmingId === session.id ? (
-                  <div className="archive-dialog__confirm">
-                    <Button size="sm" disabled={busy} onClick={() => setConfirmingId(undefined)}>取消</Button>
-                    <Button variant="danger" size="sm" disabled={busy} onClick={() => { void onDelete(session.id); setConfirmingId(undefined); }}>确认永久删除</Button>
-                  </div>
-                ) : (
-                  <div className="archive-dialog__actions">
-                    <IconButton size="sm" label={`恢复${title}`} disabled={busy} onClick={() => void onRestore(session.id)}><ArchiveRestore size={16} /></IconButton>
-                    <IconButton size="sm" danger label={`删除${title}`} disabled={busy} onClick={() => setConfirmingId(session.id)}><Trash2 size={16} /></IconButton>
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
+      </div>
+      <div className="archive-dialog__list">
+        {sessions.length === 0 && <p className="archive-dialog__empty">还没有归档会话。</p>}
+        {sessions.map((session) => {
+          const title = session.name || session.firstMessage || "新对话";
+          return (
+            <article className="archive-dialog__row" key={session.id}>
+              <Button variant="ghost" className="archive-dialog__open" aria-label={`打开${title}`} disabled={busy} onClick={() => void onOpen(session.id)}>
+                <strong>{title}</strong>
+                <span>{session.messageCount} 条消息</span>
+              </Button>
+              <div className="archive-dialog__actions">
+                <IconButton size="sm" label={`恢复${title}`} disabled={busy} onClick={() => void onRestore(session.id)}><ArchiveRestore size={16} /></IconButton>
+                <IconButton size="sm" danger label={`删除${title}`} disabled={busy} onClick={() => setConfirming(session)}><Trash2 size={16} /></IconButton>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </Dialog>
+    {confirming && <ConfirmDialog title="永久删除归档会话" description={`将永久删除「${confirming.name || confirming.firstMessage || "新对话"}」。`}
+      confirmLabel="确认永久删除" busy={deleting} onCancel={() => setConfirming(undefined)}
+      onConfirm={async () => {
+        if (deleting) return;
+        setDeleting(true);
+        try {
+          await onDelete(confirming.id);
+          setConfirming(undefined);
+        } finally {
+          setDeleting(false);
+        }
+      }} />}
+  </>);
 }

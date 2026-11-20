@@ -21,6 +21,9 @@ export function Menu({
   disabled = false,
   portal = false,
   className = "",
+  triggerClassName,
+  triggerVariant,
+  openRequestId,
 }: {
   label: string;
   icon?: ReactNode;
@@ -28,10 +31,14 @@ export function Menu({
   disabled?: boolean;
   portal?: boolean;
   className?: string;
+  triggerClassName?: string;
+  triggerVariant?: "secondary" | "ghost";
+  openRequestId?: number;
   items: readonly {
     key: string;
     label: string;
-    onSelect: () => void;
+    onSelect: (close: () => void) => void;
+    keepOpen?: boolean;
     disabled?: boolean;
     icon?: ReactNode;
     danger?: boolean;
@@ -44,6 +51,14 @@ export function Menu({
     menu = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null),
     id = useId();
+  const handledOpenRequest = useRef(openRequestId);
+  useEffect(() => {
+    // 触屏长按可以通过请求打开同一套菜单。
+    if (openRequestId === undefined || openRequestId === handledOpenRequest.current) return;
+    handledOpenRequest.current = openRequestId;
+    if (!disabled) setOpen(true);
+  }, [openRequestId, disabled]);
+
   function close() {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
@@ -150,8 +165,11 @@ export function Menu({
           <button role="menuitem" type="button" className="bp-menu__item" tabIndex={-1}
             disabled={item.disabled} data-danger={item.danger || undefined}
             onClick={() => {
-              close();
-              item.onSelect();
+              const currentPopup = menu.current;
+              if (!item.keepOpen) close();
+              item.onSelect(() => {
+                if (currentPopup && currentPopup === menu.current) close();
+              });
             }}>
             {item.icon && <span aria-hidden="true">{item.icon}</span>}
             {item.label}
@@ -171,8 +189,9 @@ export function Menu({
     >
       <Button
         ref={trigger}
+        variant={triggerVariant}
         aria-label={label}
-        className={icon ? "bp-button--icon" : undefined}
+        className={[icon && "bp-button--icon", triggerClassName].filter(Boolean).join(" ")}
         title={title ?? (icon ? label : undefined)}
         disabled={disabled}
         aria-controls={open ? id : undefined}

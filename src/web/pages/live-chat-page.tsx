@@ -1808,7 +1808,7 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
         onRename={(sessionId, name) => void renameConversation(sessionId, name)}
         onPinChange={changeConversationPinned}
         onArchive={(sessionId) => void archiveConversation(sessionId)}
-        onDelete={(sessionId, confirmBoundTasks) => void deleteConversation(sessionId, false, confirmBoundTasks)}
+        onDelete={(sessionId, confirmBoundTasks) => deleteConversation(sessionId, false, confirmBoundTasks)}
         onEnterSelection={enterSessionSelection}
         onToggleSelection={toggleSessionSelection}
         onCancelSelection={cancelSessionSelection}

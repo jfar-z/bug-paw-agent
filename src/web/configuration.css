@@ -330,7 +330,7 @@
   font-weight: 650;
 }
 
-.configuration-create-panel input {
+.configuration-create-panel input:not([type="radio"]) {
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid var(--border);

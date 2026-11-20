@@ -1,4 +1,5 @@
-import { Button, TextField } from "../ui/controls";
+import { Button, IconButton, TextField } from "../ui/controls";
+import { SegmentedControl } from "../ui/segmented-control";
 import { ArrowUpRight, Folder, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
@@ -104,7 +105,7 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
     const normalizedCwd = cwd.trim().replace(/^\/+|\\+/gu, "");
     if (!normalizedName) return;
     if (directoryMode === "custom" && !normalizedCwd) {
-      setError("请输入 /data/ 下的工作目录。");
+      setError("请输入 /data/workspace/ 下的工作目录。");
       return;
     }
     setSubmitting(true);
@@ -173,20 +174,20 @@ export function AgentsPage({ onNavigate, openCreateOnEmpty = false }: AgentsPage
             </div>
             <fieldset className="agent-directory-field">
               <legend>工作目录</legend>
-              <div className="agent-directory-field__mode" aria-label="工作目录方式">
-                <button type="button" className={directoryMode === "automatic" ? "is-active" : undefined} aria-pressed={directoryMode === "automatic"} onClick={() => setDirectoryMode("automatic")}>自动分配</button>
-                <button type="button" className={directoryMode === "custom" ? "is-active" : undefined} aria-pressed={directoryMode === "custom"} onClick={enableCustomDirectory}>使用自定义目录</button>
-              </div>
-              {directoryMode === "automatic" ? <p>系统将创建独立目录：<code>/data/workspace/agents/&lt;自动生成的 Agent ID&gt;</code></p> : <div className="agent-directory-field__input"><span aria-hidden="true">/data/</span><TextField id="new-agent-cwd" aria-label="工作目录" value={cwd} onChange={(event) => { setCwd(event.target.value); setDirectoryFollowsName(false); }} placeholder="例如 projects/research" /></div>}
-              <small>{directoryMode === "automatic" ? "无需填写，系统会使用不会与其他 Agent 冲突的目录。" : "只需填写 /data/ 后的路径；目录不存在时自动创建。"}</small>
+              <SegmentedControl label="工作目录方式" value={directoryMode}
+                options={[
+                  { id: "automatic", label: "自动分配" },
+                  { id: "custom", label: "使用自定义目录" },
+                ]}
+                onChange={(mode) => mode === "custom" ? enableCustomDirectory() : setDirectoryMode(mode)} />
+              {directoryMode === "automatic" ? <p>系统将创建独立目录：<code>/data/workspace/agents/&lt;自动生成的 Agent ID&gt;</code></p> : <div className="agent-directory-field__input"><span aria-hidden="true">/data/</span><TextField id="new-agent-cwd" aria-label="工作目录" value={cwd} onChange={(event) => { setCwd(event.target.value); setDirectoryFollowsName(false); }} placeholder="例如 workspace/projects/research" /></div>}
+              <small>{directoryMode === "automatic" ? "无需填写，系统会使用不会与其他 Agent 冲突的目录。" : "路径以 workspace/ 开头；目录不存在时自动创建。"}</small>
             </fieldset>
           </div>
           <Button variant="primary" type="submit" className="configuration-primary-action" disabled={submitting || !name.trim() || !online}>
             {submitting ? "创建中…" : "创建 Agent"}
           </Button>
-          <button type="button" className="configuration-icon-action" aria-label="关闭新建表单" onClick={resetCreateForm}>
-            <X size={17} aria-hidden="true" />
-          </button>
+          <IconButton label="关闭新建表单" onClick={resetCreateForm}><X size={17} /></IconButton>
         </form>
       ) : null}
 
