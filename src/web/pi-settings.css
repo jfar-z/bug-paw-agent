@@ -110,7 +110,7 @@
   .pi-settings-tabs small { font-size: 10px; }
   .bp-section > div:last-child, .bp-section .bp-section__heading { padding-inline: 16px; }
   .pi-settings-sources > div { grid-template-columns: 1fr; gap: 8px; }
-  .configuration-save-bar.pi-settings-save-bar { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; padding: 12px; }
+  .configuration-save-bar.pi-settings-save-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(135px, 100%), 1fr)); padding: 12px; }
   .pi-settings-save-bar button { width: 100%; justify-content: center; min-height: 44px; }
   .pi-settings-load-error button { margin-left: 0; }
 }

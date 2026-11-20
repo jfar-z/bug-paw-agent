@@ -212,7 +212,8 @@
 .aigc-run-control {
   display: grid;
   min-width: 0;
-  grid-template-rows: 15px 38px;
+  /* 触屏按钮与长渠道名称可以使第二行自然增高。 */
+  grid-template-rows: auto minmax(38px, auto);
   gap: 4px;
   color: var(--text-secondary);
   font-size: 11px;
@@ -886,3 +887,8 @@ audio.aigc-media-input-preview {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* 按任务分组展示服务设置与输入来源，结果区独立于来源操作。 */
+.aigc-run-toolbar { padding: clamp(12px, 2vw, 20px); border-radius: var(--bp-radius-panel); background: var(--panel); }
+.aigc-media-input__controls { display: grid; gap: 8px; min-width: 0; }
+.aigc-media-input__controls > [role="tabpanel"] { padding: 10px; background: var(--surface-soft); border-radius: var(--bp-radius-control); }

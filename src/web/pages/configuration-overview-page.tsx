@@ -1,4 +1,4 @@
-import { Button } from "../ui/controls";
+import { Button, SearchField } from "../ui/controls";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ConfigurationOverviewDocument } from "../../shared/configuration-operations-contracts";
@@ -47,6 +47,14 @@ export function ConfigurationOverviewPage({ onNavigate }: { onNavigate: (route: 
     return () => { active = false; };
   }, [reload]);
   const entries = document?.entries ?? [];
+  const [query, setQuery] = useState("");
+  const term = query.trim().toLocaleLowerCase();
+  // 搜索使用导航目录的业务名称和描述，保留原有分组与深链。
+  const groups = configurationGroups.map((group) => ({
+    ...group,
+    entries: group.entries.filter((entry) => [group.title, entry.title, entry.description]
+      .some((text) => text.toLocaleLowerCase().includes(term))),
+  })).filter((group) => group.entries.length);
   return <main className="configuration-page configuration-maintenance-page configuration-overview-page">
     <header className="configuration-page__heading"><div><span className="configuration-eyebrow">CONFIGURATION OVERVIEW</span><h1>配置中心</h1><p>查看已保存配置，按业务任务进入设置。</p></div><img className="configuration-overview-mascot" src="/brand/bugpaw/bugpaw-mascot.png" alt="BUG 猫咪像素吉祥物" /></header>
     <ConfigurationEffectNotice />
@@ -54,7 +62,9 @@ export function ConfigurationOverviewPage({ onNavigate }: { onNavigate: (route: 
     <div className="maintenance-row"><p className="maintenance-muted">{document ? `${cached || !online ? "缓存摘要（非实时）" : "摘要读取时间"}：${new Date(document.readAt).toLocaleString()}` : "正在读取配置摘要…"}</p><Button type="button" className="configuration-secondary-action" disabled={!online || state === "loading"} onClick={() => setReload((value) => value + 1)}><RefreshCw size={16} />刷新摘要</Button></div>
     {state === "error" ? <p className="configuration-inline-error" role="alert">配置摘要读取未完成，请查看错误通知并重新加载；保留的旧摘要不代表当前状态。</p> : null}
     {entries.some((entry) => entry.needsConfiguration) ? <section className="configuration-form-card"><h2>待配置项</h2><p>{entries.filter((entry) => entry.needsConfiguration).map((entry) => configurationGroups.flatMap((group) => group.entries).find((item) => item.key === entry.key)?.title).filter(Boolean).join("、")}尚未配置。</p></section> : null}
-    {configurationGroups.map((group) => <section key={group.title} className="configuration-overview-group" aria-label={group.title}><h2>{group.title}</h2><div className="configuration-entry-list">{group.entries.map((entry) => {
+    <SearchField label="查找设置" placeholder="查找设置名称或用途" value={query} onChange={setQuery} shortcut />
+    {!groups.length && <p role="status">没有匹配的设置。</p>}
+    {groups.map((group) => <section key={group.title} className="configuration-overview-group" aria-label={group.title}><h2>{group.title}</h2><div className="configuration-entry-list">{group.entries.map((entry) => {
       const summary = entries.find((item) => item.key === entry.key);
       return <div key={entry.key}><button type="button" className="configuration-entry" onClick={() => onNavigate(entry.route)}><span><strong>{entry.title}</strong><small>{summary?.error ? `读取失败：${summary.error.message}` : summary?.summary ?? (state === "loading" ? "正在读取…" : entry.description)}</small></span><ArrowRight size={18} aria-hidden="true" /></button>{summary?.error ? <button type="button" className="text-button" disabled={!online || state === "loading"} onClick={() => setReload((value) => value + 1)}>重试{entry.title}摘要</button> : null}</div>;
     })}</div></section>)}

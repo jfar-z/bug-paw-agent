@@ -500,6 +500,7 @@ function Runner({
   // 移动入口或主题重渲染不重新加载定义，避免覆盖已填写参数和上传引用。
   const loadTask = useRef(runApiTask);
   loadTask.current = runApiTask;
+  const observationHeading = useRef<HTMLHeadingElement>(null);
   const key = useRef(workflowClientId());
   const toast = useErrorToast(),
     reportedErrors = useRef(new Set<string>());
@@ -617,6 +618,8 @@ function Runner({
         true,
       );
       key.current = workflowClientId();
+      // 运行已受理时把焦点交给状态区，窄屏无需从表单底部手动查找。
+      observationHeading.current?.focus();
     }
     setBusy(false);
   };
@@ -626,7 +629,6 @@ function Runner({
         disabled={!online || busy} onConfirm={() => void start(true)} />}
       <header className="wf-page-heading">
         <div>
-          <span className="wf-eyebrow">EXECUTION</span>
           <h1>运行工作流</h1>
           <p>填写本次输入，实时查看各节点状态与执行结果。</p>
         </div>
@@ -686,52 +688,54 @@ function Runner({
                     {transfer.missing?.field === f.name && <p className="configuration-inline-error" role="alert">{transfer.missing.message}</p>}
                     {["image", "video", "audio", "file"].includes(f.type) ? (
                       <>
-                        <FilePickerButton
-                          label={`上传 ${f.name}`}
-                          multiple={f.multiple}
-                          disabled={busy || !online}
-                          accept={f.type === "file" ? undefined : `${f.type}/*`}
-                          onFilesSelected={(files) => {
-                            const existing =
-                              f.multiple && Array.isArray(inputs[f.name])
-                                ? (inputs[f.name] as unknown[])
-                                : [];
-                            setBusy(true);
-                            void runApiTask(
-                              async () => {
-                                if (existing.length + files.length > 100)
-                                  throw new Error(
-                                    `参数 ${f.name} 最多上传 100 个文件`,
+                        <div className="wf-file-sources" role="group" aria-label={`${f.name}文件来源`}>
+                          <FilePickerButton
+                            label={`上传 ${f.name}`}
+                            multiple={f.multiple}
+                            disabled={busy || !online}
+                            accept={f.type === "file" ? undefined : `${f.type}/*`}
+                            onFilesSelected={(files) => {
+                              const existing =
+                                f.multiple && Array.isArray(inputs[f.name])
+                                  ? (inputs[f.name] as unknown[])
+                                  : [];
+                              setBusy(true);
+                              void runApiTask(
+                                async () => {
+                                  if (existing.length + files.length > 100)
+                                    throw new Error(
+                                      `参数 ${f.name} 最多上传 100 个文件`,
+                                    );
+                                  return Promise.all(
+                                    files.map((file) =>
+                                      api.uploadWorkflowFile(file),
+                                    ),
                                   );
-                                return Promise.all(
-                                  files.map((file) =>
-                                    api.uploadWorkflowFile(file),
-                                  ),
-                                );
-                              },
-                              { operation: `上传 ${f.name}` },
-                            ).then((r) => {
-                              // 数组支持分批追加，单文件仍替换；失败时保留此前成功上传的值。
-                              if (r.status === "success")
-                                change(
-                                  f.name,
-                                  f.multiple
-                                    ? [...existing, ...r.data]
-                                    : r.data[0],
-                                );
-                              setBusy(false);
-                            });
-                          }}
-                        >选择本地文件</FilePickerButton>
-                        <MediaLibraryPicker label={f.name}
-                          category={f.type === "image" || f.type === "video" || f.type === "audio" ? f.type : undefined}
-                          disabled={busy || !online || (f.multiple === true && Array.isArray(inputs[f.name]) && (inputs[f.name] as unknown[]).length >= 100)}
-                          onSelect={(file) => {
-                            const reference = mediaReference(file.libraryId, file.id);
-                            const current = inputs[f.name];
-                            setMediaNames((names) => ({ ...names, [reference]: file.name }));
-                            change(f.name, f.multiple ? [...(Array.isArray(current) ? current : current ? [current] : []), reference] : reference);
-                          }} />
+                                },
+                                { operation: `上传 ${f.name}` },
+                              ).then((r) => {
+                                // 数组支持分批追加，单文件仍替换；失败时保留此前成功上传的值。
+                                if (r.status === "success")
+                                  change(
+                                    f.name,
+                                    f.multiple
+                                      ? [...existing, ...r.data]
+                                      : r.data[0],
+                                  );
+                                setBusy(false);
+                              });
+                            }}
+                          >选择本地文件</FilePickerButton>
+                          <MediaLibraryPicker label={f.name}
+                            category={f.type === "image" || f.type === "video" || f.type === "audio" ? f.type : undefined}
+                            disabled={busy || !online || (f.multiple === true && Array.isArray(inputs[f.name]) && (inputs[f.name] as unknown[]).length >= 100)}
+                            onSelect={(file) => {
+                              const reference = mediaReference(file.libraryId, file.id);
+                              const current = inputs[f.name];
+                              setMediaNames((names) => ({ ...names, [reference]: file.name }));
+                              change(f.name, f.multiple ? [...(Array.isArray(current) ? current : current ? [current] : []), reference] : reference);
+                            }} />
+                        </div>
                         <WorkflowSelectedFiles
                           mediaNames={mediaNames}
                           field={f}
@@ -771,7 +775,7 @@ function Runner({
         </section>
         <section className="wf-run-observation">
           <div className="wf-section-heading">
-            <h2>运行观测</h2>
+            <h2 ref={observationHeading} tabIndex={-1}>运行观测</h2>
             {run && <Status status={run.status} />}
             {run?.queueReason && <p role="status">{run.queueReason}</p>}
           </div>

@@ -66,6 +66,7 @@
 
 .media-library-categories {
   padding: 12px;
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--border);
 }
 
@@ -183,4 +184,14 @@
 
 @media (max-height: 450px) {
   .media-library-form textarea { height: clamp(56px, calc(100dvh - 305px), 94px); }
+}
+
+@media (max-width: 760px) {
+  /* 手机浏览按文件排列，操作紧跟对应名称，减少大图卡片占用。 */
+  .media-library-grid { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
+  .media-library-grid > li { padding: 8px 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+  .media-library-file { grid-template-columns: 64px minmax(0, 1fr); align-items: center; }
+  .media-library-file .media-library-thumbnail { aspect-ratio: 1; border-radius: 6px; }
+  .media-library-file-actions { justify-content: flex-end; }
+  .media-library-file-actions > * { flex: 0 0 44px; }
 }

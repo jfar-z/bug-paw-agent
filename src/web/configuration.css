@@ -154,8 +154,10 @@
 }
 
 .configuration-page__heading {
-  max-width: 720px;
-  margin-bottom: 24px;
+  max-width: none;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
 }
 
 .configuration-page__heading--actions {
@@ -206,7 +208,7 @@
 }
 
 .configuration-section + .configuration-section {
-  margin-top: 40px;
+  margin-top: 32px;
 }
 
 .configuration-section__heading {

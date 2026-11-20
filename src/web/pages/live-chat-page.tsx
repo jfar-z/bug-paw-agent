@@ -1,6 +1,6 @@
 import { Button, IconButton } from "../ui/controls";
 import { useWorkbenchNavigation } from "../layouts/workbench-shell";
-import { ChevronDown, CircleStop, FolderOpen, Menu, MessageSquarePlus, PencilLine, Send } from "lucide-react";
+import { ChevronDown, CircleStop, FolderOpen, Menu, MessageSquarePlus, Search, PencilLine, Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { flushSync } from "react-dom";
 import type { ChatRunSummary, WorkspaceFileSummary } from "../../shared/contracts";
@@ -1831,9 +1831,10 @@ export function LiveChatPage({ theme, userIdentity }: LiveChatPageProps) {
               closeSidebar();
               window.dispatchEvent(new Event(WORKBENCH_NAVIGATION_TOGGLE_EVENT));
             }}><span>工作台</span><ChevronDown size={14} aria-hidden="true" /></Button>
-            <div className="chat-title"><strong>{session ? "Agent 对话" : "新对话"}</strong><span>pi SDK · 实时连接</span></div>
+            <div className="chat-title"><strong>{session ? sessions.find((item) => item.id === session.id)?.name || "Agent 对话" : "新对话"}</strong><span>{activeAgent?.profile.name}</span></div>
           </div>
           <div className="chat-header__actions">
+            <IconButton className="chat-search-shortcut" label="查找聊天记录" title="查找聊天记录" disabled={!activeAgentId} onClick={() => setSessionSearchOpen(true)}><Search size={18} /></IconButton>
             <AgentModelMenu
               agents={agents}
               selectedAgentId={activeAgentId}

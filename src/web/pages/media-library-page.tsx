@@ -357,7 +357,7 @@ function MediaWorkspace({ fileId, library, online, filesRevision, librarySaved, 
             <Icon size={16} aria-hidden="true" />{label}{files.status === "ready" && <small>{count}</small>}
           </Button>;
         })}
-        {visibleFiles.length > 0 && <Button variant="danger" type="button"
+        {selectedFiles.length > 0 && <Button variant="danger" type="button"
           disabled={!online || deleting || !selectedFiles.length || selectedFiles.length > 5000} onClick={() => setDeleteFiles(selectedFiles)}>
           批量删除（已选 {selectedFiles.length} 项）
         </Button>}

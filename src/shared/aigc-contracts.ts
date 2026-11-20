@@ -577,7 +577,7 @@ export interface AigcOutputPage {
 }
 
 /** 媒体入参可选的来源。 */
-export type AigcRunMediaSource = "upload" | "public" | "comfyui_input";
+export type AigcRunMediaSource = "upload" | "public" | "library" | "comfyui_input";
 
 /** ComfyUI input 目录中的一个可选文件。 */
 export interface AigcComfyUiInputFile {

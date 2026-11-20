@@ -562,7 +562,7 @@
 }
 .wf-run-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
   gap: 24px;
   align-items: start;
 }
@@ -1058,3 +1058,9 @@
   .wf-alignment-switches { display: none; }
   .wf-alignment-settings { display: block; }
 }
+
+/* 同一参数的可用来源在窄屏按相同宽度换行。 */
+.wf-file-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 8px; }
+
+.wf-run-field { padding-block-start: 14px; border-top: 1px solid var(--border); }
+.wf-run-form > h2, .wf-run-observation > .wf-section-heading { padding-bottom: 12px; border-bottom: 1px solid var(--border); }

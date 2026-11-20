@@ -22,6 +22,7 @@ import type {
   AigcPublicFileSummary,
   AigcRunInputValue,
   AigcRunMediaSource,
+  AigcSingleRunInputValue,
   AigcRuntimeChannelSummary,
   AigcSettingsDocument,
   AigcTaskDocument,
@@ -382,6 +383,17 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     if (result.status === "success") setConnectionResult(result.data);
   }
 
+  /** 各来源共用字段数量规则，多图按确认顺序追加。 */
+  function chooseMedia(field: AigcRunFieldDefinition, file: AigcSingleRunInputValue) {
+    transfer.clearMissing(field.name);
+    setValues((current) => {
+      const value = current[field.name];
+      const entries = Array.isArray(value) ? value : value ? [value] : [];
+      if (field.maxMediaFiles && entries.length >= field.maxMediaFiles) return current;
+      return { ...current, [field.name]: field.maxMediaFiles ? [...entries, file] : file };
+    });
+  }
+
   async function uploadFile(field: AigcRunFieldDefinition, file?: File) {
     if (!file) return;
     setMessage("");
@@ -390,14 +402,11 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     setUploading(undefined);
     if (result.status !== "success") return;
     setUploads((current) => ({ ...current, [field.name]: result.data.asset }));
-    setValues((current) => ({
-      ...current,
-      [field.name]: {
-        assetId: result.data.asset.id,
-        name: result.data.asset.name,
-        mediaType: result.data.asset.mediaType,
-      },
-    }));
+    chooseMedia(field, {
+      assetId: result.data.asset.id,
+      name: result.data.asset.name,
+      mediaType: result.data.asset.mediaType,
+    });
   }
 
   async function uploadPublicFile(field: AigcRunFieldDefinition, file?: File) {
@@ -408,29 +417,17 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     setUploading(undefined);
     if (result.status !== "success") return;
     setPublicFiles((current) => [result.data.file, ...current.filter((item) => item.id !== result.data.file.id)]);
-    setValues((current) => ({
-      ...current,
-      [field.name]: {
-        url: result.data.file.url,
-        name: result.data.file.name,
-        mediaType: result.data.file.mediaType,
-      },
-    }));
+    chooseMedia(field, {
+      url: result.data.file.url,
+      name: result.data.file.name,
+      mediaType: result.data.file.mediaType,
+    });
   }
 
   function changeMediaSource(field: AigcRunFieldDefinition, source: AigcRunMediaSource) {
     if (source === "comfyui_input" && selected?.protocol !== "comfyui") return;
     setMediaSources((current) => ({ ...current, [field.name]: source }));
-    setValues((current) => {
-      const next = { ...current };
-      delete next[field.name];
-      return next;
-    });
-    setUploads((current) => {
-      const next = { ...current };
-      delete next[field.name];
-      return next;
-    });
+    // 浏览其他来源时保留已确认的文件，待选定新文件后再更新入参。
     if (source === "comfyui_input") void loadComfyInputFiles(field);
   }
 
@@ -447,30 +444,28 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   }
 
   function selectPublicMediaFile(field: AigcRunFieldDefinition, file: AigcPublicFileSummary) {
-    setValues((current) => ({
-      ...current,
-      [field.name]: {
-        assetId: file.id,
-        name: file.name,
-        mediaType: file.mediaType,
-        source: "public",
-      },
-    }));
+    if (field.publicUrl) {
+      chooseMedia(field, { url: file.url, name: file.name, mediaType: file.mediaType });
+      return;
+    }
+    chooseMedia(field, {
+      assetId: file.id,
+      name: file.name,
+      mediaType: file.mediaType,
+      source: "public",
+    });
   }
 
   function selectComfyInputFile(field: AigcRunFieldDefinition, file: AigcComfyUiInputFile) {
     if (selected?.protocol !== "comfyui") return;
-    setValues((current) => ({
-      ...current,
-      [field.name]: {
-        filename: file.filename,
-        name: file.name,
-        mediaType: file.mediaType,
-        ...(file.subfolder ? { subfolder: file.subfolder } : {}),
-        ...(file.type ? { type: file.type } : {}),
-        source: "comfyui_input",
-      },
-    }));
+    chooseMedia(field, {
+      filename: file.filename,
+      name: file.name,
+      mediaType: file.mediaType,
+      ...(file.subfolder ? { subfolder: file.subfolder } : {}),
+      ...(file.type ? { type: file.type } : {}),
+      source: "comfyui_input",
+    });
   }
 
   const transfer = useMediaPublicTransfer("创建 AIGC 生成任务", setMessage);
@@ -523,7 +518,7 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
         uploaded={uploads[field.name]}
         uploading={uploading === field.name}
         publicFiles={publicFiles}
-        mediaSource={mediaSources[field.name] ?? "upload"}
+        mediaSource={mediaSources[field.name] ?? (field.publicUrl ? "public" : "upload")}
         allowComfyInput={selected?.protocol === "comfyui"}
         comfyInputFiles={comfyInputFiles[field.name] ?? []}
         comfyInputLoading={comfyInputLoading[field.name] === true}
@@ -845,60 +840,33 @@ function AigcRunField(props: {
   if (field.type === "image" || field.type === "video" || field.type === "audio") {
     const accept = field.type === "video" ? "video/*" : field.type === "audio" ? "audio/*" : "image/*";
     const entries = Array.isArray(value) ? value : hasRunValue(value) && value !== undefined ? [value] : [];
-    const hasLibraryFile = entries.some(isMediaReference);
-    const picker = <>
+    const full = field.maxMediaFiles !== undefined && entries.length >= field.maxMediaFiles;
+    const picker = (
       <MediaLibraryPicker label={field.label} category={field.type}
-        disabled={disabled || (field.maxMediaFiles !== undefined && entries.length >= field.maxMediaFiles)}
+        disabled={disabled || full}
         onSelect={(file) => {
           const reference = mediaReference(file.libraryId, file.id);
           setMediaNames((current) => ({ ...current, [reference]: file.name }));
           // 多文件字段按选择顺序追加，也保留此前从其他来源选入的文件。
           onChange(field.maxMediaFiles ? [...entries, reference] : reference);
         }} />
-      {hasLibraryFile && <ul className="aigc-media-selection" aria-label={`已选择的文件 ${field.label}`}>
+    );
+    const selection = entries.length > 0 && <ul className="aigc-media-selection" aria-label={`已选择的文件 ${field.label}`}>
         {entries.map((entry, index) => {
           const name = isMediaReference(entry) ? mediaNames[entry] ?? "媒体库文件"
             : typeof entry === "object" && "name" in entry ? entry.name : String(entry);
-          return <li key={index}><span>{name}</span><Button type="button" className="configuration-secondary-action"
+          const source = isMediaReference(entry) ? "媒体库"
+            : typeof entry === "object" && "filename" in entry ? "ComfyUI input"
+            : typeof entry === "object" && ("url" in entry || ("source" in entry && entry.source === "public")) ? "公开目录"
+            : "本地上传";
+          return <li key={index}><span>{source} · {name}</span><Button type="button" className="configuration-secondary-action"
             disabled={disabled} aria-label={`移除 ${name}`}
             onClick={() => {
               const remaining = entries.filter((_, current) => current !== index);
-              onChange(remaining.length > 1 ? remaining : remaining[0] ?? "");
+              onChange(field.maxMediaFiles && remaining.length ? remaining : remaining[0] ?? "");
             }}>移除</Button></li>;
         })}
-      </ul>}
-    </>;
-    if (field.publicUrl) {
-      const selectedUrl = publicUrlFromValue(value);
-      const availableFiles = publicFiles.filter((file) => file.mediaType.startsWith(`${field.type}/`));
-      return (
-        <div className="configuration-field-row aigc-run-field aigc-run-field--wide">
-          <label>
-            <span>{field.label}{field.required ? " *" : ""}</span>
-            <SearchSelect
-              ariaLabel={`${field.label}公共文件`}
-              options={availableFiles.map((file) => ({ value: file.url, label: file.name }))}
-              value={selectedUrl}
-              placeholder="请选择公共文件"
-              onChange={(url) => {
-                const selectedFile = availableFiles.find((file) => file.url === url);
-                if (selectedFile) {
-                  onChange({ url: selectedFile.url, name: selectedFile.name, mediaType: selectedFile.mediaType });
-                }
-              }}
-            />
-          </label>
-          <div className="aigc-media-input-upload">
-            <FilePickerButton label={`上传${field.label}到公共区`} accept={accept} disabled={disabled} loading={uploading}
-              icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => onPublicFile(file)}>
-              上传到公共区
-            </FilePickerButton>
-          </div>
-          {picker}
-          {!hasLibraryFile && <small className="configuration-help" role="status">{uploading ? "上传中…" : selectedUrl || "选择公共文件或上传后自动填充公网地址"}</small>}
-        </div>
-      );
-    }
+      </ul>;
     const availableFiles = publicFiles.filter((file) => file.mediaType.startsWith(`${field.type}/`));
     const selectedPublicId = publicMediaIdFromValue(value);
     const selectedComfyInput = comfyInputFileFromValue(value);
@@ -911,26 +879,28 @@ function AigcRunField(props: {
             items={mediaSourceOptions.filter((option) => option.value !== "comfyui_input" || allowComfyInput)
               .map((option) => ({ id: option.value, label: option.label }))} />
           <div role="tabpanel" id={sourcePanelId} aria-labelledby={`${sourcePanelId}-${mediaSource}`}>
+            {mediaSource === "library" && picker}
             {mediaSource === "upload" ? (
               <div className="aigc-media-input-upload">
-                <FilePickerButton label={field.label} accept={accept} disabled={disabled} loading={uploading}
-                  icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => onFile(file)}>
-                  选择本地文件
+                <FilePickerButton label={field.label} accept={accept} disabled={disabled || full} loading={uploading}
+                  icon={<Upload aria-hidden="true" />} onFilesSelected={([file]) => field.publicUrl ? onPublicFile(file) : onFile(file)}>
+                  {field.publicUrl ? "上传到公共区" : "选择本地文件"}
                 </FilePickerButton>
-                <small className="configuration-help" role="status">{uploading ? "上传中…" : uploaded?.name ?? "上传后作为生成入参"}</small>
+                <small className="configuration-help" role="status">{uploading ? "上传中…" : field.publicUrl ? "上传后将生成公网地址" : "上传后作为生成入参"}</small>
               </div>
             ) : null}
             {mediaSource === "public" ? (
               <label>
                 <span>BugPaw 公开目录</span>
                 <SearchSelect
-                  ariaLabel={`${field.label}公开目录`}
+                  ariaLabel={`${field.label}${field.publicUrl ? "公共文件" : "公开目录"}`} disabled={disabled || full}
                   options={availableFiles.map((file) => ({ value: file.id, label: file.name }))}
-                  value={selectedPublicId}
+                  value={field.publicUrl ? availableFiles.find((file) => file.url === publicUrlFromValue(value))?.id : selectedPublicId}
                   placeholder="请选择公开目录文件"
                   onChange={(id) => {
                     const selectedFile = availableFiles.find((file) => file.id === id);
-                    if (selectedFile) onSelectPublicFile(selectedFile);
+                    if (!selectedFile) return;
+                    onSelectPublicFile(selectedFile);
                   }}
                 />
               </label>
@@ -946,7 +916,7 @@ function AigcRunField(props: {
                     ...(file.subfolder ? { description: file.subfolder } : {}),
                   }))}
                   value={selectedComfyInput ? comfyInputFileKey(selectedComfyInput) : undefined}
-                  disabled={comfyInputLoading}
+                  disabled={disabled || comfyInputLoading}
                   placeholder={comfyInputLoading ? "正在读取 input 目录…" : "请选择 ComfyUI input 文件"}
                   onChange={(key) => {
                     const selectedFile = comfyInputFiles.find((file) => comfyInputFileKey(file) === key);
@@ -955,18 +925,18 @@ function AigcRunField(props: {
                 />
               </label>
             ) : null}
-            {picker}
             {field.help ? <small className="configuration-help">{field.help}</small> : null}
           </div>
+          {selection}
         </div>
-        {!hasLibraryFile && <div className="aigc-media-input__preview">
-          <MediaInputPreview
+        {entries.some((entry) => !isMediaReference(entry)) && <div className="aigc-media-input__preview">
+          {entries.filter((entry) => !isMediaReference(entry)).map((entry, index) => <MediaInputPreview key={index}
             field={field}
-            value={value}
-            uploaded={uploaded}
+            value={entry}
+            uploaded={typeof entry === "object" && "assetId" in entry && entry.assetId === uploaded?.id ? uploaded : undefined}
             publicFiles={publicFiles}
             comfyChannelId={comfyChannelId}
-          />
+          />)}
         </div>}
       </div>
     );
@@ -997,6 +967,7 @@ function AigcRunField(props: {
 const mediaSourceOptions: Array<{ value: AigcRunMediaSource; label: string }> = [
   { value: "upload", label: "本地上传" },
   { value: "public", label: "公开目录" },
+  { value: "library", label: "媒体库" },
   { value: "comfyui_input", label: "ComfyUI input" },
 ];
 
