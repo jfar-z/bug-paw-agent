@@ -1,6 +1,7 @@
 import type { WorkflowMediaInputs } from "../media-library/workflow-media-inputs";
 import { TaskExecutionQueue } from "../core/task-execution-queue";
-import { workflowNodesDeep, type WorkflowSemaphoreInput } from "../../shared/workflow-contracts";
+import { SYSTEM_LIMITS } from "../core/limits";
+import { type WorkflowBatchRequest, type WorkflowBatchReceipt, workflowNodesDeep, type WorkflowSemaphoreInput } from "../../shared/workflow-contracts";
 import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
@@ -278,25 +279,44 @@ export class WorkflowService {
   }
   /** 创建幂等先于文件读取；已存在任务不会因原输入文件被移除而重复导入。 */
   existingRequest(workflowId: string, inputs: Record<string, unknown>, requestKey: string, origin?: WorkflowRun["origin"]): WorkflowRun | undefined {
+    const hash = createHash("sha256").update(stableJson({ workflowId, inputs })!).digest("hex");
+    const [run] = this.matchRequest(requestKey, hash, origin);
+    return run && this.getRun(run.id, origin);
+  }
+
+  /** 按持久化的提交序号恢复成员，兼容没有批次字段的历史单次运行。 */
+  private matchRequest(requestKey: string, hash: string, origin?: WorkflowRun["origin"]): WorkflowRun[] {
     if (typeof requestKey !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(requestKey))
       invalid("requestKey 必须为 1 到 80 位字母、数字、下划线或连字符");
-    const run = [...this.runs.values()].find((item) => item.origin?.agentId === origin?.agentId && item.origin?.sessionId === origin?.sessionId && item.requestKey === requestKey);
-    if (!run) return undefined;
-    const hash = createHash("sha256").update(stableJson({ workflowId, inputs })!).digest("hex");
-    if (hash !== run.requestHash) throw new DomainError("CONFLICT", "同一 requestKey 的工作流或参数已变化");
-    return this.getRun(run.id, origin);
+    const runs = [...this.runs.values()].filter((item) => item.origin?.agentId === origin?.agentId && item.origin?.sessionId === origin?.sessionId && item.requestKey === requestKey);
+    if (runs.some((run) => run.requestHash !== hash)) throw new DomainError("CONFLICT", "同一 requestKey 的工作流、参数或次数已变化");
+    return runs.sort((a, b) => (a.queueOrder ?? 0) - (b.queueOrder ?? 0));
+  }
+
+  /** 手动批量入口共用一次输入快照，返回有序受理凭据。 */
+  async startManualBatch(workflowId: string, request: WorkflowBatchRequest): Promise<WorkflowBatchReceipt> {
+    const { count, inputs, requestKey, confirmPublicTransfer } = request;
+    if (!Number.isInteger(count) || count < 1 || count > SYSTEM_LIMITS.manualWorkflowBatchSize)
+      invalid(`工作流运行次数必须为 1 到 ${SYSTEM_LIMITS.manualWorkflowBatchSize} 之间的整数`);
+    if (!record(inputs)) invalid("工作流运行输入必须是对象");
+    const runs = await this.create(workflowId, inputs, requestKey, { confirmPublicTransfer: confirmPublicTransfer === true, count });
+    return { runIds: runs.map((run) => run.id) };
   }
 
   /** 手动入口仍支持立即运行，Agent 必须先使用 createPrepared 创建。 */
   async start(workflowId: string, inputs: Record<string, unknown>, requestKey: string,
     origin?: WorkflowRun["origin"], idempotencyInputs: Record<string, unknown> = inputs, confirmPublicTransfer = false): Promise<WorkflowRun> {
-    return this.create(workflowId, inputs, requestKey, origin, idempotencyInputs, undefined, undefined, confirmPublicTransfer);
+    const [run] = await this.create(workflowId, inputs, requestKey, { origin, idempotencyInputs, confirmPublicTransfer });
+    return run;
   }
 
   /** 保存已校验任务，不占运行额度，也不执行任何节点。 */
   async createPrepared(workflowId: string, inputs: Record<string, unknown>, requestKey: string,
     origin: NonNullable<WorkflowRun["origin"]>, raw: Record<string, unknown>, files: Record<string, string>, expectedDefinition?: string): Promise<WorkflowRun> {
-    return this.create(workflowId, inputs, requestKey, origin, raw, { values: raw, files, definitionHash: "" }, expectedDefinition);
+    const [run] = await this.create(workflowId, inputs, requestKey, {
+      origin, idempotencyInputs: raw, preparation: { values: raw, files, definitionHash: "" }, expectedDefinition,
+    });
+    return run;
   }
 
   /** 同一会话的 requestKey 保持稳定，参数变更时拒绝重用。 */
@@ -304,25 +324,26 @@ export class WorkflowService {
     workflowId: string,
     inputs: Record<string, unknown>,
     requestKey: string,
-    origin?: WorkflowRun["origin"],
-    idempotencyInputs: Record<string, unknown> = inputs,
-    preparation?: TaskPreparation,
-    expectedDefinition?: string,
-    confirmPublicTransfer = false,
-  ): Promise<WorkflowRun> {
+    options: {
+      origin?: WorkflowRun["origin"];
+      idempotencyInputs?: Record<string, unknown>;
+      preparation?: TaskPreparation;
+      expectedDefinition?: string;
+      confirmPublicTransfer?: boolean;
+      count?: number;
+    },
+  ): Promise<WorkflowRun[]> {
+    const { origin, idempotencyInputs = inputs, expectedDefinition, confirmPublicTransfer = false, count = 1 } = options;
+    let { preparation } = options;
     return this.lock.run("submit", async () => {
       if (this.closing) throw new DomainError("CONFLICT", "工作流服务正在关闭");
-      if (
-        typeof requestKey !== "string" ||
-        !/^[A-Za-z0-9_-]{1,80}$/.test(requestKey)
-      )
-        invalid("requestKey 必须为 1 到 80 位字母、数字、下划线或连字符");
       checkValueSize(inputs);
+      // 单次提交保留原指纹格式，历史请求在升级后仍可安全重试。
       const hash = createHash("sha256")
-        .update(stableJson({ workflowId, inputs: idempotencyInputs })!)
+        .update(stableJson({ workflowId, inputs: idempotencyInputs, ...(count > 1 ? { count } : {}) })!)
         .digest("hex");
-      const existing = this.existingRequest(workflowId, idempotencyInputs, requestKey, origin);
-      if (existing) return existing;
+      const existing = this.matchRequest(requestKey, hash, origin);
+      if (existing.length) return count === 1 ? [this.getRun(existing[0].id, origin)] : existing;
       const definition = await this.get(workflowId);
       if (expectedDefinition && taskFingerprint(definition) !== expectedDefinition)
         throw new DomainError("CONFLICT", "创建期间工作流定义变化，请重新查询参数并创建任务");
@@ -381,11 +402,19 @@ export class WorkflowService {
         };
         new WorkflowExecutionBudget(run);
         for (const check of checks) await check();
-        await this.repository.saveRun(run);
+        const runs = [run];
+        while (runs.length < count) {
+          const member = structuredClone(run);
+          member.id = randomUUID();
+          member.queueOrder = ++this.sequence;
+          runs.push(member);
+        }
+        if (count === 1) await this.repository.saveRun(run);
+        else await this.repository.saveBatch(runs);
         uploaded.length = 0;
-        this.runs.set(run.id, run);
-        if (!preparation) this.enqueue(run);
-        return structuredClone(run);
+        for (const member of runs) this.runs.set(member.id, member);
+        if (!preparation) for (const member of runs) this.enqueue(member);
+        return count === 1 ? [structuredClone(run)] : runs;
       } finally {
         if (uploaded.length) await this.mediaInputs!.discard(uploaded);
       }

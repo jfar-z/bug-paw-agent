@@ -6,6 +6,8 @@ import { MediaResults } from "../media-library/media-results";
 import { MediaDeleteConfirmations } from "../media-library/media-deletion";
 import { createMediaDeleteTool, createMediaTool } from "../media-library/media-tool";
 import { AigcAssetService } from "../aigc/aigc-asset-service";
+import { WorkflowRepository } from "../workflows/workflow-repository";
+import { WorkflowService } from "../workflows/workflow-service";
 import { WorkflowFiles } from "../workflows/workflow-files";
 import { WorkflowMediaInputs } from "../media-library/workflow-media-inputs";
 import { submitMediaInputs } from "../media-library/aigc-media-inputs";
@@ -161,6 +163,43 @@ it("DAG 按目标路径验证公网授权并固定执行副本", async () => {
   repo.removeFile(lib.id, file.id, 1);
   await storage.discard(file.id);
   expect((await files.buffer(result.image, "A", undefined, true)).content).toEqual(png);
+});
+
+it("手动批次一次确认公网传输，独立运行共用固定文件、字段默认值及数组顺序", async () => {
+  const lib = repo.create("批量");
+  const file = await storage.save(lib.id, "输入.png", png);
+  const access = new MediaAccess(repo, storage, async () => undefined, {} as never);
+  const media = new WorkflowMediaInputs(access, files, { get: async () => ({ protocol: "grok" }) } as never, "https://media.example");
+  const service = new WorkflowService(new WorkflowRepository(join(root, "batch"), db), { execute: async () => ({ files: [] }) }, undefined, undefined, media);
+  await service.initialize();
+  try {
+    const draft = emptyWorkflow();
+    const input = draft.nodes[0];
+    input.outputs[0].defaultValue = "默认文本";
+    input.outputs.push({ name: "image", type: "image" }, { name: "labels", type: "string", multiple: true });
+    const target = newWorkflowNode("aigc", "public");
+    target.config.interfaceId = "grok";
+    target.inputs.image = { kind: "reference", nodeId: input.id, field: "image" };
+    draft.nodes.push(target);
+    draft.edges.push({ id: "to-public", source: input.id, target: target.id }, { id: "after-public", source: target.id, target: "output" });
+    const { id } = await service.save(draft);
+    const request = { count: 3, requestKey: "media-batch", inputs: { image: mediaReference(lib.id, file.id), labels: ["乙", "甲"] } };
+    await expect(service.startManualBatch(id, request)).rejects.toMatchObject({ code: "VALIDATION_FAILED", details: { requiresPublicTransfer: true } });
+    expect(service.listRuns()).toHaveLength(0);
+    const read = vi.spyOn(access, "read");
+    const receipt = await service.startManualBatch(id, { ...request, confirmPublicTransfer: true });
+    expect(read).toHaveBeenCalledTimes(1);
+    const snapshot = service.getRun(receipt.runIds[0]).inputs;
+    expect(snapshot).toMatchObject({ prompt: "默认文本", labels: ["乙", "甲"] });
+    expect((await files.buffer(snapshot.image, undefined, undefined, true)).content).toEqual(png);
+    for (const runId of receipt.runIds) {
+      const run = await service.wait(runId);
+      expect(run.inputs).toEqual(snapshot);
+      expect(run.status).toBe("succeeded");
+    }
+  } finally {
+    await service.close();
+  }
 });
 
 it("Grok 校验和显式确认先于公共副本创建，提交失败回收副本", async () => {

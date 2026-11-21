@@ -245,6 +245,21 @@ export interface WorkflowNodeRun {
   progress?: string;
   events: { at: string; message: string }[];
 }
+/** 单次手动批量提交的数量上限。 */
+export const MAX_MANUAL_WORKFLOW_RUNS = 10;
+
+export interface WorkflowBatchRequest {
+  inputs: Record<string, unknown>;
+  requestKey: string;
+  count: number;
+  confirmPublicTransfer?: boolean;
+}
+
+export interface WorkflowBatchReceipt {
+  /** 本次受理的全部运行 ID，按 FIFO 入队顺序排列。 */
+  runIds: string[];
+}
+
 /** 一次运行持有不可变定义快照，避免编辑影响正在执行的任务。 */
 export interface WorkflowRun {
   /** 实际启动时间；排队不消耗小时额度。 */

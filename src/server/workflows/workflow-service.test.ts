@@ -674,6 +674,11 @@ it("超出手动并发额度的任务按提交顺序排队，取消队列不执�
   for (let i = 0; i < 5; i++) runs.push(await service.start(definition.id, { prompt: "test" }, `queue-${i}`));
   await vi.waitFor(() => expect(entered).toEqual(["queue-0", "queue-1"]));
   expect(service.getRun(runs[2].id)).toMatchObject({ status: "queued", queueReason: expect.stringContaining("并发额度") });
+  const request = { inputs: { prompt: "批量" }, count: 3, requestKey: "queue-batch" };
+  const receipt = await service.startManualBatch(definition.id, request);
+  expect(service.getRun(receipt.runIds[0]).queueOrder).toBeGreaterThan(runs[4].queueOrder!);
+  expect(service.getRun(receipt.runIds[0]).queueReason).toContain("前序任务");
+  await service.cancel(receipt.runIds[0]);
   await service.cancel(runs[2].id); await service.cancel(runs[0].id);
   await vi.waitFor(() => expect(entered).toEqual(["queue-0", "queue-1", "queue-3"]));
   await service.close();
@@ -681,9 +686,38 @@ it("超出手动并发额度的任务按提交顺序排队，取消队列不执�
   const restarted = new WorkflowService(repository, { execute });
   await restarted.initialize();
   await vi.waitFor(() => expect(restarted.getRun(runs[4].id).status).toBe("succeeded"));
-  expect(execute).toHaveBeenCalledTimes(1);
+  await Promise.all(receipt.runIds.slice(1).map((id) => restarted.wait(id)));
+  expect(await restarted.startManualBatch(definition.id, request)).toEqual(receipt);
+  expect(restarted.getRun(receipt.runIds[0]).startedAt).toBeUndefined();
+  const started = receipt.runIds.slice(1).map((id) => restarted.getRun(id).startedAt!);
+  expect(started.every(Boolean)).toBe(true);
+  expect(started).toEqual([...started].sort());
+  expect(execute).toHaveBeenCalledTimes(3);
   expect(restarted.getRun(runs[2].id).status).toBe("cancelled");
   await restarted.close();
+});
+
+it("手动批次落盘失败整批拒绝，成功后按原入队顺序恢复受理结果", async () => {
+  const { service, repository } = await fixture();
+  const { id } = await service.save(emptyWorkflow());
+  const request = { inputs: { prompt: "batch" }, count: 3, requestKey: "manual-batch" };
+  vi.spyOn(repository, "saveBatch").mockRejectedValueOnce(new Error("模拟提交凭据写入失败"));
+  await expect(service.startManualBatch(id, request)).rejects.toThrow("提交凭据写入失败");
+  expect(service.listRuns()).toHaveLength(0);
+  expect(await repository.runs()).toHaveLength(0);
+  const receipt = await service.startManualBatch(id, request);
+  await Promise.all(receipt.runIds.map((runId) => service.wait(runId)));
+  await service.close();
+  const restarted = new WorkflowService(repository, { execute: async () => ({}) });
+  try {
+    await restarted.initialize();
+    expect(await restarted.startManualBatch(id, request)).toEqual(receipt);
+    const orders = receipt.runIds.map((runId) => restarted.getRun(runId).queueOrder!);
+    expect(orders).toEqual([orders[0], orders[0] + 1, orders[0] + 2]);
+    expect(restarted.listRuns()).toHaveLength(3);
+  } finally {
+    await restarted.close();
+  }
 });
 
 it("多个等待分支不能占满节点槽位阻止释放路径", async () => {

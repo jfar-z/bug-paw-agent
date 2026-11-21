@@ -3,6 +3,7 @@ import { streamWorkflowScriptAssist } from "./workflow-script-assist-stream";
 import { stat } from "node:fs/promises";
 import type { FastifyInstance } from "fastify";
 import type {
+  WorkflowBatchRequest,
   WorkflowDraft,
   WorkflowSemaphoreInput,
   WorkflowScriptAssistRequest,
@@ -112,6 +113,13 @@ export function registerWorkflowRoutes(
           ),
         );
     });
+    router.post<{ Params: { id: string }; Body: WorkflowBatchRequest }>(
+      "/api/workflows/:id/run-batch",
+      async (request, reply) => {
+        if (!record(request.body)) invalid("工作流批量运行请求必须是对象");
+        return reply.code(202).send(await service.startManualBatch(request.params.id, request.body));
+      },
+    );
     router.get("/api/workflow-runs", async () => ({
       runs: service
         .listRuns()

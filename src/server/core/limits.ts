@@ -1,9 +1,11 @@
+import { MAX_MANUAL_WORKFLOW_RUNS } from "../../shared/workflow-contracts";
 import { MEDIA_UPLOAD_BYTES } from "../../shared/media-library-contracts";
 
 /** 所有可能随输入增长的工作量都必须引用统一上限。 */
 export const SYSTEM_LIMITS = Object.freeze({
   /** AIGC 上游诊断正文持久化上限，超限必须标记截断。 */
   aigcDiagnosticResponseCharacters: 65_536,
+  manualWorkflowBatchSize: MAX_MANUAL_WORKFLOW_RUNS,
   mediaUploadBytes: MEDIA_UPLOAD_BYTES,
   concurrentMediaUploads: 3,
   mediaLibraries: 500,

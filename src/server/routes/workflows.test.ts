@@ -11,6 +11,7 @@ import { registerWorkflowRoutes } from "./workflows";
 import { WorkflowService } from "../workflows/workflow-service";
 import { WorkflowRepository } from "../workflows/workflow-repository";
 import { emptyWorkflow } from "../../shared/workflow-contracts";
+import { registerApiErrorHandler } from "../http/error-handler";
 import { DomainError } from "../core/errors";
 /** 路由使用实际存储，确保管理、运行与产物入口都要求登录。 */
 describe("工作流 HTTP API", () => {
@@ -22,13 +23,7 @@ describe("工作流 HTTP API", () => {
     await service.initialize();
     const app = Fastify();
     let authenticated = false;
-    app.setErrorHandler((error, request, reply) => {
-      if (error instanceof DomainError)
-        return reply
-          .code(error.code === "NOT_FOUND" ? 404 : 400)
-          .send(error.toDocument(request.id));
-      return reply.code(500).send({ message: "测试未预期异常" });
-    });
+    registerApiErrorHandler(app);
     registerWorkflowRoutes(app, {
       authService: { isAuthenticated: async () => authenticated } as never,
       service,
@@ -51,6 +46,7 @@ describe("工作流 HTTP API", () => {
         ["POST", "/api/workflows/validate"],
         ["POST", "/api/workflows/script-assist"],
         ["POST", "/api/workflows/unknown/run"],
+        ["POST", "/api/workflows/unknown/run-batch"],
         ["GET", "/api/workflow-runs"],
         ["GET", "/api/workflow-runs/unknown"],
         ["POST", "/api/workflow-runs/unknown/cancel"],
@@ -119,6 +115,28 @@ describe("工作流 HTTP API", () => {
         status: "succeeded",
         outputs: { result: "http" },
       });
+      const submit = (count: number) => app.inject({
+        method: "POST", url: `/api/workflows/${definition.id}/run-batch`,
+        payload: { inputs: { prompt: "batch" }, count, requestKey: "http-batch" },
+      });
+      for (const count of [0, 1.5, 11]) {
+        const rejected = await submit(count);
+        expect(rejected.json().error).toMatchObject({ code: "VALIDATION_FAILED", message: expect.stringContaining("1 到 10"), requestId: expect.any(String) });
+      }
+      expect(service.listRuns()).toHaveLength(1);
+      const [batch, retry] = await Promise.all([submit(3), submit(3)]);
+      expect(batch.statusCode).toBe(202);
+      expect(retry.json()).toEqual(batch.json());
+      const ids: string[] = batch.json().runIds;
+      expect(new Set(ids).size).toBe(3);
+      for (const id of ids) {
+        await service.wait(id);
+        expect(service.getRun(id)).toMatchObject({ outputs: { result: "batch" }, startedAt: expect.any(String) });
+      }
+      const conflict = await submit(2);
+      expect(conflict.statusCode).toBe(400);
+      expect(conflict.json().error).toMatchObject({ code: "CONFLICT", requestId: expect.any(String) });
+      expect(service.listRuns()).toHaveLength(4);
       const bad = await app.inject({
         method: "POST",
         url: "/api/workflows/validate",

@@ -48,3 +48,9 @@ Agent 的创建和带 revision 的 PATCH 请求可携带 `mediaLibraryGrants: [{
 批量删除要求一次提交同一库内 1 至 5000 个不同文件的 ID 和正整数版本。参数整体不合法时返回 400。每项事务单独校验版本并提交。结果中 `deleted` 表示删除及回收成功，`missing` 表示该 ID 已不在指定库，`failed` 表示删除失败（包括 VERSION_CONFLICT），`cleanup_failed` 表示记录已删除但受管目录回收失败，服务重启时重新清理。重试须按最新名称和版本再次确认。
 
 Agent 工具 `media_library_delete({libraryId,fileIds})` 需要独立工具白名单及指定库的 `delete: true`，缺省关闭。工具读取指定目标的确认快照，在当前会话等待登录用户决定。工作台以媒体库根路径为前缀，GET `/confirmations/:agentId/:sessionId` 获得 `{confirmations: MediaDeletePrompt[]}`。共享类型定义库名、文件名、标识、版本和毫秒时间戳 expiresAt。用户查看完整清单与永久删除提示后，POST `/confirmations/:agentId/:sessionId/:id`，正文为 `{"confirm":true}` 或 `{"confirm":false}`。204 表示决定已接收，实际删除结果由工具返回。停止运行、服务重启或五分钟超时使确认失效，跨会话及重复决定返回 404。执行前重新校验授权，按用户看到的版本逐项执行。
+
+## 手动批量运行 DAG
+
+已登录工作台调用 `POST /api/v1/workflows/:id/run-batch`，例如 `{"inputs":{"prompt":"测试"},"count":3,"requestKey":"batch-123","confirmPublicTransfer":true}`。次数必须是 1 至 10 的整数。文件和公网传输确认沿用单次运行契约。HTTP 202 返回 `{"runIds":["运行 ID 1","运行 ID 2","运行 ID 3"]}`，数组包含整批受理的 ID，按 FIFO 入队顺序排列。相同 requestKey、工作流、输入及次数的重试返回同一数组，修改其中业务参数并复用键返回 400 CONFLICT。校验失败返回 400 VALIDATION_FAILED，整批不入队。
+
+通过 `GET /api/v1/workflow-runs/:id` 查询成员的 status、queueReason、startedAt 和 queueOrder。队首启动前取消时可观察下一成员，实际启动后锁定该运行 ID。取消操作只作用于指定 ID。已有单次运行接口和 Agent 工具继续使用原契约。
