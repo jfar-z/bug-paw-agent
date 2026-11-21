@@ -202,7 +202,7 @@ function KnowledgeBaseWorkspace({ base, agents, onChanged, onDeleteRequested, on
 
   return <section className="knowledge-base-workspace">
     <header className="knowledge-base-workspace__heading">
-      <div><span>KNOWLEDGE BASE</span><h1>{base.name}</h1><p>{base.description || "独立管理的可检索资料集合。"}</p></div>
+      <div><span className="knowledge-base-workspace__eyebrow">KNOWLEDGE BASE</span><h1>{base.name}</h1><p>{base.description || "独立管理的可检索资料集合。"}</p></div>
       <div className="knowledge-base-workspace__actions">
         <Button type="button" className="configuration-secondary-action" disabled={busy} onClick={() => setEditOpen(true)}><Pencil size={15} aria-hidden="true" />编辑知识库</Button>
         <FilePickerButton label="上传资料" variant="primary" className="configuration-primary-action" disabled={busy} multiple

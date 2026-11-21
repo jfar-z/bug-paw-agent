@@ -62,7 +62,8 @@
 
 .knowledge-base-empty-state__mark { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid var(--border); border-radius: 14px; color: var(--fg); background: var(--panel); }
 
-.knowledge-base-empty-state > span, .knowledge-base-workspace__heading span, .knowledge-base-documents header span, .knowledge-base-side-panel header span, .knowledge-base-search-panel header span { color: var(--fg); font: 11px var(--font-mono); letter-spacing: .1em; }
+/* 标题标签单独着色，让操作按钮的文字与图标继承控件主题。 */
+.knowledge-base-empty-state > span, .knowledge-base-workspace__eyebrow, .knowledge-base-documents header span, .knowledge-base-side-panel header span, .knowledge-base-search-panel header span { color: var(--fg); font: 11px var(--font-mono); letter-spacing: .1em; }
 
 
 .knowledge-base-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 28px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); }
