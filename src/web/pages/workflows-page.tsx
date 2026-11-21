@@ -16,6 +16,7 @@ import {
 } from "../features/workflows/workflow-confirm";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Minus,
   Plus,
   Play,
   Save,
@@ -30,6 +31,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
+  MAX_MANUAL_WORKFLOW_RUNS,
+  type WorkflowBatchRequest,
   emptyWorkflow,
   workflowRunNodesInOrder,
   WORKFLOW_NODE_NAMES,
@@ -502,7 +505,18 @@ function Runner({
   const loadTask = useRef(runApiTask);
   loadTask.current = runApiTask;
   const observationHeading = useRef<HTMLHeadingElement>(null);
-  const key = useRef(workflowClientId());
+  const [quantity, setQuantity] = useState("1");
+  const [accepted, setAccepted] = useState(0);
+  const [refresh, setRefresh] = useState(0);
+  const count = Number(quantity);
+  const validCount = /^\d+$/.test(quantity) && count >= 1 && count <= MAX_MANUAL_WORKFLOW_RUNS;
+  const receipt = useRef<string[]>([]);
+  const pending = useRef<WorkflowBatchRequest | undefined>(undefined);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const toast = useErrorToast(),
     reportedErrors = useRef(new Set<string>());
   useEffect(() => {
@@ -569,10 +583,11 @@ function Runner({
       if (value !== undefined) initial[field.name] = value;
     }
     setInputs(initial);
-    key.current = workflowClientId();
+    pending.current = undefined;
     setInvalid({});
   }, [definition, run?.id]);
   useEffect(() => {
+    if (receipt.current[0] !== runId) receipt.current = [];
     if (!runId || !online || !polling) return;
     let alive = true,
       timer: ReturnType<typeof setTimeout>;
@@ -582,6 +597,13 @@ function Runner({
       });
       if (!alive) return;
       if (r.status === "success") {
+        // FIFO 中只有尚未启动便取消的队首可以跳过；启动过的运行始终保留。
+        if (!r.data.startedAt && r.data.status === "cancelled" && receipt.current.length > 1) {
+          receipt.current = receipt.current.slice(1);
+          setRun(undefined);
+          navigateTo({ page: "workflow-run", workflowId, runId: receipt.current[0] }, true);
+          return;
+        }
         setRun(r.data);
         if (active(r.data)) timer = setTimeout(() => void poll(), 2000);
       } else setPolling(false);
@@ -591,34 +613,44 @@ function Runner({
       alive = false;
       clearTimeout(timer);
     };
-  }, [runId, online, polling, runApiTask]);
+  }, [runId, workflowId, online, polling, runApiTask, refresh]);
   const transfer = useMediaPublicTransfer("运行工作流");
   const change = (name: string, value: unknown) => {
     transfer.clearMissing(name);
     setInputs((old) => ({ ...old, [name]: value }));
-    key.current = workflowClientId();
+    pending.current = undefined;
   };
   const [mediaFiles, setMediaFiles] = useState<Record<string, MediaFile>>({});
+  const changeQuantity = (value: string) => {
+    setQuantity(value);
+    pending.current = undefined;
+  };
   const start = async (confirmed = false) => {
-    if (!definition || !online || busy) return;
+    if (!definition || !online || busy || !validCount) return;
     transfer.clear();
     transfer.clearMissing();
     setBusy(true);
+    setAccepted(0);
+    // 网络中断后重发原始上传引用、数量和请求键，避免重复创建。
+    const snapshot = pending.current ?? { inputs, count, requestKey: workflowClientId() };
+    const batch = confirmed ? { ...snapshot, confirmPublicTransfer: true } : snapshot;
+    pending.current = batch;
     const r = await runApiTask(
-      () => confirmed
-        ? api.runWorkflow(definition.id, inputs, key.current, true)
-        : api.runWorkflow(definition.id, inputs, key.current),
+      () => api.runWorkflowBatch(definition.id, batch),
       { operation: "运行工作流", expected: { VALIDATION_FAILED: transfer.validation, NOT_FOUND: (error) =>
-        transfer.missingReference(error, (field) => [inputs[field]].flat().some(isMediaReference)) } },
+        transfer.missingReference(error, (field) => [batch.inputs[field]].flat().some(isMediaReference)) } },
     );
+    if (!mounted.current) return;
     if (r.status === "success") {
-      setRun(r.data);
+      receipt.current = r.data.runIds;
+      setAccepted(receipt.current.length);
+      changeQuantity("1");
+      setRun(undefined);
       setPolling(true);
       navigateTo(
-        { page: "workflow-run", workflowId: definition.id, runId: r.data.id },
+        { page: "workflow-run", workflowId: definition.id, runId: r.data.runIds[0] },
         true,
       );
-      key.current = workflowClientId();
       // 运行已受理时把焦点交给状态区，窄屏无需从表单底部手动查找。
       observationHeading.current?.focus();
     }
@@ -626,7 +658,7 @@ function Runner({
   };
   return (
     <>
-      {transfer.message && <MediaPublicTransferDialog message={transfer.message} onClose={transfer.clear}
+      {transfer.message && <MediaPublicTransferDialog message={`${transfer.message} 本次将提交 ${count} 次运行。`} onClose={transfer.clear}
         disabled={!online || busy} onConfirm={() => void start(true)} />}
       <header className="wf-page-heading">
         <div>
@@ -672,7 +704,7 @@ function Runner({
               {definition.nodes
                 .find((n) => n.kind === "input")
                 ?.outputs.map((f) => (
-                  <div className="wf-run-field" key={f.name}>
+                  <fieldset className="wf-run-field" key={f.name} disabled={busy} aria-label={`参数 ${f.name}`}>
                     <div className="wf-output-row">
                       <strong>
                         {f.name}
@@ -755,21 +787,32 @@ function Runner({
                         }
                       />
                     )}
-                  </div>
+                  </fieldset>
                 ))}
-              <Button variant="primary"
-                className="wf-button wf-primary"
-                disabled={
-                  busy ||
-                  !online ||
-                  active(run) ||
-                  Object.values(invalid).some(Boolean)
-                }
-                onClick={() => void start()}
-              >
-                <Play size={16} />
-                {busy ? "正在提交…" : "运行工作流"}
-              </Button>
+              <div className="wf-run-actions">
+                <div className="wf-run-count" role="group" aria-label="运行次数">
+                  <IconButton label="减少运行次数" disabled={busy || !validCount || count <= 1} onClick={() => changeQuantity(String(count - 1))}><Minus size={16} /></IconButton>
+                  <TextField aria-label="运行次数" inputMode="numeric" value={quantity}
+                    disabled={busy} aria-invalid={!validCount} aria-describedby={validCount ? undefined : "wf-count-error"}
+                    onChange={(event) => changeQuantity(event.target.value)} />
+                  <IconButton label="增加运行次数" disabled={busy || !validCount || count >= MAX_MANUAL_WORKFLOW_RUNS} onClick={() => changeQuantity(String(count + 1))}><Plus size={16} /></IconButton>
+                </div>
+                <Button variant="primary"
+                  className="wf-button wf-primary"
+                  disabled={
+                    busy ||
+                    !online ||
+                    !validCount || (!!runId && !run) || active(run) ||
+                    Object.values(invalid).some(Boolean)
+                  }
+                  onClick={() => void start()}
+                >
+                  <Play size={16} />
+                  {busy ? "正在提交…" : "运行工作流"}
+                </Button>
+              </div>
+              {!validCount && <p id="wf-count-error" className="configuration-inline-error" role="alert">运行次数请输入 1 至 {MAX_MANUAL_WORKFLOW_RUNS} 的整数。</p>}
+              {accepted > 0 && <p className="wf-hint" role="status">已受理 {accepted} 次运行</p>}
             </>
           )}
           {!online && <p className="wf-hint">工作流执行与进度同步需要联网。</p>}
@@ -803,7 +846,12 @@ function Runner({
                       void runApiTask(() => api.cancelWorkflowRun(run.id), {
                         operation: "取消工作流",
                       }).then((r) => {
-                        if (r.status === "success") setRun(r.data);
+                        if (r.status === "success") {
+                          // 队首取消后立即重新定位，读取完成前保留提交锁。
+                          setRun(!r.data.startedAt && receipt.current.length > 1 ? undefined : r.data);
+                          setPolling(true);
+                          setRefresh((value) => value + 1);
+                        }
                         setBusy(false);
                       });
                     }}
@@ -815,6 +863,8 @@ function Runner({
               </div>
               <RunDetail run={run} />
             </>
+          ) : runId ? (
+            <p className="wf-empty" role="status">{!online ? "联网后同步运行状态" : polling ? "正在读取运行状态…" : "运行进度同步已暂停"}</p>
           ) : (
             <div className="wf-empty">
               <Play size={30} />

@@ -1066,5 +1066,12 @@
 /* 同一参数的可用来源在窄屏按相同宽度换行。 */
 .wf-file-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 8px; }
 
-.wf-run-field { padding-block-start: 14px; border-top: 1px solid var(--border); }
+.wf-run-field { margin: 0; border: 0; padding: 14px 0 0; border-top: 1px solid var(--border); }
 .wf-run-form > h2, .wf-run-observation > .wf-section-heading { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
+/* 数量与提交按钮在窄屏共用一行，数字输入可随剩余空间收缩。 */
+.wf-run-actions, .wf-run-count { display: flex; align-items: center; min-width: 0; }
+.wf-run-actions { gap: 8px; }
+.wf-run-count { gap: 2px; }
+.wf-run-count .bp-input { width: 3em; min-width: 0; padding-inline: 2px; text-align: center; }
+.wf-run-actions > .wf-button { flex: 1 0 auto; white-space: nowrap; }

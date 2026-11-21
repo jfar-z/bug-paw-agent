@@ -18,7 +18,7 @@ afterEach(() => vi.restoreAllMocks());
 async function fixture(surface: "run" | "editor", field: WorkflowInputField) {
   const changed = vi.fn();
   const run = vi
-    .spyOn(api, "runWorkflow")
+    .spyOn(api, "runWorkflowBatch")
     .mockImplementation(() => new Promise(() => {}));
   const upload = vi
     .spyOn(api, "uploadWorkflowFile")
@@ -72,6 +72,7 @@ async function fixture(surface: "run" | "editor", field: WorkflowInputField) {
     await screen.findByText(field.defaultValue[0].name);
   return {
     input,
+    run,
     upload,
     names() {
       const list = screen.queryByRole("list", { name: "已选择的文件 media" });
@@ -88,7 +89,7 @@ async function fixture(surface: "run" | "editor", field: WorkflowInputField) {
           : field.defaultValue;
       fireEvent.click(screen.getByRole("button", { name: "运行工作流" }));
       await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-      return run.mock.calls[0][1].media;
+      return run.mock.calls[0][1].inputs.media;
     },
   };
 }
@@ -237,4 +238,25 @@ describe.each(["run", "editor"] as const)("%s 媒体上传", (surface) => {
     expect(f.names()).toEqual(["first.png", "second.png"]);
     expect(screen.getByRole("button", { name: "移除 first.png" })).toBeEnabled();
   });
+});
+
+it("公网传输确认覆盖整批，取消保留草稿，确认沿用原批次请求键与上传顺序", async () => {
+  const f = await fixture("run", { name: "media", type: "file", multiple: true });
+  await f.select([new File(["a"], "one.txt"), new File(["b"], "two.txt")]);
+  const quantity = screen.getByRole("textbox", { name: "运行次数" });
+  fireEvent.change(quantity, { target: { value: "3" } });
+  const error = new ApiClientError("VALIDATION_FAILED", "需要确认公网传输", 400, "test", { requiresPublicTransfer: true });
+  f.run.mockRejectedValueOnce(error).mockRejectedValueOnce(error);
+  const submit = screen.getByRole("button", { name: "运行工作流" });
+  fireEvent.click(submit);
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText(/本次将提交 3 次运行/)).toBeVisible();
+  fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+  expect(f.run).toHaveBeenCalledTimes(1);
+  expect(quantity).toHaveValue("3");
+  fireEvent.click(submit);
+  fireEvent.click(await screen.findByRole("button", { name: "确认并运行" }));
+  const request = f.run.mock.calls[0][1];
+  expect(request).toMatchObject({ count: 3, inputs: { media: [{ assetId: "one.txt" }, { assetId: "two.txt" }] } });
+  expect(f.run.mock.calls[2][1]).toEqual({ ...request, confirmPublicTransfer: true });
 });

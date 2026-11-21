@@ -1,6 +1,6 @@
 import type { MediaCategory, SaveMediaResult, MediaDeleteBatch, MediaDeleteConfirmation, MediaDeleteItemResult, MediaDeletePrompt, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
-import type { WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
+import type { WorkflowBatchRequest, WorkflowBatchReceipt, WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
 import type { LoginResponse, SecurityProof, SecurityStatus, TotpSetup } from "../shared/security-contracts";
 import type { ConfigurationOverviewDocument, ConfigurationRestorePreview, ConfigurationPostCommitError } from "../shared/configuration-operations-contracts";
 import type { AgentProfileDocument, CreateAgentInput, UpdateAgentInput } from "../shared/agent-contracts";
@@ -503,6 +503,7 @@ export const api = {
   deleteWorkflowSemaphore: (code: string, revision: number) => request<void>(`/api/workflow-semaphores/${encodeURIComponent(code)}`, { method: "DELETE", body: JSON.stringify({ revision }) }),
   getWorkflowCatalog: () => request<WorkflowCatalog>("/api/workflows/catalog"),
   runWorkflow: (id: string, inputs: Record<string, unknown>, requestKey: string, confirmPublicTransfer?: boolean) => request<WorkflowRun>(`/api/workflows/${encodeURIComponent(id)}/run`, { method: "POST", body: JSON.stringify({ inputs, requestKey, confirmPublicTransfer }) }),
+  runWorkflowBatch: (id: string, batch: WorkflowBatchRequest) => request<WorkflowBatchReceipt>(`/api/workflows/${encodeURIComponent(id)}/run-batch`, { method: "POST", body: JSON.stringify(batch) }),
   getWorkflowRun: (id: string) => request<WorkflowRun>(`/api/workflow-runs/${encodeURIComponent(id)}`),
   cancelWorkflowRun: (id: string) => request<WorkflowRun>(`/api/workflow-runs/${encodeURIComponent(id)}/cancel`, { method: "POST" }),
   listWorkflowRuns: () => request<{ runs: (Pick<WorkflowRun, "id" | "workflowId" | "status" | "createdAt" | "finishedAt" | "error"> & { name: string })[] }>("/api/workflow-runs"),
