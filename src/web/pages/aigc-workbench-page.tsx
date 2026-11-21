@@ -6,9 +6,11 @@ import { Checkbox } from "../ui/choice";
 import { isMediaReference, mediaReference, type MediaFile } from "../../shared/media-library-contracts";
 import { MediaLibraryPicker, MediaPublicTransferDialog, SaveMediaResultButton, useMediaPublicTransfer } from "../components/media-library-actions";
 import "../media-lightbox.css";
-import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
+import { Activity, AlertTriangle, AudioLines, Boxes, CheckCircle2, Copy, Download, File, Film, GitFork, Image as ImageIcon, Play, Minus, Plus, RefreshCw, Save, TestTube2, Trash2, Upload, X } from "lucide-react";
 import { Fragment, lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import type {
+  AigcRerunDraft,
+  AigcBatchRequest,
   AigcChannelSummary,
   AigcComfyUiInputFile,
   AigcInterfaceCapability,
@@ -41,7 +43,7 @@ import type {
   AigcWorkflowSummary,
   ComfyUiFieldMetadata,
 } from "../../shared/aigc-contracts";
-import { AIGC_TASK_BULK_DELETE_LIMIT } from "../../shared/aigc-contracts";
+import { AIGC_MANUAL_BATCH_LIMIT, AIGC_TASK_BULK_DELETE_LIMIT } from "../../shared/aigc-contracts";
 import { createDefaultOpenAiParameters, resolveOpenAiParameterDefinitions } from "../../shared/aigc-openai-parameters";
 import { aigcComfyUiInputContentUrl, aigcInputAssetUrl, aigcTaskAssetUrl, api } from "../api";
 import { useApiTask, type ApiTaskPolicy } from "../api-task-provider";
@@ -74,7 +76,7 @@ interface AigcWorkbenchPageProps {
 export function AigcWorkbenchPage({ route }: AigcWorkbenchPageProps) {
   if (route.page === "aigc-interfaces") return <Suspense fallback={<p className="configuration-help">正在加载接口配置…</p>}><AigcInterfacesPage /></Suspense>;
   if (route.page === "aigc-interface-detail") return <AigcInterfaceDetail interfaceId={route.interfaceId} />;
-  if (route.page === "aigc-run") return <AigcRunPage preferredInterfaceId={route.interfaceId} />;
+  if (route.page === "aigc-run") return <AigcRunPage key={route.rerunTaskId ?? route.interfaceId ?? ""} rerunTaskId={route.rerunTaskId} preferredInterfaceId={route.interfaceId} />;
   if (route.page === "aigc-tasks") return <AigcTasksPage />;
   if (route.page === "aigc-task-detail") return <AigcTaskDetail taskId={route.taskId} />;
   if (route.page === "aigc-workflows") return <AigcWorkflowsPage />;
@@ -238,7 +240,7 @@ interface AigcRunFieldDefinition {
 }
 
 /** 创作台：选择已启用接口，按能力或 ComfyUI 映射动态生成入参并提交试运行。 */
-function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }) {
+function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterfaceId?: string; rerunTaskId?: string }) {
   const { runApiTask } = useApiTask();
   const online = useOnlineStatus();
   const [interfaces, setInterfaces] = useState<AigcInterfaceRecord[]>([]);
@@ -261,28 +263,48 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   const [connectionResult, setConnectionResult] = useState<{ ok: boolean; message: string }>();
   const [testingConnection, setTestingConnection] = useState(false);
 
+  const [quantity, setQuantity] = useState("1");
+  const count = Number(quantity);
+  const validCount = /^\d+$/.test(quantity) && count >= 1 && count <= AIGC_MANUAL_BATCH_LIMIT;
+  const [batchIds, setBatchIds] = useState<string[]>([]);
+  const [previewNotice, setPreviewNotice] = useState("");
+  const pending = useRef<AigcBatchRequest | undefined>(undefined);
+  const [draft, setDraft] = useState<AigcRerunDraft>();
+  const [draftIssues, setDraftIssues] = useState<string[]>([]);
   const enabledInterfaces = interfaces.filter((item) => item.enabled);
   const providerInterfaces = enabledInterfaces.filter((item) => item.protocol === provider);
   const selected = enabledInterfaces.find((item) => item.id === selectedId);
   const fields = selected ? runFields(selected, workflow) : [];
   const selectedChannelReady = Boolean(selected && channels.some((channel) => channel.id === selected.channelId && channel.enabled));
   const selectedReady = Boolean(selected && selectedChannelReady && (selected.protocol !== "comfyui" || workflow));
-  const taskActive = createdTask?.status === "queued" || createdTask?.status === "running";
+  const taskActive = (batchIds.length > 0 && !createdTask && !previewNotice) || createdTask?.status === "queued" || createdTask?.status === "running";
 
   useEffect(() => {
-    void runApiTask(async () => {
-      const [document, channelDocument] = await Promise.all([api.getAigcInterfaces(), api.getAigcRuntimeChannels()]);
+    let current = true;
+    void runApiTask(() => Promise.all([
+      api.getAigcInterfaces(), api.getAigcRuntimeChannels(),
+      rerunTaskId ? api.getAigcRerunDraft(rerunTaskId) : undefined,
+    ]), { operation: "加载 AIGC 创作接口与参数" }).then((result) => {
+      if (!current || result.status !== "success") return;
+      const [document, channelDocument, saved] = result.data;
       setInterfaces(document.interfaces);
       setChannels(channelDocument.channels);
-      return document;
-    }, { operation: "加载可用的 AIGC 接口" }).then((result) => {
-      if (result.status !== "success") return;
-      const preferred = result.data.interfaces.find((item) => item.enabled && item.id === preferredInterfaceId);
-      const firstEnabled = preferred ?? result.data.interfaces.find((item) => item.enabled);
-      if (firstEnabled) setProvider(firstEnabled.protocol);
-      if (firstEnabled) setSelectedId(firstEnabled.id);
+      setDraft(saved);
+      const available = document.interfaces.filter((item) => item.enabled);
+      const preferred = available.find((item) => item.id === (saved?.interfaceId ?? preferredInterfaceId));
+      const initial = saved ? (saved.interfaceAvailable ? preferred : undefined) : preferred ?? available[0];
+      if (initial) {
+        setProvider(initial.protocol);
+        setSelectedId(initial.id);
+      }
+      if (saved) {
+        const issues = saved.issues.map((issue) => [issue.field, issue.message].filter(Boolean).join(" · "));
+        if (!initial && !issues.length) issues.push("原接口不可用，请手动选择接口。");
+        setDraftIssues(issues);
+      }
     });
-  }, [preferredInterfaceId, runApiTask]);
+    return () => { current = false; };
+  }, [preferredInterfaceId, rerunTaskId, runApiTask]);
 
   useEffect(() => {
     void runApiTask(async () => {
@@ -293,6 +315,12 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   }, [runApiTask]);
 
   useEffect(() => {
+    let current = true;
+    const overrides = draft?.interfaceId === selected?.id ? draft?.inputs : undefined;
+    setQuantity("1");
+    setBatchIds([]);
+    setPreviewNotice("");
+    pending.current = undefined;
     setCreatedTask(undefined);
     setActiveAssetId("");
     setPreviewAsset(undefined);
@@ -309,7 +337,7 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     }
     if (selected.protocol !== "comfyui") {
       setWorkflow(undefined);
-      setValues(initialGrokOrOpenAiValues(selected));
+      setValues({ ...initialGrokOrOpenAiValues(selected), ...overrides });
       setUploads({});
       setMediaSources({});
       setComfyInputFiles({});
@@ -326,36 +354,65 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
       setComfyInputLoading({});
       return;
     }
+    setWorkflow(undefined);
+    setValues({});
     void runApiTask(async () => {
       const next = await api.getAigcWorkflow(workflowId);
+      if (!current) return next;
       setWorkflow(next.workflow);
-      setValues(initialComfyUiValues(next.workflow));
+      setValues({ ...initialComfyUiValues(next.workflow), ...overrides });
       setUploads({});
       setMediaSources({});
       setComfyInputFiles({});
       setComfyInputLoading({});
       return next;
     }, { operation: "加载 ComfyUI 入参", expected: aigcExpected(setMessage) });
-  }, [runApiTask, selected?.id]);
+    return () => { current = false; };
+  }, [runApiTask, selected?.id, draft]);
 
   useEffect(() => {
-    const taskId = createdTask?.id;
-    if (!taskId || (createdTask.status !== "queued" && createdTask.status !== "running")) return;
-    let disposed = false;
-    const refresh = async () => {
-      try {
-        const next = await api.getAigcTask(taskId);
-        if (!disposed) setCreatedTask((current) => current?.id === taskId ? next : current);
-      } catch {
-        // 短暂的轮询失败不覆盖已展示的任务状态，下一轮继续尝试。
+    if (!batchIds.length) return;
+    let current = true;
+    let timer: number;
+    let locked: string | undefined;
+    // 回执顺序即入队顺序。首个启动者确定后，仅轮询该任务。
+    async function refresh() {
+      const result = await runApiTask(async () => {
+        if (locked) return { task: await api.getAigcTask(locked) };
+        // 从同一次队列快照选取启动者，避免多个详情请求恰好跨越启动瞬间。
+        const { tasks } = await api.getAigcTasks();
+        const byId = new Map(tasks.map((task) => [task.id, task]));
+        const members = batchIds.flatMap((id) => byId.get(id) ?? []);
+        const started = members.filter((item) => item.startedAt).sort((a, b) =>
+          Date.parse(a.startedAt!) - Date.parse(b.startedAt!))[0];
+        if (started) locked = started.id;
+        const candidate = started ?? members.find((item) => item.status === "queued" || item.status === "running");
+        if (!candidate) return { reason: ["本批没有可预览的已启动任务。", ...members.map((item) => item.error?.message)].filter(Boolean).join(" ") };
+        return { task: await api.getAigcTask(candidate.id) };
+      }, { operation: "读取 AIGC 批次任务状态", expected: {
+        NOT_FOUND: (error) => {
+          if (current) {
+            setCreatedTask(undefined);
+            setPreviewNotice([error.message, error.code, error.requestId].filter(Boolean).join(" · "));
+          }
+        },
+      } });
+      if (!current) return;
+      if (result.status === "handled" && locked && result.error.code === "NOT_FOUND") return;
+      if (result.status === "success") {
+        const { task, reason } = result.data;
+        setCreatedTask(task);
+        if (!task) {
+          setPreviewNotice(reason ?? "本批没有任务启动。");
+          return;
+        }
+        if (locked && task.status !== "queued" && task.status !== "running") return;
       }
-    };
-    const timer = window.setInterval(() => void refresh(), 3_000);
-    return () => {
-      disposed = true;
-      window.clearInterval(timer);
-    };
-  }, [createdTask?.id, createdTask?.status]);
+      timer = window.setTimeout(() => void refresh(), 3000);
+    }
+    void refresh();
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [batchIds, runApiTask]);
 
   useEffect(() => {
     const assets = createdTask?.assets ?? [];
@@ -373,6 +430,8 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
 
   function changeProvider(nextProvider: AigcInterfaceProtocol) {
     if (taskActive) return;
+    setDraft(undefined);
+    setDraftIssues([]);
     setProvider(nextProvider);
     setSelectedId(enabledInterfaces.find((item) => item.protocol === nextProvider)?.id ?? "");
   }
@@ -473,12 +532,9 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
   const transfer = useMediaPublicTransfer("创建 AIGC 生成任务", setMessage);
 
   async function submit(confirmed = false) {
-    if (!selected || !online || submitting || taskActive) return;
+    if (!selected || !online || submitting || taskActive || !validCount) return;
     transfer.clear();
     setMessage("");
-    setCreatedTask(undefined);
-    setActiveAssetId("");
-    setPreviewAsset(undefined);
     const inputs: Record<string, AigcRunInputValue> = {};
     for (const field of fields) {
       const value = coerceRunValue(field, values[field.name]);
@@ -494,16 +550,30 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
     }
     setSubmitting(true);
     transfer.clearMissing();
-    const result = await runApiTask(() => api.runAigcInterface({ interfaceId: selected.id, inputs, ...(confirmed ? { confirmPublicTransfer: true } : {}) }), {
+    // 输入相同的失败重提复用原回执键和媒体顺序，兼容局域网 HTTP。
+    let request = pending.current;
+    if (!request || request.interfaceId !== selected.id || request.count !== count || JSON.stringify(request.inputs) !== JSON.stringify(inputs)) {
+      const requestKey = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      request = { interfaceId: selected.id, inputs, count, requestKey };
+    }
+    if (confirmed) request.confirmPublicTransfer = true;
+    pending.current = request;
+    const batch = request;
+    const result = await runApiTask(() => api.runAigcBatch(batch), {
       operation: "创建 AIGC 生成任务",
       expected: { VALIDATION_FAILED: transfer.validation, NOT_FOUND: (error) => transfer.missingReference(error,
         (field) => [inputs[field]].flat().some(isMediaReference)) },
     });
     setSubmitting(false);
     if (result.status !== "success") return;
-    setCreatedTask(result.data);
-    setActiveAssetId(result.data.assets[0]?.id ?? "");
-    setMessage("生成任务已创建，运行状态与产物会在当前页面更新。");
+    pending.current = undefined;
+    setQuantity("1");
+    setPreviewNotice("");
+    setCreatedTask(undefined);
+    setActiveAssetId("");
+    setPreviewAsset(undefined);
+    setBatchIds(result.data.taskIds);
+    setMessage(`已受理 ${result.data.taskIds.length} 次生成。`);
   }
 
   const actionStatus = runActionStatus({ task: createdTask, uploading: uploading !== undefined, ready: selectedReady });
@@ -547,12 +617,13 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
 
   return (
     <div className={selected?.protocol === "comfyui" ? "aigc-workbench-page aigc-run-page has-readiness" : "aigc-workbench-page aigc-run-page"}>
-      {transfer.message && <MediaPublicTransferDialog message={transfer.message} onClose={transfer.clear}
+      {transfer.message && <MediaPublicTransferDialog message={`${transfer.message} 本批运行 ${count} 次。`} onClose={transfer.clear}
         disabled={!online || submitting} onConfirm={() => void submit(true)} />}
       <div className="aigc-run-toolbar">
         <header className="aigc-page-heading aigc-run-heading">
           <h1>创作与运行</h1>
-          <p className={message ? "aigc-run-message" : "aigc-run-message is-empty"} role="status">{message || "选择渠道、接口和参数后开始生成"}</p>
+          <p className={message ? "aigc-run-message" : "aigc-run-message is-empty"} role="status">{message || "选择渠道、接口和参数后开始生成"} {batchIds.length > 0 && <a href="/aigc/tasks" onClick={(event) => { event.preventDefault(); navigateTo({ page: "aigc-tasks" }); }}>查看任务列表</a>}</p>
+          {draftIssues.map((issue, index) => <p className="configuration-inline-error" key={index}>{issue}</p>)}
         </header>
         <AigcProviderControl
           options={(["openai", "grok", "comfyui"] as const).map((item) => ({
@@ -562,15 +633,15 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
           }))}
           value={provider}
           onChange={changeProvider}
-          disabled={taskActive}
+          disabled={taskActive || submitting || Boolean(uploading)}
         />
         <label className="aigc-run-control">
           <span>接口</span>
           <SearchSelect
             ariaLabel="AIGC 接口"
             value={selectedId}
-            disabled={taskActive}
-            onChange={(next) => setSelectedId(next)}
+            disabled={taskActive || submitting || Boolean(uploading)}
+            onChange={(next) => { setDraft(undefined); setDraftIssues([]); setSelectedId(next); }}
             options={[
               { value: "", label: "请选择已启用接口" },
               ...providerInterfaces.map((item) => ({ value: item.id, label: item.name })),
@@ -598,24 +669,33 @@ function AigcRunPage({ preferredInterfaceId }: { preferredInterfaceId?: string }
               <section key={item.group.id} className="aigc-run-reference-group" aria-labelledby={`reference-group-${item.group.id}`}>
                 <div className="aigc-run-reference-group__heading"><div><strong id={`reference-group-${item.group.id}`}>{item.group.label}</strong><small>{item.filledCount}/{item.fields.length} 已添加</small></div><span>{item.group.type}</span></div>
                 <div className="aigc-run-reference-group__slots">
-                  {item.visibleFields.map((field) => <div key={field.name} className="aigc-run-reference-slot"><div className="aigc-run-reference-slot__heading"><span>槽位 {item.fields.indexOf(field) + 1}</span>{hasRunValue(values[field.name]) ? <IconButton label={`清空${field.label}`} title="清空槽位" onClick={() => clearRunField(field)}><Trash2 size={14} /></IconButton> : null}</div>{renderRunField(field)}</div>)}
+                  {item.visibleFields.map((field) => <div key={field.name} className="aigc-run-reference-slot"><div className="aigc-run-reference-slot__heading"><span>槽位 {item.fields.indexOf(field) + 1}</span>{hasRunValue(values[field.name]) ? <IconButton disabled={submitting || taskActive || Boolean(uploading)} label={`清空${field.label}`} title="清空槽位" onClick={() => clearRunField(field)}><Trash2 size={14} /></IconButton> : null}</div>{renderRunField(field)}</div>)}
                 </div>
               </section>
             )) : (
-              <div className="aigc-run-empty"><Boxes size={22} aria-hidden="true" /><p>暂无已启用的 {interfaceProtocolName(provider)} 接口。</p><Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建接口</Button></div>
+              <div className="aigc-run-empty"><Boxes size={22} aria-hidden="true" /><p>{providerInterfaces.length ? "请选择要使用的接口。" : `暂无已启用的 ${interfaceProtocolName(provider)} 接口。`}</p><Button type="button" className="configuration-secondary-action" onClick={() => navigateTo({ page: "aigc-interfaces" })}>创建接口</Button></div>
             )}
             {selected && !fields.length ? <p className="configuration-help">该接口无需额外入参，可直接开始生成。</p> : null}
             {selected && !selectedChannelReady ? <p className="configuration-help aigc-warning-copy">引用的渠道不存在或未启用，请先修复接口配置。</p> : null}
           </div>
-          <div className="aigc-run-action-bar">
-            <span className="aigc-run-action-status" role="status" aria-live="polite" title={actionStatus.full}>{actionStatus.short}</span>
-            <Button variant="primary" type="button" className="configuration-primary-action" disabled={!online || !selectedReady || submitting || uploading !== undefined || taskActive} onClick={() => void submit()}>
-              <Play size={15} />{submitting ? "正在创建…" : taskActive ? "生成中" : "开始生成"}
-            </Button>
-          </div>
+          <footer>
+            {!validCount && <p id="aigc-count-error" className="configuration-inline-error" role="alert">运行次数请输入 1 至 {AIGC_MANUAL_BATCH_LIMIT} 的整数。</p>}
+            <div className="aigc-run-action-bar">
+              <span className="aigc-run-action-status" role="status" aria-live="polite" title={actionStatus.full}>{actionStatus.short}</span>
+              <div className="aigc-run-count" role="group" aria-label="运行次数">
+                <IconButton label="减少运行次数" disabled={taskActive || submitting || !validCount || count <= 1} onClick={() => setQuantity(String(count - 1))}><Minus size={16} /></IconButton>
+                <TextField aria-label="运行次数" title="运行次数" inputMode="numeric" value={quantity} disabled={taskActive || submitting} aria-invalid={!validCount} aria-describedby={!validCount ? "aigc-count-error" : undefined} onChange={(event) => setQuantity(event.target.value)} />
+                <IconButton label="增加运行次数" disabled={taskActive || submitting || !validCount || count >= AIGC_MANUAL_BATCH_LIMIT} onClick={() => setQuantity(String(count + 1))}><Plus size={16} /></IconButton>
+              </div>
+              <Button variant="primary" type="button" className="configuration-primary-action" disabled={!validCount || !online || !selectedReady || submitting || uploading !== undefined || taskActive} onClick={() => void submit()}>
+                <Play size={15} />{submitting ? "正在创建…" : taskActive ? "生成中" : "开始生成"}
+              </Button>
+            </div>
+          </footer>
         </section>
 
         <AigcRunPreview
+          notice={previewNotice}
           task={createdTask}
           activeAssetId={activeAssetId}
           onActiveAssetChange={setActiveAssetId}
@@ -670,7 +750,8 @@ function AigcRunReadinessItem({ ok, pending = false, label, detail }: { ok: bool
 }
 
 /** 在创作台中展示当前任务状态，并支持切换图片、视频和音频产物。 */
-function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage }: {
+function AigcRunPreview({ notice, task, activeAssetId, onActiveAssetChange, onOpenImage }: {
+  notice: string;
   task?: AigcTaskRecord;
   activeAssetId: string;
   onActiveAssetChange: (assetId: string) => void;
@@ -707,7 +788,7 @@ function AigcRunPreview({ task, activeAssetId, onActiveAssetChange, onOpenImage 
         {task && activeAsset?.mediaType.startsWith("audio/") ? <div className="aigc-run-audio"><AudioLines size={34} aria-hidden="true" /><strong>{activeAsset.name}</strong><audio key={activeAsset.id} src={source} controls preload="metadata" aria-label={activeAsset.name} /></div> : null}
         {task && activeAsset && !isPreviewableMedia(activeAsset.mediaType) ? <div className="aigc-run-preview-empty"><File size={30} aria-hidden="true" /><strong>{activeAsset.name}</strong><p>{activeAsset.mediaType}</p></div> : null}
         {task && !activeAsset ? <AigcRunPreviewState task={task} /> : null}
-        {!task ? <div className="aigc-run-preview-empty"><ImageIcon size={30} aria-hidden="true" /><strong>等待生成</strong><p>尚未创建任务</p></div> : null}
+        {!task ? <div className="aigc-run-preview-empty"><ImageIcon size={30} aria-hidden="true" /><strong>{notice ? "批次已结束" : "等待生成"}</strong><p>{notice || "尚未创建任务"}</p></div> : null}
       </div>
     </section>
   );
@@ -821,7 +902,7 @@ function AigcRunField(props: {
   if (field.type === "bool") {
     return (
       <label className="configuration-check-line aigc-run-field aigc-run-field--bool">
-        <Checkbox checked={value === true} onChange={(event) => onChange(event.target.checked)} />
+        <Checkbox disabled={disabled} checked={value === true} onChange={(event) => onChange(event.target.checked)} />
         <span>{field.label}{field.required ? " *" : ""}</span>
       </label>
     );
@@ -831,7 +912,7 @@ function AigcRunField(props: {
       <div className="aigc-run-field">
         <span>{field.label}{field.required ? " *" : ""}</span>
         <SearchSelect
-          ariaLabel={field.label}
+          ariaLabel={field.label} disabled={disabled}
           options={(field.options ?? []).map((option) => ({ value: option, label: String(option) }))}
           value={typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined}
           onChange={onChange}
@@ -880,7 +961,7 @@ function AigcRunField(props: {
       <div className="aigc-run-field aigc-run-field--wide aigc-media-input">
         <div className="aigc-media-input__controls">
           <span>{field.label}{field.required ? " *" : ""}</span>
-          <Tabs label={`${field.label}输入来源`} panelId={sourcePanelId}
+          <Tabs disabled={disabled} label={`${field.label}输入来源`} panelId={sourcePanelId}
             value={mediaSource} onChange={onMediaSourceChange}
             items={mediaSourceOptions.filter((option) => option.value !== "comfyui_input" || allowComfyInput)
               .map((option) => ({ id: option.value, label: option.label }))} />
@@ -957,8 +1038,9 @@ function AigcRunField(props: {
   return (
     <label className={multiline ? "aigc-run-field aigc-run-field--wide" : "aigc-run-field"}>
       <span>{field.label}{field.required ? " *" : ""}</span>
-      {multiline ? <Textarea rows={4} placeholder={field.placeholder} aria-label={field.label} value={inputValue} onChange={(event) => onChange(event.target.value)} /> : (
+      {multiline ? <Textarea disabled={disabled} rows={4} placeholder={field.placeholder} aria-label={field.label} value={inputValue} onChange={(event) => onChange(event.target.value)} /> : (
         <TextField
+          disabled={disabled}
           type={isNumber ? "number" : "text"}
           min={field.min}
           max={field.max}
@@ -1241,7 +1323,7 @@ function coerceRunValue(field: AigcRunFieldDefinition, value: AigcRunInputValue 
     return text;
   }
   if (field.type === "enum") return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined;
-  if (isMediaReference(value) || (field.maxMediaFiles && Array.isArray(value) && value.length)) return value;
+  if ((field.publicUrl && typeof value === "string") || isMediaReference(value) || (field.maxMediaFiles && Array.isArray(value) && value.length)) return value;
   if (typeof value === "object" && ("assetId" in value || "url" in value || "filename" in value)) return value;
   return undefined;
 }
@@ -1779,7 +1861,7 @@ function AigcTaskDetail({ taskId }: { taskId: string }) {
   if (!task) return <div className="aigc-workbench-page"><p className="configuration-help">正在加载任务…</p></div>;
   return (
     <div className="aigc-workbench-page">
-      <header className="aigc-page-heading"><h1>创作结果</h1><p>{task.interfaceName} · {taskStatusLabel(task.status)}</p><Button variant="danger" onClick={() => setDeleteOpen(true)}><Trash2 size={15} aria-hidden="true" />删除任务</Button></header>
+      <header className="aigc-page-heading"><h1>创作结果</h1><p>{task.interfaceName} · {taskStatusLabel(task.status)}</p><Button onClick={() => navigateTo({ page: "aigc-run", rerunTaskId: task.id })}><Play size={15} />再次运行</Button><Button variant="danger" onClick={() => setDeleteOpen(true)}><Trash2 size={15} aria-hidden="true" />删除任务</Button></header>
       {message ? <p className="configuration-help" role="status">{message}</p> : null}
       <section className="configuration-form-card">
         <div className="aigc-task-meta"><span>任务 ID</span><code>{task.id}</code></div>

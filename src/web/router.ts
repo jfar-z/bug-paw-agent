@@ -9,7 +9,7 @@ export type AppRoute =
   | { page: "workflow-files" }
   | { page: "workflow-semaphores" }
   | { page: "aigc-overview" }
-  | { page: "aigc-run"; interfaceId?: string }
+  | { page: "aigc-run"; interfaceId?: string; rerunTaskId?: string }
   | { page: "aigc-interfaces" }
   | { page: "aigc-tasks" }
   | { page: "aigc-outputs" }
@@ -67,6 +67,8 @@ export function parseRoute(pathname: string, search = ""): AppRoute {
   if (workflowMatch) { try { return { page: "workflow-editor", workflowId: decodeURIComponent(workflowMatch[1]) }; } catch { return { page: "workflows" }; } }
   if (normalized === "/aigc") return { page: "aigc-overview" };
   if (normalized === "/aigc/run") {
+    const rerunTaskId = new URLSearchParams(search).get("rerun");
+    if (rerunTaskId) return { page: "aigc-run", rerunTaskId };
     const interfaceId = new URLSearchParams(search).get("interface")?.trim();
     return interfaceId ? { page: "aigc-run", interfaceId } : { page: "aigc-run" };
   }
@@ -165,6 +167,7 @@ export function routePath(route: AppRoute): string {
     case "aigc-overview":
       return "/aigc";
     case "aigc-run":
+      if (route.rerunTaskId) return `/aigc/run?rerun=${encodeURIComponent(route.rerunTaskId)}`;
       return route.interfaceId ? `/aigc/run?interface=${encodeURIComponent(route.interfaceId)}` : "/aigc/run";
     case "aigc-interfaces":
       return "/aigc/interfaces";

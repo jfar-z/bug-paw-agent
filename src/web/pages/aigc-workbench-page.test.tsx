@@ -294,7 +294,7 @@ describe("AigcWorkbenchPage 创作台", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("选择已启用接口后展示提示词表单并提交生成任务", async () => {
+  it("校验次数和提示词，整批受理后跳过未启动成员并按入队顺序选择预览", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/api/v1/aigc/interfaces") {
         return new Response(JSON.stringify({
@@ -318,7 +318,13 @@ describe("AigcWorkbenchPage 创作台", () => {
         return new Response(JSON.stringify({ revision: "c1", credentialRevision: "k1", channels: [{ id: "channel-1", name: "OpenAI", type: "openai", baseUrl: "https://api.openai.com/v1", enabled: true, timeoutMs: 30000, hasApiKey: true }], channelTemplates: [], credentials: [] }));
       }
       if (String(input) === "/api/v1/aigc/public-files") return new Response(JSON.stringify({ files: [] }));
-      if (String(input) === "/api/v1/aigc/tasks" && init?.method === "POST") {
+      if (String(input) === "/api/v1/aigc/tasks/batch" && init?.method === "POST") return Response.json({ taskIds: ["cancelled", "task-1", "task-2"] });
+      if (String(input) === "/api/v1/aigc/tasks") return Response.json({ tasks: [
+        { id: "task-2", status: "succeeded", startedAt: "2026-08-17T00:00:01Z" },
+        { id: "cancelled", status: "cancelled" },
+        { id: "task-1", status: "running", startedAt: "2026-08-17T00:00:01Z" },
+      ] });
+      if (String(input) === "/api/v1/aigc/tasks/task-1") {
         return new Response(JSON.stringify({
           id: "task-1",
           interfaceId: "interface-1",
@@ -346,11 +352,21 @@ describe("AigcWorkbenchPage 创作台", () => {
     expect(await screen.findByText("请填写 提示词")).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
 
+    const quantity = screen.getByRole("textbox", { name: "运行次数" });
+    expect(quantity).toHaveValue("1");
+    for (const value of ["", "0", "2.5", "十一", "11"]) {
+      fireEvent.change(quantity, { target: { value } });
+      expect(screen.getByRole("button", { name: "开始生成" })).toBeDisabled();
+      expect(screen.getByText(/运行次数请输入/)).toBeVisible();
+    }
+    fireEvent.change(quantity, { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText("提示词"), { target: { value: "一只在太空中的猫" } });
     fireEvent.click(screen.getByRole("button", { name: "开始生成" }));
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST" && String(init.body).includes("一只在太空中的猫"))).toBe(true));
     const detailLink = await screen.findByRole("link", { name: "查看任务详情" });
+    expect(quantity).toHaveValue("1");
+    expect(screen.getByText(/已受理 3 次生成/)).toBeVisible();
     expect(detailLink).toHaveAttribute("href", "/aigc/tasks/task-1");
     fireEvent.click(detailLink);
     expect(window.location.pathname).toBe("/aigc/tasks/task-1");

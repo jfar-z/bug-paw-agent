@@ -409,6 +409,19 @@ audio.aigc-media-input-preview {
   font-size: 11px;
 }
 
+.aigc-run-count {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.aigc-run-count .bp-input {
+  width: 3em;
+  min-width: 0;
+  padding-inline: 2px;
+  text-align: center;
+}
+
 .aigc-run-action-status {
   min-width: 0;
   flex: 1;
