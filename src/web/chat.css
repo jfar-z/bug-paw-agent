@@ -3167,5 +3167,8 @@ img.message-avatar {
 .chat-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reference-composer__footer { padding-top: 8px; border-top: 1px solid var(--border); }
 @media (max-width: 760px) {
-  .chat-header.live-chat-header { grid-template-columns: 44px minmax(0, .82fr) 44px minmax(0, 1fr) 44px; column-gap: 4px; }
+  /* 手机端从会话历史搜索，顶栏释放对应的按钮和占位。 */
+  .live-chat-header .chat-search-shortcut {
+    display: none;
+  }
 }
