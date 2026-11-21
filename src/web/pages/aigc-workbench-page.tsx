@@ -1263,7 +1263,8 @@ function grokRunFields(item: AigcInterfaceRecord): AigcRunFieldDefinition[] {
   if (["text-to-image", "image-edit", "text-to-video", "image-to-video"].includes(item.capability)) {
     fields.push({ name: "size", label: "输出尺寸", type: "string", required: false, placeholder: "例如 1024x1024" });
   }
-  if (["text-to-video", "image-to-video", "video-extend"].includes(item.capability)) {
+  // 视频编辑也接受时长，提交时按此字段列表读取草稿或用户修改的值。
+  if (["text-to-video", "image-to-video", "video-edit", "video-extend"].includes(item.capability)) {
     fields.push({ name: "duration", label: "时长（秒）", type: "int", required: false, placeholder: "1 到 300" });
   }
   return fields;
