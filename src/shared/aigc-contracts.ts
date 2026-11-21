@@ -515,6 +515,8 @@ export interface AigcTaskRecord {
   channelId: string;
   status: AigcTaskStatus;
   inputs: Record<string, unknown>;
+  /** 手动创作时的业务输入，保留媒体库引用供再次运行复核。 */
+  creationInputs?: AigcRunRequest["inputs"];
   diagnostics?: AigcTaskDiagnostics;
   assets: AigcTaskAsset[];
   execution?: AigcTaskExecutionState;
@@ -607,6 +609,23 @@ export interface AigcRunRequest {
   confirmPublicTransfer?: boolean;
   interfaceId: string;
   inputs: Record<string, AigcRunInputValue>;
+}
+
+export const AIGC_MANUAL_BATCH_LIMIT = 10;
+
+export interface AigcBatchRequest extends AigcRunRequest {
+  count: number;
+  requestKey: string;
+}
+
+export interface AigcBatchReceipt {
+  /** 按入队顺序排列，重放原请求时保持一致。 */
+  taskIds: string[];
+}
+
+export interface AigcRerunDraft extends AigcRunRequest {
+  interfaceAvailable: boolean;
+  issues: { field?: string; message: string }[];
 }
 
 /** 上传到 AIGC 工作台的临时输入资产。 */

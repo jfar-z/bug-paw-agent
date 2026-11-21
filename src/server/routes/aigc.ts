@@ -1,3 +1,4 @@
+import { readRerunDraft, submitManualBatch } from "../aigc/aigc-manual-creation";
 import { DomainError } from "../core/errors";
 import { statusForDomainError } from "../http/error-handler";
 import type { MediaAccess } from "../media-library/media-access";
@@ -17,6 +18,7 @@ import type {
   AigcInterfaceInput,
   AigcPublicFileSummary,
   AigcRunRequest,
+  AigcBatchRequest,
   AigcWorkflowCreateInput,
   AigcWorkflowReplaceInput,
   AigcWorkflowUpdateInput,
@@ -348,6 +350,27 @@ function registerTaskRoutes(app: FastifyInstance, dependencies: AigcRouteDepende
       return sendApiError(reply, 400, "VALIDATION_FAILED", "AIGC 产物分页参数无效");
     }
     return reply.send(await dependencies.tasks.listOutputs({ kind, sort, page, pageSize }));
+  });
+
+  app.post("/api/aigc/tasks/batch", async (request, reply) => {
+    if (!(await requireAuthentication(request, reply, dependencies.authService))) return;
+    const body = request.body;
+    if (!isRecord(body) || typeof body.interfaceId !== "string" || !isRecord(body.inputs))
+      return sendApiError(reply, 400, "VALIDATION_FAILED", "AIGC 批量创作参数格式无效");
+    try {
+      return reply.code(202).send(await submitManualBatch(body as unknown as AigcBatchRequest, dependencies));
+    } catch (error) {
+      return sendAigcError(reply, error);
+    }
+  });
+
+  app.get<{ Params: { id: string } }>("/api/aigc/tasks/:id/rerun-draft", async (request, reply) => {
+    if (!(await requireAuthentication(request, reply, dependencies.authService))) return;
+    try {
+      return reply.send(await readRerunDraft(request.params.id, dependencies));
+    } catch (error) {
+      return sendAigcError(reply, error);
+    }
   });
 
   app.post("/api/aigc/tasks", async (request, reply) => {

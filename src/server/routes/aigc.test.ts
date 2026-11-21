@@ -58,6 +58,23 @@ describe("AIGC 产物路由", () => {
     await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
+  it("批量创作与再次运行草稿均要求工作台登录", async () => {
+    const app = Fastify();
+    registerApiV1Namespace(app);
+    registerAigcRoutes(app, { authService: { isAuthenticated: async () => false } as never,
+      workflows: {} as never, interfaces: {} as never, tasks: {} as never, assets: {} as never,
+      publicFiles: {} as never, comfyuiInputs: {} as never });
+    const responses = await Promise.all([
+      app.inject({ method: "POST", url: "/api/v1/aigc/tasks/batch", payload: {} }),
+      app.inject({ method: "GET", url: "/api/v1/aigc/tasks/example/rerun-draft" }),
+    ]);
+    for (const response of responses) {
+      expect(response.statusCode).toBe(401);
+      expect(response.json().error).toMatchObject({ code: "AUTH_REQUIRED", requestId: expect.any(String) });
+    }
+    await app.close();
+  });
+
   it.each([true, false])("任务诊断沿用登录权限：%s", async (authenticated) => {
     const diagnostics = { request: { method: "POST", endpoint: "images/generations", body: { model: "image-model", prompt: "猫" } }, response: { endpoint: "images/generations", status: 400, body: '{"error":{"code":"bad_size"}}', truncated: false } };
     const get = vi.fn(async () => ({ id: "task-1", status: "failed", diagnostics }));

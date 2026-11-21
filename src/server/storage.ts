@@ -20,7 +20,7 @@ export async function readJson<T>(filePath: string): Promise<T | undefined> {
 /**
  * 在目标目录内写入临时文件并原子替换，避免进程中断留下半份 JSON。
  */
-export async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+export async function writeJsonAtomic(filePath: string, value: unknown, onPostCommitError?: (error: Error) => void): Promise<void> {
   const serializedValue = JSON.stringify(value);
   if (serializedValue === undefined) {
     throw new TypeError("JSON 内容不能序列化为 undefined");
@@ -30,6 +30,7 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
   const temporaryFile = join(directory, `.${basename(filePath)}.${randomUUID()}.tmp`);
   await mkdir(directory, { recursive: true, mode: 0o700 });
 
+  let replaced = false;
   let temporaryHandle: Awaited<ReturnType<typeof open>> | undefined;
   try {
     temporaryHandle = await open(temporaryFile, "wx", 0o600);
@@ -39,6 +40,7 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
     temporaryHandle = undefined;
 
     await rename(temporaryFile, filePath);
+    replaced = true;
     await chmod(filePath, 0o600);
 
     const directoryHandle = await open(directory, "r");
@@ -48,6 +50,11 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
       await directoryHandle.close();
     }
   } catch (error) {
+    // 已替换的记录可被其他读取者观察到；事务调用方需保留其引用的资产并报告后置故障。
+    if (replaced && onPostCommitError && error instanceof Error) {
+      onPostCommitError(error);
+      return;
+    }
     await temporaryHandle?.close().catch(() => undefined);
     await rm(temporaryFile, { force: true }).catch(() => undefined);
     throw error;

@@ -1,10 +1,21 @@
+import { DomainError } from "../core/errors";
 import type { AigcTaskRecord } from "../../shared/aigc-contracts";
 import { readJson, writeJsonAtomic } from "../storage";
 import { KeyedMutex } from "../core/keyed-mutex";
 
+interface StoredBatchReceipt {
+  hash: string;
+  taskIds: string[];
+}
+
+interface BatchIndex {
+  manualBatches: [string, StoredBatchReceipt][];
+}
+
 /** 以单文件 JSON 保存 AIGC 任务历史。 */
 export class AigcTaskRepository {
   private readonly tasks = new Map<string, AigcTaskRecord>();
+  private batches = new Map<string, StoredBatchReceipt>();
   private sequence = 0;
   private readonly ready: Promise<void>;
   /** 串行保存，避免并发任务用旧快照覆盖新状态。 */
@@ -44,6 +55,32 @@ export class AigcTaskRepository {
         throw error;
       }
       return copyTask(task);
+    });
+  }
+
+  /** 已删除成员仍属于历史回执，重放不能再次计费。 */
+  async batchReceipt(key: string, hash: string) {
+    await this.ready;
+    const previous = this.batches.get(key);
+    if (previous && previous.hash !== hash) throw new DomainError("CONFLICT", "此批次请求键已用于其他创作参数或次数");
+    return previous && { taskIds: [...previous.taskIds] };
+  }
+
+  /** 一次原子替换同时公布回执与整个连续队列区间。 */
+  async createBatch(key: string, hash: string, tasks: AigcTaskRecord[], onPostCommitError?: (error: Error) => void) {
+    await this.ready;
+    return this.mutations.run("tasks", async () => {
+      if (this.batches.has(key) || tasks.some(task => this.tasks.has(task.id))) throw new TypeError("AIGC 批次或任务标识重复");
+      const queued = tasks.map(task => ({ ...task, submittedAt: task.createdAt, queueOrder: ++this.sequence }));
+      const nextBatches = new Map(this.batches).set(key, { hash, taskIds: queued.map(task => task.id) });
+      try {
+        await this.persist([...this.tasks.values(), ...queued], nextBatches, onPostCommitError);
+      } catch (error) {
+        throw new DomainError("INTERNAL_ERROR", "写入 AIGC 批次回执与任务历史失败", undefined, { cause: error });
+      }
+      this.batches = nextBatches;
+      for (const task of queued) this.tasks.set(task.id, task);
+      return queued;
     });
   }
 
@@ -120,10 +157,11 @@ export class AigcTaskRepository {
 
   /** 加载历史文件并容错缺失或损坏内容。 */
   private async load(): Promise<void> {
-    const value = await readJson<AigcTaskRecord[]>(this.filePath);
+    const value = await readJson<(AigcTaskRecord | BatchIndex)[]>(this.filePath);
     if (!Array.isArray(value)) return;
     for (const task of value) {
-      if (isTaskRecord(task)) { this.tasks.set(task.id, copyTask(task)); this.sequence = Math.max(this.sequence, task.queueOrder ?? 0); }
+      if (task && typeof task === "object" && "manualBatches" in task) this.batches = new Map(task.manualBatches);
+      else if (isTaskRecord(task)) { this.tasks.set(task.id, copyTask(task)); this.sequence = Math.max(this.sequence, task.queueOrder ?? 0); }
     }
     // 进程重启后不能假设上游没有执行，更不能自动重试计费任务。
     let changed = false;
@@ -139,8 +177,8 @@ export class AigcTaskRepository {
   }
 
   /** 原子保存当前任务集合。 */
-  private async persist(): Promise<void> {
-    await writeJsonAtomic(this.filePath, [...this.tasks.values()].map(copyTask));
+  private async persist(tasks = [...this.tasks.values()], batches = this.batches, onPostCommitError?: (error: Error) => void): Promise<void> {
+    await writeJsonAtomic(this.filePath, batches.size ? [...tasks, { manualBatches: [...batches] }] : tasks, onPostCommitError);
   }
 }
 

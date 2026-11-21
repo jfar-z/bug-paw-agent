@@ -15,6 +15,14 @@
 
 `response` 为最近一次生成或轮询接口的 `{ endpoint, status, body, truncated }`。body 为脱敏文本（JSON 美化），最多 65536 字符，超限时 truncated 为 true；HTTP 200 业务失败也保留回参。认证字段、渠道密钥、签名 URL 参数、路径、堆栈和 base64 产物不公开。网络失败可能只有 request；尚未发送及历史任务可能没有 diagnostics，不得推算或伪造请求。重试清除上一轮诊断。沿用现有任务 Repository 的原子持久化与重启恢复规则，无数据库迁移。
 
+## AIGC 工作台批量创作与再次运行
+
+登录后的工作台可向 `POST /api/v1/aigc/tasks/batch` 提交 `{interfaceId, inputs, count, requestKey, confirmPublicTransfer?}`。批次数量 `count` 为 1～10 的整数；`inputs.count` 仍是 Grok 单次生成数量。请求键为 1～80 位字母、数字、下划线或连字符。成功返回 HTTP 202 和按入队顺序排列的 `{taskIds: string[]}`。每个成员按手动任务身份独立排队、取消和保存产物。
+
+媒体沿用创作表单的上传资产、公共文件、媒体库及 ComfyUI input 引用。整批共用一次媒体准备。需要公网确认时返回 `VALIDATION_FAILED` 和 `details.requiresPublicTransfer`，确认后使用原请求键重发。已受理请求按工作台手动身份、请求键及原始接口、次数、输入指纹恢复。数组顺序参与指纹；同键不同内容返回 `CONFLICT`。登记的 ID 可跨重启恢复，删除过的成员不会重新生成。
+
+登录后读取 `GET /api/v1/aigc/tasks/:id/rerun-draft` 返回 `{interfaceId, interfaceAvailable, inputs, issues: [{field?, message}]}`。表单显示服务端返回的可用输入和逐项提示，每次打开把批次数量设为 1。原接口不可用时 `interfaceAvailable` 为 false。草稿仅使用保存的业务输入和当前字段定义。私有工作区路径和 MCP 上传文件需要重新选择；媒体库引用按工作台当前权限重新核验。确认运行仍走批量创作入口，原任务重试继续使用 `POST /api/v1/aigc/tasks/:id/retry`。
+
 ## 媒体库
 
 工作台登录会话访问 `/api/v1/media-libraries`。库和文件使用稳定 UUID，元数据结构见 `src/shared/media-library-contracts.ts`。响应带 `Cache-Control: private, no-store`。

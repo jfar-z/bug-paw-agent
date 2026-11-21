@@ -7,6 +7,9 @@ import { randomUUID } from "node:crypto";
 
 import type {
   AigcRunRequest,
+  AigcBatchRequest,
+  AigcBatchReceipt,
+  AigcInterfaceRecord,
   AigcOutputKind,
   AigcOutputPage,
   AigcTaskDocument,
@@ -16,7 +19,8 @@ import type {
   AigcTaskSummary,
 } from "../../shared/aigc-contracts";
 import type { CredentialService } from "../configuration/credential-service";
-import { toSafePublicMessage } from "../core/errors";
+import { AIGC_MANUAL_BATCH_LIMIT } from "../../shared/aigc-contracts";
+import { DomainError, toSafePublicMessage } from "../core/errors";
 import { AigcAssetService } from "./aigc-asset-service";
 import type { AigcConnectionService } from "./aigc-connection-service";
 import type { AigcInterfaceService } from "./aigc-interface-service";
@@ -42,6 +46,7 @@ interface AigcTaskServiceDependencies {
 export class AigcTaskService {
   /** 批量启动与取消互斥，防止取消与提交交错后错误确认上游已停止。 */
   private readonly lifecycle = new KeyedMutex();
+  private readonly submissions = new KeyedMutex();
   private readonly controllers = new Map<string, AbortController>();
   private readonly executionStates = new Map<string, AigcTaskExecutionState>();
   private readonly executions = new Map<string, Promise<void>>();
@@ -114,6 +119,37 @@ export class AigcTaskService {
     });
     this.enqueue(task);
     return task;
+  }
+
+  /** 同一手动请求只准备一次媒体；重放优先于当前配置和文件检查。 */
+  async createManualBatch(request: AigcBatchRequest, prepare: (item: AigcInterfaceRecord,
+    accept: (inputs: AigcRunRequest["inputs"], creationInputs: AigcRunRequest["inputs"]) => Promise<AigcBatchReceipt>
+  ) => Promise<AigcBatchReceipt>): Promise<AigcBatchReceipt> {
+    const { requestKey, count, interfaceId } = request;
+    if (!Number.isInteger(count) || count < 1 || count > AIGC_MANUAL_BATCH_LIMIT)
+      throw new DomainError("VALIDATION_FAILED", "AIGC 运行次数必须为 1～10 的整数");
+    if (typeof requestKey !== "string" || !/^[A-Za-z0-9_-]{1,80}$/u.test(requestKey))
+      throw new DomainError("VALIDATION_FAILED", "批次请求键必须为 1～80 位字母、数字、下划线或连字符");
+    const hash = taskFingerprint([interfaceId, count, request.inputs]);
+    return this.submissions.run(requestKey, async () => {
+      await this.ready;
+      const previous = await this.dependencies.repository.batchReceipt(requestKey, hash);
+      if (previous) return previous;
+      const item = await this.dependencies.interfaces.get(interfaceId);
+      if (!item?.enabled) throw new DomainError("VALIDATION_FAILED", "目标 AIGC 接口不存在或已停用");
+      const channel = (await this.dependencies.connections.read()).channels.find(channel => channel.id === item.channelId);
+      if (!channel?.enabled) throw new DomainError("VALIDATION_FAILED", "目标 AIGC 接口的渠道不存在或已停用");
+      return prepare(item, async (inputs, creationInputs) => {
+        if (this.closing) throw new Error("AIGC 服务正在停止");
+        const now = new Date().toISOString();
+        const tasks = await this.dependencies.repository.createBatch(requestKey, hash, Array.from({ length: count }, () => ({
+          id: randomUUID(), interfaceId, interfaceName: item.name, channelId: item.channelId, status: "queued",
+          inputs, creationInputs, assets: [], createdAt: now, updatedAt: now,
+        })), this.dependencies.backgroundError);
+        for (const task of tasks) this.enqueue(task);
+        return { taskIds: tasks.map(task => task.id) };
+      });
+    });
   }
 
   /** 只保存已校验的 Agent 任务，绝不启动适配器。 */

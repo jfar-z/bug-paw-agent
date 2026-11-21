@@ -17,11 +17,19 @@ import { isMediaReference, type MediaAccess } from "./media-access";
 const entries = (value: AigcRunRequest["inputs"][string]) => Array.isArray(value) ? value : [value];
 
 /** 工作台执行提交时固定媒体内容，复制失败或提交被拒绝时回收本次副本。 */
-export async function submitMediaInputs(request: AigcRunRequest, deps: {
+interface MediaInputDependencies {
   mediaAccess: MediaAccess; publicOrigin?: string; assets: AigcAssetService; publicFiles: AigcPublicFileService;
   interfaces: AigcInterfaceService; workflows: AigcWorkflowService; tasks: AigcTaskService;
-}) {
-  if (!Object.values(request.inputs).some(value => entries(value).some(isMediaReference))) return deps.tasks.createRun(request);
+}
+
+export function submitMediaInputs(request: AigcRunRequest, deps: MediaInputDependencies) {
+  return withMediaInputs(request, deps, prepared => deps.tasks.createRun(prepared));
+}
+
+/** 成员共用一次媒体准备；只有整批受理成功后才保留副本。 */
+export async function withMediaInputs<T>(request: AigcRunRequest, deps: MediaInputDependencies,
+  accept: (request: AigcRunRequest) => Promise<T>): Promise<T> {
+  if (!Object.values(request.inputs).some(value => entries(value).some(isMediaReference))) return accept(request);
   const item = await deps.interfaces.get(request.interfaceId);
   if (!item?.enabled) throw new DomainError("VALIDATION_FAILED", "目标 AIGC 接口不存在或已停用");
   const workflow = item.protocol === "comfyui" ? await deps.workflows.getPrivate((item.config as { workflowId: string }).workflowId) : undefined;
@@ -77,7 +85,7 @@ export async function submitMediaInputs(request: AigcRunRequest, deps: {
     for (const field of selected)
       for (const ref of entries(request.inputs[field.name]).filter(isMediaReference))
         await deps.mediaAccess.describe(ref, field.name, field.type);
-    return await deps.tasks.createRun({ interfaceId: item.id, inputs });
+    return await accept({ interfaceId: item.id, inputs });
   } catch (error) {
     await Promise.all(uploads.map(id => publish ? deps.publicFiles.remove(id) : deps.assets.removeInput(id)));
     throw error;
