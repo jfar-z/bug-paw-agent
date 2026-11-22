@@ -1,3 +1,5 @@
+import type { AigcConnectionService } from "./aigc-connection-service";
+import type { TemplateSnapshot } from "../run-templates/run-template-repository";
 import type {
   AigcBatchRequest, AigcGrokInterfaceConfig, AigcInterfaceRecord, AigcRerunDraft,
   AigcRunRequest, AigcSingleRunInputValue, AigcTaskRecord, AigcWorkflowDetail,
@@ -34,7 +36,8 @@ function currentWorkflow(item: AigcInterfaceRecord, deps: CreationDependencies) 
 
 /** 用当前工作台的接口定义和媒体访问边界准备一份可编辑表单。 */
 async function projectInputs(deps: CreationDependencies, item: AigcInterfaceRecord,
-  workflow: AigcWorkflowDetail | undefined, saved: Record<string, unknown>, task?: AigcTaskRecord): Promise<AigcRerunDraft> {
+  workflow: AigcWorkflowDetail | undefined, saved: Record<string, unknown>, task?: AigcTaskRecord,
+  template?: { previous?: TemplateSnapshot; publicUrl: (id: string) => string; channelKey: string; types: Record<string, string> }): Promise<AigcRerunDraft> {
   const fields = agentFields(item, workflow);
   for (const mapping of workflow?.inputMappings ?? []) {
     const definition = fields.find(field => field.name === mapping.name)!;
@@ -46,7 +49,7 @@ async function projectInputs(deps: CreationDependencies, item: AigcInterfaceReco
   const inputs: AigcRunRequest["inputs"] = Object.create(null);
   const issues: AigcRerunDraft["issues"] = [];
   function report(field: string, message: string) {
-    if (!task) throw new DomainError("VALIDATION_FAILED", message, { field });
+    if (!task && !template) throw new DomainError("VALIDATION_FAILED", message, { field });
     issues.push({ field, message });
   }
   for (const name of Object.keys(saved)) {
@@ -54,6 +57,16 @@ async function projectInputs(deps: CreationDependencies, item: AigcInterfaceReco
   }
   for (const field of fields) {
     const value = Object.hasOwn(saved, field.name) ? saved[field.name] : undefined;
+    if (template) {
+      // 保存端传入表单当前有效值。缺失必填项留给提交校验，新字段由运行表单填入默认值。
+      if (value === undefined) continue;
+      const type = field.type + (field.multiple ? "[]" : "");
+      template.types[field.name] = type;
+      if (template.previous && template.previous.types[field.name] !== type) {
+        report(field.name, "参数 " + field.name + " 的类型已变化");
+        continue;
+      }
+    }
     if (field.source) {
       if (value === undefined) {
         if (field.required) report(field.name, "缺少必填媒体参数 " + field.name);
@@ -67,9 +80,10 @@ async function projectInputs(deps: CreationDependencies, item: AigcInterfaceReco
       const accepted: AigcSingleRunInputValue[] = [];
       for (const entry of entries) {
         try {
-          accepted.push(await resolveMedia(deps, item, field, entry, workflow, task));
+          accepted.push(await resolveMedia(deps, item, field, entry, workflow, task,
+            template && { channelChanged: !!template.previous && template.previous.channelKey !== template.channelKey, publicUrl: template.publicUrl }));
         } catch (error) {
-          if (!task) throw error;
+          if (!task && !template) throw error;
           if (error instanceof DomainError && ["VALIDATION_FAILED", "NOT_FOUND", "FORBIDDEN"].includes(error.code)) {
             report(field.name, error.message);
           } else if (error instanceof TypeError) {
@@ -100,7 +114,8 @@ async function projectInputs(deps: CreationDependencies, item: AigcInterfaceReco
 
 /** 只投影当前来源允许的媒体字段，不复用其他调用方的临时副本。 */
 async function resolveMedia(deps: CreationDependencies, item: AigcInterfaceRecord, field: AigcAgentField,
-  value: unknown, workflow?: AigcWorkflowDetail, task?: AigcTaskRecord): Promise<AigcSingleRunInputValue> {
+  value: unknown, workflow?: AigcWorkflowDetail, task?: AigcTaskRecord,
+  template?: { channelChanged: boolean; publicUrl: (id: string) => string }): Promise<AigcSingleRunInputValue> {
   const missing = () => new DomainError("NOT_FOUND", "参数 " + field.name + " 的媒体不可用，请重新选择", { field: field.name });
   if (isMediaReference(value)) {
     if (!deps.mediaAccess) throw missing();
@@ -115,6 +130,12 @@ async function resolveMedia(deps: CreationDependencies, item: AigcInterfaceRecor
     const parsed = new URL(url);
     if (!["https:", "http:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.hash) throw missing();
     const local = /^\/aigc-public\/files\/([^/]+)$/u.exec(parsed.pathname);
+    if (template) {
+      // 模板仅持有工作台可追溯的公开文件，拒绝同路径但不同来源的链接。
+      if (!local || template.publicUrl(local[1]) !== url) throw missing();
+      const file = await deps.publicFiles.get(local[1]);
+      if (!file?.mediaType.startsWith(field.type + "/")) throw missing();
+    }
     if (local && !await deps.publicFiles.resolvePath(local[1])) throw missing();
     if (typeof value === "string") return url;
     if (typeof ref.name === "string" && typeof ref.mediaType === "string" && ref.mediaType.startsWith(field.type + "/"))
@@ -122,7 +143,7 @@ async function resolveMedia(deps: CreationDependencies, item: AigcInterfaceRecor
     throw missing();
   }
   if (ref.source === "comfyui_input" && workflow) {
-    if (task && task.channelId !== item.channelId) throw missing();
+    if ((task && task.channelId !== item.channelId) || template?.channelChanged) throw missing();
     const mapping = workflow.inputMappings.find(mapping => mapping.name === field.name)!;
     const node = workflow.nodes.find(node => node.id === mapping.nodeId);
     const options = node && await deps.comfyuiInputs.list(item.channelId, node.type, mapping.field);
@@ -163,4 +184,22 @@ export async function readRerunDraft(id: string, deps: CreationDependencies): Pr
   if (!item?.enabled) return { interfaceId: task.interfaceId, interfaceAvailable: false, inputs: {},
     issues: [{ message: "原接口已删除或停用，请手动选择接口" }] };
   return projectInputs(deps, item, await currentWorkflow(item, deps), task.creationInputs ?? task.preparation?.values ?? task.inputs, task);
+}
+
+/** 模板与再次运行共用当前接口、字段约束和媒体来源复核。 */
+export async function projectAigcTemplate(deps: CreationDependencies, connections: AigcConnectionService, id: string,
+  saved: Record<string, unknown>, publicUrl: (id: string) => string, previous?: TemplateSnapshot) {
+  const item = await deps.interfaces.get(id);
+  if (!item) throw new DomainError("NOT_FOUND", "创作接口已删除或不存在");
+  if (!item.enabled) throw new DomainError("RUN_TEMPLATE_CONFLICT", "创作接口已停用");
+  const channel = (await connections.read()).channels.find(channel => channel.id === item.channelId);
+  if (!channel?.enabled) throw new DomainError("RUN_TEMPLATE_CONFLICT", "创作接口的渠道不存在或已停用");
+  if (item.protocol === "comfyui" && !await deps.workflows.exists((item.config as { workflowId: string }).workflowId))
+    throw new DomainError("NOT_FOUND", "创作接口绑定的 ComfyUI 工作流不存在");
+  // 渠道 ID 相同但地址变化时，同名的 ComfyUI 文件也不能自动替换原文件。
+  const channelKey = taskFingerprint([channel.id, channel.baseUrl]);
+  const types: Record<string, string> = Object.create(null);
+  const draft = await projectInputs(deps, item, await currentWorkflow(item, deps), saved, undefined, { previous, types, channelKey, publicUrl });
+  return { targetName: item.name, snapshot: { inputs: draft.inputs, types, channelKey },
+    issues: draft.issues.map(issue => ({ field: issue.field!, message: issue.message })) };
 }

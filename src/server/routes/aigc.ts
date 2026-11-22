@@ -647,7 +647,7 @@ function toPublicFileSummary(file: AigcPublicFileRecord, url: string): AigcPubli
 }
 
 /** 根据请求 Host 与转发头生成公网可直接访问的文件 URL。 */
-function publicFileUrl(request: FastifyRequest, id: string): string {
+export function publicFileUrl(request: FastifyRequest, id: string): string {
   const forwardedProto = firstHeader(request.headers["x-forwarded-proto"]);
   const forwardedHost = firstHeader(request.headers["x-forwarded-host"]);
   const protocol = forwardedProto?.split(",", 1)[0].trim() || request.protocol;

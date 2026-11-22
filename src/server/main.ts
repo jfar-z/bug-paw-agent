@@ -1,3 +1,7 @@
+import { RunTemplateRepository } from "./run-templates/run-template-repository";
+import { projectAigcTemplate } from "./aigc/aigc-manual-creation";
+import { projectWorkflowTemplate } from "./run-templates/workflow-template";
+import { registerRunTemplateRoutes } from "./routes/run-templates";
 import { WorkflowRepository } from "./workflows/workflow-repository";
 import { WorkflowService } from "./workflows/workflow-service";
 import { WorkflowFiles } from "./workflows/workflow-files";
@@ -95,7 +99,7 @@ import { OpenAiAigcAdapter } from "./aigc/openai-adapter";
 import { GrokAigcAdapter } from "./aigc/grok-adapter";
 import { ComfyUiAigcAdapter } from "./aigc/comfyui-adapter";
 import { registerAigcChannelRoutes } from "./routes/aigc-channels";
-import { registerAigcRoutes } from "./routes/aigc";
+import { publicFileUrl, registerAigcRoutes } from "./routes/aigc";
 import { EmbeddingConfigService } from "./knowledge-base/embedding-config-service";
 import { OpenAiEmbeddingClient } from "./knowledge-base/openai-embedding-client";
 import { registerKnowledgeRetrievalRoutes } from "./routes/knowledge-retrieval";
@@ -784,7 +788,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     credentials: aigcCredentials,
     isChannelInUse: (channelId) => aigcInterfaces.isChannelInUse(channelId),
   });
-  registerAigcRoutes(app, {
+  const aigcWeb = {
     authService,
     workflows: aigcWorkflows,
     interfaces: aigcInterfaces,
@@ -793,6 +797,17 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
     publicFiles: aigcPublicFiles,
     comfyuiInputs: aigcComfyUiInputs,
     mediaProjects: aigcMediaProjects, mediaAccess, publicOrigin: aigcPublicOrigin,
+  };
+  registerAigcRoutes(app, aigcWeb);
+  const templates = new RunTemplateRepository(applicationDatabase);
+  registerRunTemplateRoutes(app, authService, templates, "workflow", {
+    list: () => workflows.list(),
+    project: async (id, inputs, previous) => projectWorkflowTemplate(await workflows.get(id), workflowFiles, mediaAccess, inputs, previous),
+  });
+  registerRunTemplateRoutes(app, authService, templates, "aigc", {
+    list: async () => (await aigcInterfaces.list()).interfaces,
+    project: (id, inputs, previous, request) => projectAigcTemplate(aigcWeb, aigcConnections, id, inputs,
+      fileId => publicFileUrl(request, fileId), previous),
   });
   registerAigcMcpRoutes(app, { authService, service: aigcMcpService });
   registerWorkflowRoutes(app, { authService, service: workflows, executor: workflowExecutor, files: workflowFiles });

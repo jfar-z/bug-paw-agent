@@ -1,3 +1,4 @@
+import { runTemplatesMigration } from "./migrations/011-run-templates";
 import { mediaLibraryNoteMigration } from "./migrations/010-media-library-note";
 import { mediaLibraryMigration } from "./migrations/009-media-library";
 import { workflowIndexMigration } from "./migrations/008-workflow-index";
@@ -21,6 +22,7 @@ const MIGRATIONS = [
   workflowIndexMigration,
   mediaLibraryMigration,
   mediaLibraryNoteMigration,
+  runTemplatesMigration,
 ] as const;
 
 /** 按版本顺序执行未应用的数据库 Migration。 */

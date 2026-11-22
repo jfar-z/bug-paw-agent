@@ -3,6 +3,7 @@ import type { ApiErrorCode } from "../../shared/api/common";
 import { DomainError } from "../core/errors";
 
 const STATUS_BY_ERROR_CODE: Partial<Record<ApiErrorCode, number>> = {
+  RUN_TEMPLATE_CONFLICT: 409,
   MEDIA_NAME_CONFLICT: 409,
   MEDIA_FORMAT_UNSUPPORTED: 415,
   MEDIA_FILE_INVALID: 422,
