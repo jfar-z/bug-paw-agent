@@ -1,3 +1,4 @@
+import { SaveRunTemplate } from "../components/save-run-template";
 import { SegmentedControl } from "../ui/segmented-control";
 import { Tabs } from "../ui/tabs";
 import { FormField } from "../ui/form-field";
@@ -76,7 +77,7 @@ interface AigcWorkbenchPageProps {
 export function AigcWorkbenchPage({ route }: AigcWorkbenchPageProps) {
   if (route.page === "aigc-interfaces") return <Suspense fallback={<p className="configuration-help">正在加载接口配置…</p>}><AigcInterfacesPage /></Suspense>;
   if (route.page === "aigc-interface-detail") return <AigcInterfaceDetail interfaceId={route.interfaceId} />;
-  if (route.page === "aigc-run") return <AigcRunPage key={route.rerunTaskId ?? route.interfaceId ?? ""} rerunTaskId={route.rerunTaskId} preferredInterfaceId={route.interfaceId} />;
+  if (route.page === "aigc-run") return <AigcRunPage templateId={route.templateId} key={route.templateId ?? route.rerunTaskId ?? route.interfaceId ?? ""} rerunTaskId={route.rerunTaskId} preferredInterfaceId={route.interfaceId} />;
   if (route.page === "aigc-tasks") return <AigcTasksPage />;
   if (route.page === "aigc-task-detail") return <AigcTaskDetail taskId={route.taskId} />;
   if (route.page === "aigc-workflows") return <AigcWorkflowsPage />;
@@ -240,7 +241,7 @@ interface AigcRunFieldDefinition {
 }
 
 /** 创作台：选择已启用接口，按能力或 ComfyUI 映射动态生成入参并提交试运行。 */
-function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterfaceId?: string; rerunTaskId?: string }) {
+function AigcRunPage({ preferredInterfaceId, rerunTaskId, templateId }: { templateId?: string; preferredInterfaceId?: string; rerunTaskId?: string }) {
   const { runApiTask } = useApiTask();
   const online = useOnlineStatus();
   const [interfaces, setInterfaces] = useState<AigcInterfaceRecord[]>([]);
@@ -269,7 +270,7 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
   const [batchIds, setBatchIds] = useState<string[]>([]);
   const [previewNotice, setPreviewNotice] = useState("");
   const pending = useRef<AigcBatchRequest | undefined>(undefined);
-  const [draft, setDraft] = useState<AigcRerunDraft>();
+  const [draft, setDraft] = useState<AigcRerunDraft & { clearedFields?: string[] }>();
   const [draftIssues, setDraftIssues] = useState<string[]>([]);
   const enabledInterfaces = interfaces.filter((item) => item.enabled);
   const providerInterfaces = enabledInterfaces.filter((item) => item.protocol === provider);
@@ -281,11 +282,26 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
 
   useEffect(() => {
     let current = true;
-    void runApiTask(() => Promise.all([
-      api.getAigcInterfaces(), api.getAigcRuntimeChannels(),
-      rerunTaskId ? api.getAigcRerunDraft(rerunTaskId) : undefined,
-    ]), { operation: "加载 AIGC 创作接口与参数" }).then((result) => {
-      if (!current || result.status !== "success") return;
+    void runApiTask(async () => {
+      const result = await Promise.all([
+        api.getAigcInterfaces(), api.getAigcRuntimeChannels(),
+        templateId ? api.getTemplateDraft("aigc", templateId).then(saved => ({
+          interfaceId: saved.targetId, clearedFields: saved.clearedFields, interfaceAvailable: true, issues: saved.issues,
+          inputs: saved.inputs as AigcRerunDraft["inputs"],
+        })) : rerunTaskId ? api.getAigcRerunDraft(rerunTaskId) : undefined,
+      ]);
+      if (templateId && result[2]) {
+        const target = result[0].interfaces.find(item => item.id === result[2]?.interfaceId);
+        if (!target?.enabled) throw new Error("模板绑定的创作接口不存在或已停用");
+        if (!result[1].channels.some(item => item.id === target.channelId && item.enabled)) throw new Error("模板绑定的渠道不存在或已停用");
+      }
+      return result;
+    }, { operation: "加载 AIGC 创作接口与参数" }).then((result) => {
+      if (!current) return;
+      if (result.status !== "success") {
+        if (templateId) navigateTo({page: "aigc-templates"}, true);
+        return;
+      }
       const [document, channelDocument, saved] = result.data;
       setInterfaces(document.interfaces);
       setChannels(channelDocument.channels);
@@ -304,7 +320,7 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
       }
     });
     return () => { current = false; };
-  }, [preferredInterfaceId, rerunTaskId, runApiTask]);
+  }, [preferredInterfaceId, rerunTaskId, templateId, runApiTask]);
 
   useEffect(() => {
     void runApiTask(async () => {
@@ -317,6 +333,14 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
   useEffect(() => {
     let current = true;
     const overrides = draft?.interfaceId === selected?.id ? draft?.inputs : undefined;
+    // 已失效字段留给用户修正，不能从其他媒体或默认值补齐。
+    const recover = (defaults: Record<string, AigcRunInputValue>) => {
+      if (templateId && overrides) {
+        for (const field of draft?.clearedFields ?? []) delete defaults[field];
+        for (const issue of draft?.issues ?? []) if (issue.field) delete defaults[issue.field];
+      }
+      return { ...defaults, ...overrides };
+    };
     setQuantity("1");
     setBatchIds([]);
     setPreviewNotice("");
@@ -337,7 +361,7 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
     }
     if (selected.protocol !== "comfyui") {
       setWorkflow(undefined);
-      setValues({ ...initialGrokOrOpenAiValues(selected), ...overrides });
+      setValues(recover(initialGrokOrOpenAiValues(selected)));
       setUploads({});
       setMediaSources({});
       setComfyInputFiles({});
@@ -360,13 +384,15 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
       const next = await api.getAigcWorkflow(workflowId);
       if (!current) return next;
       setWorkflow(next.workflow);
-      setValues({ ...initialComfyUiValues(next.workflow), ...overrides });
+      setValues(recover(initialComfyUiValues(next.workflow)));
       setUploads({});
       setMediaSources({});
       setComfyInputFiles({});
       setComfyInputLoading({});
       return next;
-    }, { operation: "加载 ComfyUI 入参", expected: aigcExpected(setMessage) });
+    }, { operation: "加载 ComfyUI 入参", expected: templateId ? undefined : aigcExpected(setMessage) }).then(result => {
+      if (current && templateId && result.status !== "success") navigateTo({page: "aigc-templates"}, true);
+    });
     return () => { current = false; };
   }, [runApiTask, selected?.id, draft]);
 
@@ -609,6 +635,22 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
     );
   }
 
+  /** 模板只捕获当前表单参数，必填项在真正提交运行时校验。 */
+  function templateInputs() {
+    if (uploading) throw new Error("参数 " + uploading + " 正在上传，请在上传完成后保存");
+    const inputs: Record<string, unknown> = {};
+    for (const field of fields) {
+      const raw = values[field.name];
+      if (raw === undefined || (raw === "" && (field.required || field.type !== "string"))) continue;
+      const value = coerceRunValue(field, raw);
+      if (value === undefined || (field.type === "int" && !Number.isInteger(Number(raw)))) {
+        throw new Error("参数 " + field.label + " 的值与字段类型不符");
+      }
+      inputs[field.name] = value;
+    }
+    return inputs;
+  }
+
   function clearRunField(field: AigcRunFieldDefinition) {
     transfer.clearMissing(field.name);
     setValues((current) => { const next = { ...current }; delete next[field.name]; return next; });
@@ -680,6 +722,8 @@ function AigcRunPage({ preferredInterfaceId, rerunTaskId }: { preferredInterface
           </div>
           <footer>
             {!validCount && <p id="aigc-count-error" className="configuration-inline-error" role="alert">运行次数请输入 1 至 {AIGC_MANUAL_BATCH_LIMIT} 的整数。</p>}
+            {selected && <SaveRunTemplate key={selected.id} domain="aigc" targetId={selected.id}
+              disabled={!selectedReady || !online || submitting} readInputs={templateInputs} />}
             <div className="aigc-run-action-bar">
               <span className="aigc-run-action-status" role="status" aria-live="polite" title={actionStatus.full}>{actionStatus.short}</span>
               <div className="aigc-run-count" role="group" aria-label="运行次数">

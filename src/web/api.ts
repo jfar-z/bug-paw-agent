@@ -1,3 +1,4 @@
+import type { RunTemplateDomain, RunTemplateDraft, RunTemplateWrite, RunTemplateSummary } from "../shared/run-template-contracts";
 import type { MediaCategory, SaveMediaResult, MediaDeleteBatch, MediaDeleteConfirmation, MediaDeleteItemResult, MediaDeletePrompt, MediaFile, MediaLibrary, MediaLibraryUpdate, MediaRename } from "../shared/media-library-contracts";
 import type { WorkflowSemaphoreInput, WorkflowSemaphoreView, WorkflowSemaphore } from "../shared/workflow-contracts";
 import type { WorkflowBatchRequest, WorkflowBatchReceipt, WorkflowSummary, WorkflowDefinition, WorkflowDraft, WorkflowRun, WorkflowCatalog, WorkflowFile, WorkflowFilePage, WorkflowScriptAssistRequest, WorkflowScriptAssistProgress } from "../shared/workflow-contracts";
@@ -434,7 +435,23 @@ function mediaFilePath(libraryId: string, fileId: string) {
   return `${mediaLibraryPath(libraryId)}/files/${encodeURIComponent(fileId)}`;
 }
 
+/** 运行模板使用各自业务域的鉴权与版本化请求入口。 */
+function templatePath(domain: RunTemplateDomain, id?: string) {
+  const base = domain === "workflow" ? "/api/workflows/run-templates" : "/api/aigc/run-templates";
+  return id ? base + "/" + encodeURIComponent(id) : base;
+}
+
 export const api = {
+  listRunTemplates: (domain: RunTemplateDomain) =>
+    request<{templates: RunTemplateSummary[]}>(templatePath(domain)),
+  getTemplateDraft: (domain: RunTemplateDomain, id: string) =>
+    request<RunTemplateDraft>(templatePath(domain, id) + "/draft"),
+  saveRunTemplate: (domain: RunTemplateDomain, input: RunTemplateWrite & {name?: string}, id?: string) =>
+    request<RunTemplateSummary>(templatePath(domain, id), { method: id ? "PUT" : "POST", body: JSON.stringify(input) }),
+  renameRunTemplate: (domain: RunTemplateDomain, id: string, name: string) =>
+    request<RunTemplateSummary>(templatePath(domain, id), { method: "PATCH", body: JSON.stringify({name}) }),
+  deleteRunTemplate: (domain: RunTemplateDomain, id: string) =>
+    request<void>(templatePath(domain, id), { method: "DELETE" }),
   listMediaLibraries: (signal?: AbortSignal) =>
     request<{ libraries: MediaLibrary[] }>("/api/media-libraries", { signal }),
   getMediaLibrary: (libraryId: string, signal?: AbortSignal) => request<MediaLibrary>(mediaLibraryPath(libraryId), { signal }),

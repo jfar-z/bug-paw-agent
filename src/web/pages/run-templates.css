@@ -1,0 +1,7 @@
+/* 模板名称与所属对象允许换行，窄屏操作区折到下一行。 */
+.run-templates { height: 100%; box-sizing: border-box; overflow: auto; padding: clamp(16px, 3vw, 36px); color: var(--text-primary); }
+.run-templates h1 { margin: 0 0 24px; font-size: 24px; }
+.run-templates ul { list-style: none; padding: 0; }
+.run-templates li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.run-templates small { display: block; margin-top: 4px; color: var(--text-secondary); }
+.run-templates__actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -4,13 +4,15 @@ export type AppRoute =
   | { page: "chat" }
   | { page: "workflows" }
   | { page: "workflow-editor"; workflowId: string }
-  | { page: "workflow-run"; workflowId?: string; runId?: string }
+  | { page: "workflow-run"; workflowId?: string; runId?: string; templateId?: string }
+  | { page: "workflow-templates" }
   | { page: "workflow-history" }
   | { page: "workflow-files" }
   | { page: "workflow-semaphores" }
   | { page: "aigc-overview" }
-  | { page: "aigc-run"; interfaceId?: string; rerunTaskId?: string }
+  | { page: "aigc-run"; interfaceId?: string; rerunTaskId?: string; templateId?: string }
   | { page: "aigc-interfaces" }
+  | { page: "aigc-templates" }
   | { page: "aigc-tasks" }
   | { page: "aigc-outputs" }
   | { page: "aigc-media-editor" }
@@ -58,8 +60,17 @@ export const KNOWLEDGE_BASE_NAVIGATION_TOGGLE_EVENT = "pi-agent:toggle-knowledge
  */
 export function parseRoute(pathname: string, search = ""): AppRoute {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  if (normalized === "/workflows/run-templates") return { page: "workflow-templates" };
+  if (normalized === "/aigc/run-templates") return { page: "aigc-templates" };
   if (normalized === "/workflows") return { page: "workflows" };
-  if (normalized === "/workflows/run") { const params = new URLSearchParams(search); return { page: "workflow-run", workflowId: params.get("workflow") ?? undefined, runId: params.get("run") ?? undefined }; }
+  if (normalized === "/workflows/run") {
+    const params = new URLSearchParams(search);
+    const workflowId = params.get("workflow") ?? undefined;
+    const runId = params.get("run") ?? undefined;
+    const templateId = params.get("template");
+    if (workflowId && templateId && !runId) return { page: "workflow-run", workflowId, templateId };
+    return { page: "workflow-run", workflowId, runId };
+  }
   if (normalized === "/workflows/semaphores") return { page: "workflow-semaphores" };
   if (normalized === "/workflows/files") return { page: "workflow-files" };
   if (normalized === "/workflows/history") return { page: "workflow-history" };
@@ -67,6 +78,8 @@ export function parseRoute(pathname: string, search = ""): AppRoute {
   if (workflowMatch) { try { return { page: "workflow-editor", workflowId: decodeURIComponent(workflowMatch[1]) }; } catch { return { page: "workflows" }; } }
   if (normalized === "/aigc") return { page: "aigc-overview" };
   if (normalized === "/aigc/run") {
+    const templateId = new URLSearchParams(search).get("template");
+    if (templateId) return { page: "aigc-run", templateId };
     const rerunTaskId = new URLSearchParams(search).get("rerun");
     if (rerunTaskId) return { page: "aigc-run", rerunTaskId };
     const interfaceId = new URLSearchParams(search).get("interface")?.trim();
@@ -160,13 +173,22 @@ export function routePath(route: AppRoute): string {
     case "workflows": return "/workflows";
     case "workflow-editor": return `/workflows/${encodeURIComponent(route.workflowId)}/edit`;
     case "workflow-semaphores": return "/workflows/semaphores";
+    case "workflow-templates": return "/workflows/run-templates";
+    case "aigc-templates": return "/aigc/run-templates";
     case "workflow-files": return "/workflows/files";
     case "workflow-history": return "/workflows/history";
-    case "workflow-run": { const params = new URLSearchParams(); if (route.workflowId) params.set("workflow", route.workflowId); if (route.runId) params.set("run", route.runId); return `/workflows/run${params.size ? `?${params}` : ""}`; }
+    case "workflow-run": {
+      const params = new URLSearchParams();
+      if (route.workflowId) params.set("workflow", route.workflowId);
+      if (route.runId) params.set("run", route.runId);
+      else if (route.templateId) params.set("template", route.templateId);
+      return `/workflows/run${params.size ? `?${params}` : ""}`;
+    }
 
     case "aigc-overview":
       return "/aigc";
     case "aigc-run":
+      if (route.templateId) return `/aigc/run?template=${encodeURIComponent(route.templateId)}`;
       if (route.rerunTaskId) return `/aigc/run?rerun=${encodeURIComponent(route.rerunTaskId)}`;
       return route.interfaceId ? `/aigc/run?interface=${encodeURIComponent(route.interfaceId)}` : "/aigc/run";
     case "aigc-interfaces":

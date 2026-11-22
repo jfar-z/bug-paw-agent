@@ -10,7 +10,7 @@ export async function projectWorkflowTemplate(definition: WorkflowDefinition, fi
   saved: Record<string, unknown>, previous?: TemplateSnapshot) {
   const fields = definition.nodes.find(node => node.kind === "input")!.outputs;
   const inputs: Record<string, unknown> = Object.create(null);
-  const types: Record<string, string> = Object.create(null);
+  const types = Object.fromEntries(fields.map(field => [field.name, field.type + (field.multiple ? "[]" : "")]));
   const issues: {field: string; message: string}[] = [];
   function report(field: string, error: unknown) {
     if (!(error instanceof DomainError) || !["VALIDATION_FAILED","INVALID_ATTACHMENT","NOT_FOUND","FORBIDDEN"].includes(error.code)) throw error;
@@ -32,8 +32,7 @@ export async function projectWorkflowTemplate(definition: WorkflowDefinition, fi
     try {
       const field = fields.find(item => item.name === name);
       if (!field) invalid("当前工作流已无参数 " + name);
-      const type = field.type + (field.multiple ? "[]" : "");
-      types[name] = type;
+      const type = types[name];
       if (previous && previous.types[name] !== type) invalid("参数 " + name + " 的类型已变化");
       if (field.multiple && Array.isArray(value)) {
         if (value.length > 100) invalid("参数 " + name + " 超出 100 项");

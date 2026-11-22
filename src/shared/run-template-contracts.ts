@@ -12,6 +12,8 @@ export interface RunTemplateDraft {
   targetId: string;
   inputs: Record<string, unknown>;
   issues: { field: string; message: string }[];
+  /** 保存时已清空的已知字段，新增加的字段仍使用当前默认值。 */
+  clearedFields?: string[];
   count: 1;
 }
 

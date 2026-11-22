@@ -59,9 +59,9 @@ async function projectInputs(deps: CreationDependencies, item: AigcInterfaceReco
     const value = Object.hasOwn(saved, field.name) ? saved[field.name] : undefined;
     if (template) {
       // 保存端传入表单当前有效值。缺失必填项留给提交校验，新字段由运行表单填入默认值。
-      if (value === undefined) continue;
       const type = field.type + (field.multiple ? "[]" : "");
       template.types[field.name] = type;
+      if (value === undefined) continue;
       if (template.previous && template.previous.types[field.name] !== type) {
         report(field.name, "参数 " + field.name + " 的类型已变化");
         continue;

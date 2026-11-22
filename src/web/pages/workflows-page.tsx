@@ -1,3 +1,5 @@
+import type { RunTemplateDraft } from "../../shared/run-template-contracts";
+import { SaveRunTemplate } from "../components/save-run-template";
 import type { MediaFile } from "../../shared/media-library-contracts";
 import { Checkbox } from "../ui/choice";
 import { SearchField, Button, FilePickerButton, IconButton, TextField, Textarea } from "../ui/controls";
@@ -87,6 +89,7 @@ export function WorkflowsPage({ route }: { route: WorkflowRoute }) {
             key={route.workflowId ?? "runner"}
             workflowId={route.workflowId}
             runId={route.runId}
+            templateId={route.templateId}
           />
         ) : route.page === "workflow-history" ? (
           <History />
@@ -488,7 +491,9 @@ function Editor({ id }: { id: string }) {
 function Runner({
   workflowId,
   runId,
+  templateId,
 }: {
+  templateId?: string;
   workflowId?: string;
   runId?: string;
 }) {
@@ -502,6 +507,8 @@ function Runner({
     [invalid, setInvalid] = useState<Record<string, boolean>>({}),
     [polling, setPolling] = useState(true);
   // 移动入口或主题重渲染不重新加载定义，避免覆盖已填写参数和上传引用。
+  const [template, setTemplate] = useState<RunTemplateDraft>();
+  const [uploadField, setUploadField] = useState("");
   const loadTask = useRef(runApiTask);
   loadTask.current = runApiTask;
   const observationHeading = useRef<HTMLHeadingElement>(null);
@@ -547,27 +554,51 @@ function Runner({
       });
     // 列表只有摘要，定义单独读取并丢弃切换工作流后返回的过期响应。
     setDefinition(undefined);
+    setTemplate(undefined);
+    if (templateId) {
+      // 同一工作流内通过浏览器历史切回模板，也从独立的单次草稿开始。
+      setRun(undefined);
+      setQuantity("1");
+      setAccepted(0);
+      pending.current = undefined;
+      receipt.current = [];
+      transfer.clear();
+      transfer.clearMissing();
+    }
     if (workflowId) {
       void loadTask
-        .current(() => api.getWorkflow(workflowId), {
+        .current(async () => {
+          const [definition, draft] = await Promise.all([api.getWorkflow(workflowId), templateId ? api.getTemplateDraft("workflow", templateId) : undefined]);
+          if (draft && draft.targetId !== definition.id) throw new Error("模板所属工作流与当前工作流不一致");
+          return {definition, draft};
+        }, {
           operation: "读取工作流定义",
         })
         .then((r) => {
-          if (alive && r.status === "success") setDefinition(r.data);
+          if (!alive) return;
+          if (r.status === "success") {
+            setTemplate(r.data.draft);
+            setDefinition(r.data.definition);
+          } else if (templateId) navigateTo({page:"workflow-templates"}, true);
         });
     }
     return () => {
       alive = false;
     };
-  }, [workflowId]);
+  }, [workflowId, templateId]);
   useEffect(() => {
     if (!definition) return;
     const fields =
       definition.nodes.find((n) => n.kind === "input")?.outputs ?? [];
     const initial: Record<string, unknown> = {};
     for (const field of fields) {
-      const previous =
-        run?.workflowId === definition.id ? run.inputs[field.name] : undefined;
+      const source = run?.workflowId === definition.id ? run.inputs : template?.inputs;
+      const previous = source && Object.hasOwn(source, field.name) ? source[field.name] : undefined;
+      if (previous === undefined && (template?.clearedFields?.includes(field.name) || template?.issues.some(issue => issue.field === field.name))) {
+        // 显式留空阻止提交时重新套用已清除或已失效的默认文件。
+        initial[field.name] = null;
+        continue;
+      }
       const value =
         previous !== undefined
           ? previous
@@ -585,7 +616,7 @@ function Runner({
     setInputs(initial);
     pending.current = undefined;
     setInvalid({});
-  }, [definition, run?.id]);
+  }, [definition, run?.id, template]);
   useEffect(() => {
     if (receipt.current[0] !== runId) receipt.current = [];
     if (!runId || !online || !polling) return;
@@ -625,6 +656,19 @@ function Runner({
     setQuantity(value);
     pending.current = undefined;
   };
+  /** 模板只捕获当前表单参数，必填项在真正提交运行时校验。 */
+  function templateInputs() {
+    if (!definition) throw new Error("工作流定义尚未加载完成");
+    if (uploadField) throw new Error("参数 " + uploadField + " 正在上传，请在上传完成后保存");
+    const invalidField = Object.keys(invalid).find(name => invalid[name]);
+    if (invalidField) throw new Error("参数 " + invalidField + " 格式无效，请修正后保存");
+    const snapshot = {...inputs};
+    for (const field of definition.nodes.find(node => node.kind === "input")?.outputs ?? []) {
+      if (field.required && snapshot[field.name] == null) delete snapshot[field.name];
+    }
+    return snapshot;
+  }
+
   const start = async (confirmed = false) => {
     if (!definition || !online || busy || !validCount) return;
     transfer.clear();
@@ -696,6 +740,7 @@ function Runner({
               ]}
             />
           </label>
+          {template?.issues.map(issue => <p role="alert" key={issue.field + issue.message}>{issue.field} · {issue.message}</p>)}
           {definition && (
             <>
               <p className="wf-hint">
@@ -732,6 +777,7 @@ function Runner({
                                 f.multiple && Array.isArray(inputs[f.name])
                                   ? (inputs[f.name] as unknown[])
                                   : [];
+                              setUploadField(f.name);
                               setBusy(true);
                               void runApiTask(
                                 async () => {
@@ -755,6 +801,7 @@ function Runner({
                                       ? [...existing, ...r.data]
                                       : r.data[0],
                                   );
+                                setUploadField("");
                                 setBusy(false);
                               });
                             }}
@@ -789,6 +836,7 @@ function Runner({
                     )}
                   </fieldset>
                 ))}
+              <SaveRunTemplate domain="workflow" targetId={definition.id} disabled={!online || (busy && !uploadField)} readInputs={templateInputs} />
               <div className="wf-run-actions">
                 <div className="wf-run-count" role="group" aria-label="运行次数">
                   <IconButton label="减少运行次数" disabled={busy || !validCount || count <= 1} onClick={() => changeQuantity(String(count - 1))}><Minus size={16} /></IconButton>

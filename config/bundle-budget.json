@@ -5,6 +5,10 @@
     "entryGzipBytes": 24576,
     "totalGzipBytes": 88448,
     "routes": {
+      "src/web/pages/run-templates-page.tsx": {
+        "label": "运行模板",
+        "gzipBytes": 1024
+      },
       "src/web/pages/chat-page.tsx": {
         "label": "聊天工作台",
         "gzipBytes": 27648

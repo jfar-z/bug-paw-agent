@@ -232,6 +232,7 @@ function isAigcRoute(route: AppRoute): boolean {
     "aigc-overview",
     "aigc-run",
     "aigc-interfaces",
+    "aigc-templates",
     "aigc-tasks",
     "aigc-outputs",
     "aigc-media-editor",

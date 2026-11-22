@@ -1,4 +1,4 @@
-import { Activity, Boxes, FolderOpen, GalleryHorizontalEnd, GitFork, LayoutDashboard, Scissors, WandSparkles, X } from "lucide-react";
+import { Activity, Copy, Boxes, FolderOpen, GalleryHorizontalEnd, GitFork, LayoutDashboard, Scissors, WandSparkles, X } from "lucide-react";
 import { IconButton } from "../ui/controls";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
@@ -55,6 +55,12 @@ export function AigcWorkbenchSidebar({ route, open, onClose, onNavigate }: AigcW
         >
           <WandSparkles size={17} aria-hidden="true" />
           <span>创作与运行</span>
+        </button>
+        <button type="button"
+          className={route.page === "aigc-templates" ? "is-active" : undefined}
+          aria-current={route.page === "aigc-templates" ? "page" : undefined}
+          onClick={() => go({ page: "aigc-templates" })}>
+          <Copy size={17} aria-hidden="true" /><span>运行模板</span>
         </button>
         <button
           type="button"

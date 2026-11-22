@@ -76,15 +76,17 @@ it("两端模板隔离、原子替换、重启持久化和只读回填", async (
     for (const bad of [{ flag: "false" }, { x: 7 }, { optional: "https://example.invalid/?signature=example" }]) {
       expect((await app.inject({ method: "PUT", url, payload: { ...payload, inputs: bad } })).statusCode).toBe(400);
     }
-    expect((await app.inject(url + "/draft")).json()).toEqual({ targetId: def.id, inputs, issues: [], count: 1 });
+    expect((await app.inject(url + "/draft")).json()).toEqual({ targetId: def.id, inputs, issues: [], clearedFields: ["prompt"], count: 1 });
     const update = { scale: 2, tags: ["first", "second"] };
     expect((await app.inject({ method: "PUT", url, payload: { ...payload, inputs: update } })).json().name).toBe("常用");
     fields.find(f => f.name === "scale")!.type = "integer";
+    fields.push({name: "added", type: "integer", defaultValue: 7});
     def.name = "翻译二版";
     expect((await app.inject(wf)).json().templates[0].targetName).toBe(def.name);
     const draft = await app.inject(url + "/draft");
     expect(draft.headers["cache-control"]).toBe("no-store");
     expect(draft.json()).toMatchObject({ inputs: { tags: update.tags }, issues: [{ field: "scale" }], count: 1 });
+    expect(draft.json().clearedFields).toEqual(["prompt", "flag", "optional"]);
     expect(Object.keys(draft.json().inputs)).toEqual(["tags"]);
     available = false;
     expect((await app.inject(url + "/draft")).statusCode).toBe(404);

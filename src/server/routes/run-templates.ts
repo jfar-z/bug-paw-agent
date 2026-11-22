@@ -59,7 +59,10 @@ export function registerRunTemplateRoutes(app: FastifyInstance, auth: AuthServic
     router.get<ById>(base + "/:id/draft", async request => {
       const { targetId, snapshot } = repo.get(domain, request.params.id);
       const projection = await targets.project(targetId, snapshot.inputs, snapshot, request);
-      return { targetId, inputs: projection.snapshot.inputs, issues: projection.issues, count: 1 } satisfies RunTemplateDraft;
+      const clearedFields = Object.keys(snapshot.types).filter(name =>
+        Object.hasOwn(projection.snapshot.types, name) && !Object.hasOwn(snapshot.inputs, name));
+      return { targetId, inputs: projection.snapshot.inputs, issues: projection.issues, count: 1,
+        ...(clearedFields.length ? { clearedFields } : {}) } satisfies RunTemplateDraft;
     });
   });
 }

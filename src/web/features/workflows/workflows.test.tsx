@@ -23,6 +23,10 @@ describe("工作流浏览器契约", () => {
       { page: "workflow-editor", workflowId: "abc" },
       { page: "workflow-run", workflowId: "abc", runId: "run" },
       { page: "workflow-history" },
+      { page: "workflow-templates" },
+      { page: "workflow-run", workflowId: "abc", templateId: "草稿" },
+      { page: "aigc-templates" },
+      { page: "aigc-run", templateId: "草稿" },
     ] as const;
     for (const route of routes) {
       const url = new URL(routePath(route), "http://localhost");
@@ -51,6 +55,8 @@ describe("工作流浏览器契约", () => {
       "aria-current",
       "page",
     );
+    fireEvent.click(screen.getByRole("button", { name: "运行模板" }));
+    expect(go).toHaveBeenCalledWith({ page: "workflow-templates" });
     fireEvent.click(screen.getByRole("button", { name: "运行记录" }));
     expect(go).toHaveBeenCalledWith({ page: "workflow-history" });
     fireEvent.click(screen.getByRole("button", { name: "打开工作流导航" }));

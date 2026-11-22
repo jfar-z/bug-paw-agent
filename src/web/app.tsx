@@ -7,7 +7,7 @@ import { useErrorToast } from "./error-toast-provider";
 import { LoginPage } from "./pages/login-page";
 import { SetupPage } from "./pages/setup-page";
 import { WorkbenchShell } from "./layouts/workbench-shell";
-import { navigateTo, useBrowserRoute, type AppRoute } from "./router";
+import { navigateTo, parseRoute, useBrowserRoute, type AppRoute } from "./router";
 import {
   applyTheme,
   readThemePreference,
@@ -22,7 +22,13 @@ import { clearAllQuestionDrafts } from "./question-draft-store";
 type PreviewPage = "setup" | "login" | "chat";
 type AppPage = "loading" | "setup" | "login" | "workbench" | "error";
 
+/** 重新登录后仍打开用户访问的资料或模板管理页。 */
+function keepLoginDestination(route: AppRoute) {
+  return ["media-library", "aigc-templates", "workflow-templates"].includes(route.page);
+}
+
 const WorkflowSemaphoresPage = lazy(() => import("./pages/workflow-semaphores-page").then(module => ({ default: module.WorkflowSemaphoresPage })));
+const RunTemplatesPage = lazy(() => import("./pages/run-templates-page"));
 const WorkflowFilesPage = lazy(() => import("./pages/workflow-files-page").then(module => ({ default: module.WorkflowFilesPage })));
 const WorkflowsPage = lazy(() => import("./pages/workflows-page").then(module => ({ default: module.WorkflowsPage })));
 const ChatPage = lazy(() => import("./pages/chat-page").then((module) => ({ default: module.ChatPage })));
@@ -126,13 +132,13 @@ export function App() {
   const login = async (password: string, remember: boolean) => {
     const result = await api.login(password, remember);
     if (result?.authenticated === false) return result;
-    if (route.page !== "media-library") navigateTo({ page: "chat" }, true);
+    if (!keepLoginDestination(route)) navigateTo({ page: "chat" }, true);
     setPage("workbench");
   };
 
   const verifyTotp = async (code: string, recovery: boolean) => {
     await api.verifyLoginTotp(code, recovery);
-    if (route.page !== "media-library") navigateTo({ page: "chat" }, true);
+    if (!keepLoginDestination(route)) navigateTo({ page: "chat" }, true);
     setPage("workbench");
   };
 
@@ -150,6 +156,8 @@ export function App() {
   const renderRoute = (activeRoute: AppRoute) => {
     switch (activeRoute.page) {
       case "workflow-semaphores": return <WorkflowSemaphoresPage />;
+      case "workflow-templates": return <RunTemplatesPage key="workflow" domain="workflow" />;
+      case "aigc-templates": return <RunTemplatesPage key="aigc" domain="aigc" />;
       case "workflow-files": return <WorkflowFilesPage />;
       case "workflows":
       case "workflow-editor":
@@ -216,7 +224,7 @@ export function App() {
 
   const onAuthenticationRequired = useCallback(() => {
     clearAllQuestionDrafts();
-    if (window.location.pathname.split("/")[1] !== "media-library") navigateTo({ page: "chat" }, true);
+    if (!keepLoginDestination(parseRoute(window.location.pathname))) navigateTo({ page: "chat" }, true);
     setPage("login");
   }, []);
 

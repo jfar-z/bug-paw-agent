@@ -1,4 +1,4 @@
-import { Workflow, Play, History, FolderOpen, SlidersHorizontal, X } from "lucide-react";
+import { Copy, Workflow, Play, History, FolderOpen, SlidersHorizontal, X } from "lucide-react";
 import { IconButton } from "../ui/controls";
 import { SecondarySidebarHeader } from "../ui/sidebar-header";
 import type { AppRoute } from "../router";
@@ -28,6 +28,7 @@ export function WorkflowSidebar({
       icon: Play,
       active: route.page === "workflow-run",
     },
+    { page: "workflow-templates" as const, label: "运行模板", icon: Copy, active: route.page === "workflow-templates" },
     {
       page: "workflow-history" as const,
       label: "运行记录",
