@@ -310,6 +310,21 @@ describe("工作流编辑增强", () => {
     expect(screen.getByLabelText("工作流名称")).toHaveValue("新名称");
     expect(screen.getByLabelText("工作流说明")).toHaveValue("新说明");
   });
+  it("模板留空的可选枚举允许提交，必填空值和未声明选项仍无效", () => {
+    const field = { name: "mode", type: "string" as const, enumValues: ["B", "C"] };
+    const props = { field, onChange: vi.fn(), onValidity: vi.fn() };
+    const { rerender } = render(<WorkflowValue {...props} value={null} />);
+    expect(screen.getByLabelText("mode")).toHaveTextContent("请选择枚举值");
+    expect(props.onValidity).toHaveBeenLastCalledWith(true);
+
+    rerender(<WorkflowValue {...props} field={{ ...field, required: true }} value={null} />);
+    expect(props.onValidity).toHaveBeenLastCalledWith(false);
+
+    rerender(<WorkflowValue {...props} value="C" />);
+    expect(props.onValidity).toHaveBeenLastCalledWith(true);
+    rerender(<WorkflowValue {...props} value="A" />);
+    expect(props.onValidity).toHaveBeenLastCalledWith(false);
+  });
   it("枚举固定值保留数字和布尔类型，失效选项明确标错，引用不显示类型选择", () => {
     const change = vi.fn();
     const validity = vi.fn();

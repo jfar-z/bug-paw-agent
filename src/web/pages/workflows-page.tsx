@@ -555,6 +555,8 @@ function Runner({
     // 列表只有摘要，定义单独读取并丢弃切换工作流后返回的过期响应。
     setDefinition(undefined);
     setTemplate(undefined);
+    // 切换定义时先清理旧校验，避免覆盖新控件挂载时报告的必填错误。
+    setInvalid({});
     if (templateId) {
       // 同一工作流内通过浏览器历史切回模板，也从独立的单次草稿开始。
       setRun(undefined);
@@ -615,7 +617,6 @@ function Runner({
     }
     setInputs(initial);
     pending.current = undefined;
-    setInvalid({});
   }, [definition, run?.id, template]);
   useEffect(() => {
     if (receipt.current[0] !== runId) receipt.current = [];
@@ -660,10 +661,13 @@ function Runner({
   function templateInputs() {
     if (!definition) throw new Error("工作流定义尚未加载完成");
     if (uploadField) throw new Error("参数 " + uploadField + " 正在上传，请在上传完成后保存");
-    const invalidField = Object.keys(invalid).find(name => invalid[name]);
+    const fields = definition.nodes.find(node => node.kind === "input")?.outputs ?? [];
+    const invalidField = fields.find(field =>
+      invalid[field.name] && !(field.enumValues?.length && field.required && inputs[field.name] == null)
+    )?.name;
     if (invalidField) throw new Error("参数 " + invalidField + " 格式无效，请修正后保存");
     const snapshot = {...inputs};
-    for (const field of definition.nodes.find(node => node.kind === "input")?.outputs ?? []) {
+    for (const field of fields) {
       if (field.required && snapshot[field.name] == null) delete snapshot[field.name];
     }
     return snapshot;

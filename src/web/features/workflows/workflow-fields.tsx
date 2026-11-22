@@ -527,8 +527,10 @@ function WorkflowEnumValue({
   const options = field.enumValues!;
   const selected = options.findIndex((option) => option === value);
   const entries = field.multiple && Array.isArray(value) ? value : [];
+  // 模板用 null 保留显式留空，与未填写的可选参数采用同一校验。
+  const empty = value == null;
   const valid =
-    (value === undefined && !field.required) ||
+    (empty && !field.required) ||
     (field.multiple
       ? Array.isArray(value) &&
         entries.every((v) => options.includes(v as string))
@@ -543,7 +545,7 @@ function WorkflowEnumValue({
       ? `${String(option)} · ${typeof option}`
       : String(option),
   }));
-  const unavailable = value === undefined
+  const unavailable = empty
     ? "请选择枚举值"
     : "当前值已不在枚举范围内，请重新选择";
   return (
