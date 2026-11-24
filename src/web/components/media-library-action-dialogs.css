@@ -22,10 +22,6 @@
   gap: 6px;
 }
 
-.media-action-dialog__body .bp-select__popover {
-  position: static;
-}
-
 /* 选择行与预览按钮分开，长文件名可以在窄屏换行。 */
 .media-picker-files {
   margin: 0;

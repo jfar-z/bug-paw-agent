@@ -86,13 +86,17 @@ export function SearchSelect<T extends SearchSelectValue>({
       const top = view?.offsetTop ?? 0;
       const width = view?.width ?? window.innerWidth;
       const height = view?.height ?? window.innerHeight;
+      // 触发框决定最小宽度，长名称可以向两侧借用视口空间。
+      const availableWidth = Math.max(0, width - 16);
+      popup.style.minWidth = `${Math.min(availableWidth, Math.max(rect.width, 240))}px`;
+      popup.style.maxWidth = `${Math.min(availableWidth, Math.max(rect.width, 480))}px`;
       const below = top + height - rect.bottom;
       const above = rect.top - top;
       const placement = below < popup.scrollHeight + 8 && above > below;
       popup.style.maxHeight = `${Math.max(0, (placement ? above : below) - 12)}px`;
-      popup.style.width = `${Math.min(width - 16, Math.max(rect.width, 240))}px`;
       popup.style.left = `${Math.max(left + 8, Math.min(rect.left, left + width - popup.offsetWidth - 8))}px`;
-      popup.style.top = `${placement ? rect.top - popup.offsetHeight - 5 : rect.bottom + 5}px`;
+      const anchorTop = placement ? rect.top - popup.offsetHeight - 5 : rect.bottom + 5;
+      popup.style.top = `${Math.max(top + 8, Math.min(anchorTop, top + height - popup.offsetHeight - 8))}px`;
     };
     position();
     const observer =
@@ -100,6 +104,7 @@ export function SearchSelect<T extends SearchSelectValue>({
         ? undefined
         : new ResizeObserver(position);
     observer?.observe(popup);
+    observer?.observe(trigger);
     window.addEventListener("scroll", position, true);
     window.addEventListener("resize", position);
     window.visualViewport?.addEventListener("resize", position);
@@ -112,6 +117,26 @@ export function SearchSelect<T extends SearchSelectValue>({
       window.visualViewport?.removeEventListener("scroll", position);
     };
   }, [open]);
+  const [hoveredLabel, setHoveredLabel] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const text = hoveredLabel?.firstElementChild;
+    if (!open || !hoveredLabel || !(text instanceof HTMLElement)) return;
+    // 仅测量悬停项；视口或名称变化后按新的溢出距离重算。
+    const measure = () => {
+      const distance = text.offsetWidth - hoveredLabel.clientWidth;
+      hoveredLabel.toggleAttribute("data-overflow", distance > 0);
+      hoveredLabel.style.setProperty("--bp-select-travel", `${-distance}px`);
+      hoveredLabel.style.setProperty("--bp-select-duration", `${Math.max(1, distance / 45)}s`);
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure);
+    observer?.observe(hoveredLabel);
+    observer?.observe(text);
+    return () => {
+      observer?.disconnect();
+      hoveredLabel.removeAttribute("data-overflow");
+    };
+  }, [open, hoveredLabel]);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const selected = options.find((option) => Object.is(option.value, value));
@@ -159,6 +184,7 @@ export function SearchSelect<T extends SearchSelectValue>({
   }
 
   function closeMenu() {
+    setHoveredLabel(null);
     setOpen(false);
     setQuery("");
   }
@@ -259,12 +285,16 @@ export function SearchSelect<T extends SearchSelectValue>({
                 disabled={option.disabled}
                 aria-selected={Object.is(option.value, value)}
                 className={index === activeIndex ? "is-active" : undefined}
+                onPointerEnter={(event) => {
+                  if (event.pointerType !== "touch") setHoveredLabel(event.currentTarget.querySelector("strong"));
+                }}
+                onPointerLeave={() => setHoveredLabel(null)}
                 onPointerMove={() => { if (!option.disabled) setActiveIndex(index); }}
                 onClick={() => choose(option)}
               >
                 {option.icon && <span className="bp-select__icon" aria-hidden="true">{option.icon}</span>}
                 <span>
-                  <strong>{option.label}</strong>
+                  <strong title={option.label}><span>{option.label}</span></strong>
                   {option.description ? (
                     <small>{option.description}</small>
                   ) : null}

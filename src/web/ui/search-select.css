@@ -46,6 +46,8 @@
 
 .bp-select__popover {
   position: fixed;
+  box-sizing: border-box;
+  width: max-content;
   z-index: 30;
   inset: auto;
   margin: 0;
@@ -120,6 +122,25 @@
 
 .bp-select__options strong {
   font-size: 11px;
+}
+
+/* 行、图标和说明保持静止，只移动裁切区域内的名称。 */
+.bp-select__options strong[data-overflow] { text-overflow: clip; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .bp-select__options strong[data-overflow] > span {
+    display: inline-block;
+    animation: bp-select-read-name var(--bp-select-duration) linear .35s infinite alternate;
+  }
+}
+
+@keyframes bp-select-read-name {
+  0%, 10% { transform: translateX(0); }
+  90%, 100% { transform: translateX(var(--bp-select-travel)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bp-select__options > button:hover strong { white-space: normal; overflow-wrap: anywhere; }
 }
 
 .bp-select__options :where(small, p) {
